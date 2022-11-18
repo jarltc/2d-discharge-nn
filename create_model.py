@@ -102,9 +102,6 @@ def create_model(num_descriptors, num_obj_vars):
     neurons = 64
     model = keras.Sequential([
         keras.layers.Dense(neurons, activation=tf.nn.relu, input_shape=(num_descriptors,)),
-        #keras.layers.Dropout(0.1),
-        keras.layers.Dense(neurons, activation=tf.nn.relu),
-        keras.layers.Dense(neurons, activation=tf.nn.relu),
         keras.layers.Dense(neurons, activation=tf.nn.relu),
         keras.layers.Dense(neurons, activation=tf.nn.relu),
         keras.layers.Dense(neurons, activation=tf.nn.relu),
@@ -115,6 +112,8 @@ def create_model(num_descriptors, num_obj_vars):
         keras.layers.Dense(neurons, activation=tf.nn.relu),
         keras.layers.Dense(neurons, activation=tf.nn.relu),
         keras.layers.Dense(num_obj_vars)
+        #keras.layers.Dropout(0.1),
+        #keras.layers.Dense(9, activation=tf.nn.relu),
     ])
     
     #optimizer = tf.train.RMSPropOptimizer(0.001)
@@ -146,13 +145,13 @@ def save_history_graph(history, out_dir, param='mae'):
         y2 = np.array(history.history['val_loss'])
     
     # matplotlib settings
-    mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
-    mathtext.FontConstantsBase.script_space = 0.01
-    mathtext.FontConstantsBase.delta = 0.01
+    # mathtext.FontConstantsBase = mathtext.ComputerModernFontConstants
+    # mathtext.FontConstantsBase.script_space = 0.01
+    # mathtext.FontConstantsBase.delta = 0.01
     plt.rcParams['font.size'] = 12 # 12 is the default size
-    plt.rcParams['font.family'] = 'serif'
-    plt.rcParams['mathtext.default'] = 'default'
-    plt.rcParams['mathtext.fontset'] = 'stix'
+    # plt.rcParams['font.family'] = 'serif'
+    # plt.rcParams['mathtext.default'] = 'default'
+    # plt.rcParams['mathtext.fontset'] = 'stix'
     plt.rcParams['xtick.minor.size'] = 2
     plt.rcParams['ytick.minor.size'] = 2
     fig = plt.figure(figsize=(6.0,6.0))
@@ -269,6 +268,8 @@ if __name__ == '__main__':
     os.mkdir(scaler_dir)
     sX = scale_all(train_data.iloc[:,:num_descriptors], 'x', out_dir=scaler_dir)
     sy = scale_all(train_data.iloc[:,num_descriptors:], 'y', out_dir=scaler_dir)
+
+    sX = tf.convert_to_tensor(sX)
     
     # --------
     
@@ -279,7 +280,7 @@ if __name__ == '__main__':
     model.summary()
     
     # the patience parameter is the amount of epochs to check for improvement.
-    early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=40)
+    early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
     
     # store training stats
     history = model.fit(sX, sy, epochs=100, validation_split=0.1, 

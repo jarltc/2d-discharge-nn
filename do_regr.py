@@ -178,7 +178,7 @@ if __name__ == '__main__':
     # -------------------------------------------------------
     
     voltage  = 300 # V
-    pressure = 60 # Pa
+    pressure =  60 # Pa
     
     data_dir = './data/avg_data'
     
@@ -228,11 +228,7 @@ if __name__ == '__main__':
     for n,p_param in enumerate(ty.columns, start=1): # figs
         fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}.png'.format(n))
         data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file)
-        fig_file = posixpath.join(regr_dir, 'ref_fig_{0:02d}.png'.format(n))
-        data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4], 
-                                        avg_data.iloc[:,4:]], axis='columns'),
-                             p_param, file_path=fig_file)
-        
+    
     # scores if data available
     if ty.isnull().values.sum()==0:
         print()
