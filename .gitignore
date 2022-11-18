@@ -1,3 +1,5 @@
-created_models
-pred_plots
-data/
+# ignore all
+*
+
+# except
+!*.py
