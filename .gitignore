@@ -3,3 +3,4 @@
 
 # except
 !*.py
+!*.md
