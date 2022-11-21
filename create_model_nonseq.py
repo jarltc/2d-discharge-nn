@@ -21,6 +21,7 @@ tf.config.set_visible_devices([], 'GPU')
 from tensorflow import keras
 from tensorflow.keras.utils import plot_model
 from tensorflow.python.client import device_lib
+from sklearn.model_selection import train_test_split
 
 import data
 
@@ -103,7 +104,7 @@ def scale_all(data_table, x_or_y, out_dir=None):
 
 def create_model(num_descriptors, num_obj_vars):
     neurons = 64
-    layers = 12
+    layers = 10
     
     inputs = keras.Input(shape=(num_descriptors,))
     
@@ -243,8 +244,11 @@ if __name__ == '__main__':
     
     # prepare data
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
+    
+    # separate data to be excluded (to later check the model)
     data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded))]
     data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ]
+    
     print('start preproc...', flush=True)
     pows = {'V':powV, 'P':powP, 'x':powX, 'y':powY}
     descriptors = create_descriptor_table(data_used.iloc[:,:4], pows, out_dir)
@@ -259,7 +263,7 @@ if __name__ == '__main__':
     print()
     
     # randomly permutate
-    train_data = train_data.sample(frac=1).reset_index(drop=True)
+    # train_data = train_data.sample(frac=1).reset_index(drop=True)
     
     # store data for backup
     train_data.to_csv(posixpath.join(out_dir,'data_used.csv'), index=False)
@@ -270,12 +274,15 @@ if __name__ == '__main__':
     os.mkdir(scaler_dir)
     sX = scale_all(train_data.iloc[:,:num_descriptors], 'x', out_dir=scaler_dir)
     sy = scale_all(train_data.iloc[:,num_descriptors:], 'y', out_dir=scaler_dir)
-
+    
+    # sys.exit()
+    
+    x_train, x_val, y_train, y_val = train_test_split(sX, sy, test_size=0.1, shuffle= True)
+    
     sX = tf.convert_to_tensor(sX)
     sy = tf.convert_to_tensor(sy)
     
     # --------
-    
     # create a regression model
     print('start creating a model...', flush=True)
     
