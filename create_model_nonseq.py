@@ -103,25 +103,42 @@ def scale_all(data_table, x_or_y, out_dir=None):
     return scaled_data_table
 
 def create_model(num_descriptors, num_obj_vars):
+    '''
+    Create the model and compile it
+
+    Parameters
+    ----------
+    num_descriptors : int
+        Size of input parameters
+    num_obj_vars : int
+        Size of output parameters
+
+    Returns
+    -------
+    model : Keras model
+        Model used to predict 2D discharges.
+
+    '''
     neurons = 64
     layers = 10
     
+    # model specification
     inputs = keras.Input(shape=(num_descriptors,))
     
     dense = keras.layers.Dense(neurons, activation='relu')
-    x = dense(inputs)
+    x = dense(inputs) # first hidden layer
     
+    # add additional hidden layers
     for i in range(layers-1):
         x = keras.layers.Dense(neurons, activation='relu')(x)
     
     outputs = keras.layers.Dense(num_obj_vars)(x)
     
+    # build the model
     model = keras.Model(inputs=inputs, outputs=outputs, name='2d-nn_model')
-    
-    
-    #optimizer = tf.train.RMSPropOptimizer(0.001)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     
+    # compile the model
     model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
     
     return model
@@ -282,6 +299,12 @@ if __name__ == '__main__':
     sX = tf.convert_to_tensor(sX)
     sy = tf.convert_to_tensor(sy)
     
+    ''' additional preprocessing:
+        * normalization layer after taking the log
+        * shuffling the data    
+    '''
+        
+    
     # --------
     # create a regression model
     print('start creating a model...', flush=True)
@@ -291,7 +314,7 @@ if __name__ == '__main__':
     
     # the patience parameter is the amount of epochs to check for improvement.
     early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
-    
+     
     # store training stats
     history = model.fit(sX, sy, epochs=100, validation_split=0.1, 
                         verbose=1, callbacks=[early_stop])
