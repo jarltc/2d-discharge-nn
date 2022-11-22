@@ -101,6 +101,7 @@ def scale_all(data_table, x_or_y, out_dir=None):
     
     return scaled_data_table
 
+
 def create_model(num_descriptors, num_obj_vars):
     '''
     Create the model and compile it
@@ -118,8 +119,8 @@ def create_model(num_descriptors, num_obj_vars):
         Model used to predict 2D discharges.
 
     '''
-    neurons = 64
-    layers = 10
+    neurons = 512
+    layers = 4
     
     # model specification
     inputs = keras.Input(shape=(num_descriptors,))
@@ -290,12 +291,6 @@ if __name__ == '__main__':
 
     sX = tf.convert_to_tensor(sX)
     sy = tf.convert_to_tensor(sy)
-    
-    ''' additional preprocessing:
-        * normalization layer after taking the log
-        * shuffling the data    
-    '''
-        
     
     # --------
     
