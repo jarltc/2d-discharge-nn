@@ -10,7 +10,7 @@ Created on Wed Nov 16 11:32:32 2022
 """
 
 import tensorflow as tf
-import os
+import os, sys
 import pandas as pd
 from pathlib import Path
 import data
@@ -112,6 +112,7 @@ print('reading data...\n')
 df = data.read_all_data(data_fldr_path, voltages, pressures)
 df = df.drop(columns=['Ex (V/m)', 'Ey (V/m)'])
 df = df.astype({'Vpp [V]':'float64', 'P [Pa]':'float64'})
+df = df[(df['Vpp [V]'] == 300) & (df['P [Pa]'] == 60)]
 print('complete!\n')
 
 feature_names = ['Vpp [V]', 'P [Pa]', 'X', 'Y']
@@ -120,12 +121,11 @@ features = df[feature_names]
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)',
                'Te (eV)']
 labels = df[label_names]
-labels.iloc[:,1:-1] = np.log(labels.iloc[:,1:-1])
+# labels.iloc[:,1:-1] = np.log(labels.iloc[:,1:-1])
+
+sys.exit()
 
 avg_data = tf.data.Dataset.from_tensor_slices((features, labels))
-
-normalizer = tf.keras.layers.Normalization(axis=-1)
-normalizer.adapt(features)
 
 batches = avg_data.shuffle(1000).batch(32)
 

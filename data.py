@@ -121,17 +121,18 @@ def draw_a_2D_graph(avg_data, param_col_label, file_path=None, set_cbar_range=Tr
     y = avg_data.Y.values.reshape(-1,1)*100
     z = avg_data[param_col_label].values.reshape(-1,1)
     
+    cmap=plt.cm.magma
+    
     # settings for drawing
-    plt.rcParams['font.family'] = 'serif'
+    # plt.rcParams['font.family'] = 'serif'
     fig = plt.figure(figsize=(5.5,10.0))
     ax = fig.add_subplot(111)
-    cmap = plt.cm.plasma
     if set_cbar_range:
         #cmin, cmax = get_cbar_range(param_col_label)
         cmin, cmax = get_cbar_range_300V_60Pa(param_col_label)
-        sc = ax.scatter(x, y, c=z, cmap=cmap, alpha=0.7, s=5, linewidths=0, vmin=cmin, vmax=cmax)
+        sc = ax.scatter(x, y, c=z, cmap=cmap, alpha=0.5, s=10, linewidths=0, vmin=cmin, vmax=cmax)
     else:
-        sc = ax.scatter(x, y, c=z, cmap=cmap, alpha=0.7, s=5, linewidths=0)
+        sc = ax.scatter(x, y, c=z, cmap=cmap, alpha=0.5, s=10, linewidths=0)
     cbar = plt.colorbar(sc)
     cbar.minorticks_off()
     plt.title(param_col_label)
