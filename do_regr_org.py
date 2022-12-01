@@ -197,7 +197,6 @@ if __name__ == '__main__':
     
     # get data
     avg_data = get_data_table(data_dir, voltage, pressure)
-    
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
     
     tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
@@ -234,12 +233,16 @@ if __name__ == '__main__':
     
     # save results
     save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
+    
+    # create triangulations for tricontourf
     triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
+    
     for n,p_param in enumerate(ty.columns, start=1): # figs
         fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}-log.png'.format(n))
         # data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file)
         data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), 
                               p_param, triangles, file_path=fig_file)
+   
     # scores if data available
     if ty.isnull().values.sum()==0:
         print()
