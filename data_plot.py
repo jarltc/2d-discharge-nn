@@ -14,14 +14,14 @@ import matplotlib
 from pathlib import Path
 import re
 import pandas as pd
-import data
+# import data
 import numpy as np
 
 matplotlib.rcParams['font.family'] = 'Arial'
 file_path = '/Users/jarl/2d-discharge-nn/data/avg_data/300Vpp_060Pa_node.dat'
 
 def read_file(file_path):
-    '''
+    """
     Import .dat file into a DataFrame.
 
     Parameters
@@ -34,7 +34,7 @@ def read_file(file_path):
     DataFrame
         Dataframe containing the data.
 
-    '''
+    """
     with open(file_path, 'r') as f:
         data = []
         for n,line in enumerate(f,1):
@@ -54,7 +54,7 @@ def read_file(file_path):
 
 def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,   
                     set_cbar_range=True, c_only=False, lin=False):          
-    '''
+    """
     Plot the 2D graph.
 
     Parameters
@@ -78,7 +78,7 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,
     -------
     None.
 
-    '''
+    """
     # change units on fig title if lin scale
     units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
              'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
@@ -128,8 +128,8 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,
 
 
 def get_cbar_range_300V_60Pa(param_col_label, lin=False):
-    '''
-    Set range values (max, min) for the colorbar
+    """
+    Set range values (max, min) for the colorbar.
 
     Parameters
     ----------
@@ -145,8 +145,7 @@ def get_cbar_range_300V_60Pa(param_col_label, lin=False):
     cmax : float
         Maximum value for the colorbar.
 
-    '''
-    
+    """
     if lin:
         column_ranges = {'potential (V)':   (0.0, 9.8),
                          'Ex (V/m)'     :   (-80000,  19000),  # unused
@@ -170,11 +169,11 @@ def get_cbar_range_300V_60Pa(param_col_label, lin=False):
     return cmin, cmax
 
 
-def triangulate(df):
-    '''
-    Create triangulation of the mesh grid, which is passed to tricontourf.
-    Uses Delaunay triangulation.
+def triangulate(df):   
+    """
+    Create triangulation of the mesh grid*, which is passed to tricontourf.
     
+    Uses Delaunay triangulation.
     * need to check if this is working right
 
     Parameters
@@ -187,7 +186,7 @@ def triangulate(df):
     triangles : matplotlib.tri.triangulation.Triangulation
         Triangulated grid.
 
-    '''
+    """
     df['X'].update(df['X']*100)
     df['Y'].update(df['Y']*100)
     triangles = matplotlib.tri.Triangulation(df.X, df.Y)
@@ -196,12 +195,11 @@ def triangulate(df):
 
 
 def electrodes(ax):
-    '''
-    Plot the electrodes. Uses rough estimations of positions 
-    using pixel information.
+    """
+    Plot the electrodes. Uses rough estimations of positions using pixel information.
     
-    I need to get the actual measurements from Sarah.
-
+    Need to get the actual measurements from Sarah.
+    
     Parameters
     ----------
     ax : Axes
@@ -211,7 +209,7 @@ def electrodes(ax):
     -------
     None
     
-    '''
+    """
     from matplotlib.patches import Rectangle
     
     def px_to_cm(px):
