@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-estimating errors
+Estimating errors (dx) when unscaling data (x) from linear scale (x*10^n) 
+and from a log-scale (10^x)
+
 Created on Wed Nov 30 12:44:20 2022
 
 @author: jarl
@@ -14,6 +16,7 @@ matplotlib.rcParams['font.family'] = 'Arial'
 
 dx = np.logspace(-6, 2, 1000)
 
+# initialize a large (10^n) reference value
 n = 15
 ref = 2*10**(n+1)
 
@@ -26,8 +29,9 @@ dg = (10**(n))*np.log(10)*dx
 # get intersection
 idx = np.argwhere(np.diff(np.sign(df - dg))).flatten()
 
-fig, ax = plt.subplots(dpi=200)
 
+############## plotting ##############
+fig, ax = plt.subplots(dpi=200)
 
 # linear scale error
 ax.plot(dx, (df/ref)*100, c='red', label=f'lin: $f(x) = 10^{ {n} } \cdot x$')
