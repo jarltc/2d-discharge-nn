@@ -1,5 +1,13 @@
 #coding:utf-8
 
+'''
+Original regression code by Ikuse-san for models trained
+on log-scaled data; modified by Jarl.
+
+Created on Thu Nov 24 15:29:41 2022
+
+'''
+
 import os, sys
 import datetime
 import pickle
