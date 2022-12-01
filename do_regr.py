@@ -1,4 +1,12 @@
 #coding:utf-8
+"""
+Model test regression code.
+
+Perform regression of model on test (V, P). New code written to accommodate
+linearly scaled data.
+
+"""
+
 
 import os, sys
 import datetime
@@ -115,20 +123,40 @@ def inv_scale(scaled_data, columns, model_dir):
     return inv_scaled_data_table
 
 
-def data_postproc(data_table):  # TODO: don't apply when lin scale
-    # def get_scale(path):
-    #     with open(path, 'rb') as sf:
-    #         scale_exp = pickle.load(sf) 
-    #         return scale_exp
+def data_postproc(data_table):
+    """
+    Reverse log-scaling if model is trained on log-data.
 
-    # scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
-    # scale_exp = get_scale(scale_exp_file)
+    Parameters
+    ----------
+    data_table : DataFrame
+        DataFrame of predicted values (py).
+
+    Returns
+    -------
+    DataFrame
+        DataFrame of unscaled prediction values.
+
+    """
+    def get_scale(path):
+        with open(path, 'rb') as sf:
+            scale_exp = pickle.load(sf) 
+            return scale_exp
+        
+    if lin:
+        scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
+        scale_exp = get_scale(scale_exp_file)
+        
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
+    
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         vals = col_vals.values.reshape(-1,1)
-        # tmp_col = 10**vals if col_name in trgt_params else vals
+        
+        # unscale log-data
+        tmp_col = 10**vals if col_name in trgt_params else vals
         # tmp_col = vals * (10**scale_exp[col_n-1]) if col_name in trgt_params else vals
         post_proced_table = tmp_col if col_n==1 else np.hstack([post_proced_table,tmp_col])
+        
     return pd.DataFrame(post_proced_table, columns=data_table.columns)
 
 
@@ -171,6 +199,25 @@ def print_scores(ty, py, regr_dir=None):
 
 
 def ty_proc(ty):
+    '''
+    Process target data (simulation .dat file).
+    
+    Target data is in original scaling, whereas the training predictions are
+    scaled down by 10^n. Exponents used to scale the data down for 
+    training (n) are stored as a pickle file in the model folder. 
+    The pickle file is a list of powers, which are used to reverse the scaling.
+
+    Parameters
+    ----------
+    ty : DataFrame
+        Target data.
+
+    Returns
+    -------
+    ty: DataFrame
+        Returns scaled target data (ty.columns[i]* 10^(-n[i]) ).
+
+    '''
     def get_scale(path):
         with open(path, 'rb') as sf:
             scale_exp = pickle.load(sf) 
@@ -178,18 +225,18 @@ def ty_proc(ty):
     scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
     scale_exp = get_scale(scale_exp_file)
     
-    trgt_params = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    # trgt_params = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     for i in range(len(scale_exp)):
         ty.update(ty.iloc[:, i]/(10**scale_exp[i]))
     
     return ty
-    
-    
+        
 
 ################################################################
 
 
 if __name__ == '__main__':
+    lin = True
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -205,21 +252,23 @@ if __name__ == '__main__':
     voltage  = 300 # V
     pressure =  60 # Pa
     
-    data_dir = './data/avg_data'
+    data_dir = './data/avg_data'  # simulation data
     
     model_dir = './created_models/2022-11-28_2135'
     
     # -------------------------------------------------------
     
-    # get data
+    # get simulation data
     avg_data = get_data_table(data_dir, voltage, pressure)
-    
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
     
+    # split data into target x and y
     tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
-    # ty = avg_data.iloc[:,4:]
-    ty = ty_proc(avg_data.iloc[:,4:]) 
     
+    # scale target data if necessary (if model predicts linearly)
+    ty = ty_proc(avg_data.iloc[:,4:]) if lin else avg_data.iloc[:,4:]
+    
+    # scale tX for use in model.predict()
     stX = scale_for_regr(tX, model_dir)
     
     # display conds
@@ -239,10 +288,12 @@ if __name__ == '__main__':
     spy = model.predict(stX)
     py = inv_scale(spy, ty.columns, model_dir)
     py = pd.DataFrame(py, columns=ty.columns)
-    # py = data_postproc(py)
+    
+    if not lin:
+        py = data_postproc(py)
     
     # create a directory
-    regr_dir = model_dir + '/regr_{0:d}Vpp_{1:d}Pa'.format(voltage,pressure)
+    regr_dir = model_dir + f'/regr_{voltage}Vpp_{pressure}Pa'
     if not os.path.exists(regr_dir):
         os.mkdir(regr_dir)
     
@@ -251,12 +302,15 @@ if __name__ == '__main__':
     
     # save results
     save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
+    
+    # create triangulations for tricontourf
     triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
+    
     for n,p_param in enumerate(ty.columns, start=1): # figs
-        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}-lin.png'.format(n))
+        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}.png'.format(n))
         # data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file)
         data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), 
-                                  p_param, triangles, lin=True)
+                                  p_param, triangles, lin=lin)
     
     # scores if data available
     if ty.isnull().values.sum()==0:
