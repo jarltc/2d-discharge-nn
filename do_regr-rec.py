@@ -16,7 +16,6 @@ import tensorflow as tf
 from tensorflow import keras
 
 import data
-import data_plot
 
 
 def get_data_table(data_dir, voltage, pressure):
@@ -251,12 +250,10 @@ if __name__ == '__main__':
     
     # save results
     save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
-    triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     for n,p_param in enumerate(ty.columns, start=1): # figs
-        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}-lin.png'.format(n))
+        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}.png'.format(n))
         # data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file)
-        data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), 
-                                  p_param, triangles, lin=True)
+        data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file,lin=True)
     
     # scores if data available
     if ty.isnull().values.sum()==0:

@@ -115,19 +115,11 @@ def inv_scale(scaled_data, columns, model_dir):
     return inv_scaled_data_table
 
 
-def data_postproc(data_table):  # TODO: don't apply when lin scale
-    # def get_scale(path):
-    #     with open(path, 'rb') as sf:
-    #         scale_exp = pickle.load(sf) 
-    #         return scale_exp
-
-    # scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
-    # scale_exp = get_scale(scale_exp_file)
+def data_postproc(data_table):
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         vals = col_vals.values.reshape(-1,1)
-        # tmp_col = 10**vals if col_name in trgt_params else vals
-        # tmp_col = vals * (10**scale_exp[col_n-1]) if col_name in trgt_params else vals
+        tmp_col = 10**vals if col_name in trgt_params else vals
         post_proced_table = tmp_col if col_n==1 else np.hstack([post_proced_table,tmp_col])
     return pd.DataFrame(post_proced_table, columns=data_table.columns)
 
@@ -170,22 +162,6 @@ def print_scores(ty, py, regr_dir=None):
             print_scores_core(f)
 
 
-def ty_proc(ty):
-    def get_scale(path):
-        with open(path, 'rb') as sf:
-            scale_exp = pickle.load(sf) 
-            return scale_exp
-    scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
-    scale_exp = get_scale(scale_exp_file)
-    
-    trgt_params = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
-    for i in range(len(scale_exp)):
-        ty.update(ty.iloc[:, i]/(10**scale_exp[i]))
-    
-    return ty
-    
-    
-
 ################################################################
 
 
@@ -207,7 +183,7 @@ if __name__ == '__main__':
     
     data_dir = './data/avg_data'
     
-    model_dir = './created_models/2022-11-28_2135'
+    model_dir = './created_models/2022-11-16_2323'
     
     # -------------------------------------------------------
     
@@ -217,8 +193,7 @@ if __name__ == '__main__':
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
     
     tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
-    # ty = avg_data.iloc[:,4:]
-    ty = ty_proc(avg_data.iloc[:,4:]) 
+    ty = avg_data.iloc[:,4:]
     
     stX = scale_for_regr(tX, model_dir)
     
@@ -239,7 +214,7 @@ if __name__ == '__main__':
     spy = model.predict(stX)
     py = inv_scale(spy, ty.columns, model_dir)
     py = pd.DataFrame(py, columns=ty.columns)
-    # py = data_postproc(py)
+    py = data_postproc(py)
     
     # create a directory
     regr_dir = model_dir + '/regr_{0:d}Vpp_{1:d}Pa'.format(voltage,pressure)
@@ -253,11 +228,10 @@ if __name__ == '__main__':
     save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
     triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     for n,p_param in enumerate(ty.columns, start=1): # figs
-        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}-lin.png'.format(n))
+        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}-log.png'.format(n))
         # data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file)
         data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), 
-                                  p_param, triangles, lin=True)
-    
+                              p_param, triangles, file_path=fig_file)
     # scores if data available
     if ty.isnull().values.sum()==0:
         print()

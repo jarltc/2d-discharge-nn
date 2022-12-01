@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
- model creation code created by Ikuse-san, modified by Jarl
-Created on Mon Nov 21 16:11:21 2022
+new kcross script, will edit the new one when i have time
+Created on Thu Nov 24 15:29:41 2022
 
 @author: jarl
 """
 
 #coding: utf-8
 
+import time
+import datetime
 import os, sys
 import time, datetime
 import pickle
@@ -18,6 +20,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib import mathtext
+from pathlib import Path
 
 import sklearn
 from sklearn.preprocessing import MinMaxScaler
@@ -28,7 +31,7 @@ tf.config.set_visible_devices([], 'GPU')
 from tensorflow import keras
 from tensorflow.keras.utils import plot_model
 from tensorflow.python.client import device_lib
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold
 
 import data
 
@@ -38,7 +41,7 @@ def create_output_dir():
     if not os.path.exists(rslt_dir):
         os.mkdir(rslt_dir)
     
-    date_str = datetime.datetime.today().strftime('%Y-%m-%d_%H%M')
+    date_str = datetime.datetime.today().strftime('kcross-%Y-%m-%d_%H%M')
     out_dir = rslt_dir + '/' + date_str
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
@@ -109,6 +112,7 @@ def scale_all(data_table, x_or_y, out_dir=None):
     
     return scaled_data_table
 
+
 def create_model(num_descriptors, num_obj_vars):
     '''
     Create the model and compile it
@@ -126,8 +130,8 @@ def create_model(num_descriptors, num_obj_vars):
         Model used to predict 2D discharges.
 
     '''
-    neurons = 64
-    layers = 10
+    neurons = 128    # neurons per layer
+    layers = 10     # hidden layers
     
     # model specification
     inputs = keras.Input(shape=(num_descriptors,))
@@ -143,12 +147,22 @@ def create_model(num_descriptors, num_obj_vars):
     
     # build the model
     model = keras.Model(inputs=inputs, outputs=outputs, name='2d-nn_model')
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.0001)
     
     # compile the model
     model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
     
     return model
+
+
+def preproc(df):
+    print('start preproc...', flush=True)
+    pows = {'V':powV, 'P':powP, 'x':powX, 'y':powY}
+    descriptors = create_descriptor_table(df.iloc[:,:4], pows, out_dir)
+    train_data = data_preproc(pd.concat([descriptors, df.iloc[:,4:]], axis=1))
+    print('done.\n')
+    
+    return descriptors, train_data
 
 
 def save_history_vals(history, out_dir):
@@ -217,6 +231,37 @@ def save_history_graph(history, out_dir, param='mae'):
     fig.savefig(file_path)
 
 
+def draw_line(file=None):
+    # term_size = os.get_terminal_size()
+    print('-' * 12, file=file)
+    
+
+def print_scores(loss_per_fold, mae_per_fold, start, end, out_dir=None):
+    exec_time = str(datetime.timedelta(seconds=(end-start)))
+    
+    def print_scores_core(file):
+        draw_line()
+        print(f'Execution time (h:mm:ss): {exec_time}\n', file=file) 
+        print('Score per fold', file=file)
+        draw_line(file=file)
+        for i in range(0, len(loss_per_fold)):
+            draw_line(file=file)
+            print(f'> Fold {i+1} - Loss: {round(loss_per_fold[i], 4)} - MAE: {round(mae_per_fold[i], 4)}', file=file)
+        draw_line(file=file)
+        print('Average scores for all folds:', file=file)
+        print(f'> Loss: {round(np.mean(loss_per_fold), 4)}', file=file)
+        print(f'> MAE: {round(np.mean(mae_per_fold), 4)}', file=file)
+        draw_line(file=file)
+    
+    # print the scores to the console
+    print_scores_core(sys.stdout)
+    
+    # save the scores to csv
+    if out_dir is not None:
+        file_path = posixpath.join(out_dir, 'scores.txt')
+        with open(file_path, 'w') as f:
+            print_scores_core(f)
+
 ################################################################
 
 
@@ -249,6 +294,8 @@ if __name__ == '__main__':
     # -------------------------------------------------------
     
     out_dir = create_output_dir()
+    # with open(Path(out_dir)/'this_is_a_test.txt', 'w') as f:
+    #     f.write('thanks!')
     
     # copy some files for backup
     
@@ -273,11 +320,8 @@ if __name__ == '__main__':
     data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded))]
     data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ]
     
-    print('start preproc...', flush=True)
-    pows = {'V':powV, 'P':powP, 'x':powX, 'y':powY}
-    descriptors = create_descriptor_table(data_used.iloc[:,:4], pows, out_dir)
-    train_data = data_preproc(pd.concat([descriptors,data_used.iloc[:,4:]], axis=1))
-    print('done.\n')
+    descriptors, train_data = preproc(data_used)
+    # descriptors_t, test_data = preproc(data_excluded.reset_index(drop=True))
     
     num_descriptors = powV + powP + powX + powY
     num_obj_vars = len(avg_data.columns) - 4
@@ -299,56 +343,59 @@ if __name__ == '__main__':
     sX = scale_all(train_data.iloc[:,:num_descriptors], 'x', out_dir=scaler_dir)
     sy = scale_all(train_data.iloc[:,num_descriptors:], 'y', out_dir=scaler_dir)
     
-    x_train, x_val, y_train, y_val = train_test_split(sX, sy, test_size=0.1, shuffle= True)
+    # sys.exit()
     
-    sX = tf.convert_to_tensor(sX)
-    sy = tf.convert_to_tensor(sy)
+    # sX_t = scale_all(test_data.iloc[:,:num_descriptors], 'x', out_dir=scaler_dir)
+    # sy_t = scale_all(test_data.iloc[:,num_descriptors:], 'y', out_dir=scaler_dir)
     
-    ''' additional preprocessing:
-        * normalization layer after taking the log
-        * shuffling the data    
-    '''
-        
+    # sX = tf.convert_to_tensor(sX)
+    # sy = tf.convert_to_tensor(sy)
     
     # --------
     # create a regression model
-    print('start creating a model...', flush=True)
-    
-    model = create_model(num_descriptors, num_obj_vars)
-    model.summary()
+    model = create_model(num_descriptors, num_obj_vars) 
+    # model.summary()
     
     # the patience parameter is the amount of epochs to check for improvement.
-    early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
-     
-    # store training stats
-    history = model.fit(sX, sy, epochs=100, validation_split=0.1, 
-                        verbose=1, callbacks=[early_stop])
-    #history = model.fit(sX, sy, epochs=500, validation_split=0.1, verbose=2)
+    # early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
     
-    print('\ndone.\n', flush=True)
+    # k-fold cross validation
+    print('Starting k-fold cross validation...\n')
+    start = time.time()
+    num_folds = 6
+    kfold = KFold(n_splits=num_folds, shuffle=True)
+    
+    fold_no = 1
+    loss_per_fold = []
+    mae_per_fold = []
+    
+    for train, test in kfold.split(sX, sy):
+        model = create_model(num_descriptors, num_obj_vars) 
+        
+        draw_line()
+        print(f'Training for fold {fold_no}...')
+        
+        # fit data to model
+        history = model.fit(sX.iloc[train], sy.iloc[train], epochs=100, verbose=1)
+        
+        # generate generalization metrics
+        scores = model.evaluate(sX.iloc[test], sy.iloc[test], verbose=0)
+        print(f'Score for fold {fold_no}: ' + 
+              f'{model.metrics_names[0]} of {scores[0]};' + 
+              f' {model.metrics_names[1]} of {scores[1]}')
+        loss_per_fold.append(scores[0])
+        mae_per_fold.append(scores[1])
+        
+        fold_no +=1
+    
+    # provide average scores
+    end = time.time()
+    print('Cross validation complete.')
+    print_scores(loss_per_fold, mae_per_fold, start, end, out_dir)
     
     # --------
-    
-    # create a figure file of NN model structure if possible
-    try:
-        plot_model(
-            model, to_file=posixpath.join(out_dir,'model_structure.png'),
-            show_shapes=True, show_layer_names=False)
-        print('figure of the NN model structure has been saved.\n')
-    except:
-        pass
-    
-    # save the NN model
-    model.save(out_dir+'/model')
-    print('NN model has been saved.\n')
-    
-    #print(list(history.history.keys()))
-    save_history_vals(history, out_dir)
-    save_history_graph(history, out_dir, 'mae')
-    save_history_graph(history, out_dir, 'loss')
-    print('NN training history has been saved.\n')
     
     d = datetime.datetime.today()
     print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
 
-    os.system("notify-send \"Job finished\"!")
+    # os.system("notify-send \"Job finished\"!")
