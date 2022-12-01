@@ -98,10 +98,13 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,
     ax.set_aspect('equal')
     if set_cbar_range:
         #cmin, cmax = get_cbar_range(param_col_label)
-        cmin, cmax = get_cbar_range_300V_60Pa(param_col_label, lin=lin)
-        sc = plt.tricontourf(triangles, avg_data[param_col_label], levels=36, cmap=cmap, vmin=cmin, vmax=cmax)
+        cmin, cmax = get_cbar_range_300V_60Pa(param_col_label, lin=lin) 
+        sc = plt.tricontourf(triangles, avg_data[param_col_label], levels=36,
+                             cmap=cmap, vmin=cmin, vmax=cmax)
     else:
-        sc = ax.scatter(x, y, c=z, cmap=cmap, alpha=0.5, s=2, linewidths=0)
+        # sc = ax.scatter(x, y, c=z, cmap=cmap, alpha=0.5, s=2, linewidths=0)
+        sc = plt.tricontourf(triangles, avg_data[param_col_label],
+                             levels=36, cmap=cmap)
     cbar = plt.colorbar(sc)
     cbar.minorticks_off()
     
