@@ -41,10 +41,15 @@ def create_output_dir():
 
 
 def data_preproc(data_table):
+    global scale_exp
+    scale_exp = []
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         if col_name in trgt_params:
-            tmp_col = np.log10(col_vals.values.reshape(-1,1))
+            # tmp_col = np.log10(col_vals.values.reshape(-1,1))
+            exp = round(np.log10(col_vals.mean()), 0) - 1.0
+            scale_exp.append(exp)            
+            tmp_col = col_vals.values.reshape(-1,1)/(10**exp)  # scale by dividing
         else:
             tmp_col = col_vals.values.reshape(-1,1)
         proced_table = tmp_col if col_n==1 else np.hstack([proced_table,tmp_col])
@@ -52,6 +57,9 @@ def data_preproc(data_table):
     proced_table = pd.DataFrame(proced_table, columns=data_table.columns)
     proced_table = proced_table.replace([np.inf,-np.inf], np.nan)
     proced_table = proced_table.dropna(how='any')
+    
+    with open(posixpath.join(out_dir,'scale_exp.pkl'),'wb') as pf:
+        pickle.dump(scale_exp, pf, protocol=4)
     
     return proced_table
 
@@ -120,8 +128,8 @@ def create_model(num_descriptors, num_obj_vars):
         Model used to predict 2D discharges.
 
     '''
-    neurons = 512
-    layers = 4
+    neurons = 64
+    layers = 10
     
     # model specification
     inputs = keras.Input(shape=(num_descriptors,))
@@ -240,6 +248,8 @@ if __name__ == '__main__':
     
     powV, powP, powX, powY = 1, 1, 2, 2
     
+    scale_exp = []
+    
     # -------------------------------------------------------
     
     out_dir = create_output_dir()
@@ -271,7 +281,9 @@ if __name__ == '__main__':
     pows = {'V':powV, 'P':powP, 'x':powX, 'y':powY}
     descriptors = create_descriptor_table(data_used.iloc[:,:4], pows, out_dir)
     train_data = data_preproc(pd.concat([descriptors,data_used.iloc[:,4:]], axis=1))
-    print('done.\n')
+    print('preproc train data:')
+    train_data.head()
+    print('\n done.\n')
     
     num_descriptors = powV + powP + powX + powY
     num_obj_vars = len(avg_data.columns) - 4
@@ -281,7 +293,7 @@ if __name__ == '__main__':
     print()
     
     # randomly permutate
-    # train_data = train_data.sample(frac=1).reset_index(drop=True)
+    train_data = train_data.sample(frac=1).reset_index(drop=True)
     
     # store data for backup
     train_data.to_csv(posixpath.join(out_dir,'data_used.csv'), index=False)
@@ -293,10 +305,6 @@ if __name__ == '__main__':
     sX = scale_all(train_data.iloc[:,:num_descriptors], 'x', out_dir=scaler_dir)
     sy = scale_all(train_data.iloc[:,num_descriptors:], 'y', out_dir=scaler_dir)
     
-    # sys.exit()
-    
-    x_train, x_val, y_train, y_val = train_test_split(sX, sy, test_size=0.1, shuffle= True)
-    
     sX = tf.convert_to_tensor(sX)
     sy = tf.convert_to_tensor(sy)
     
@@ -304,7 +312,7 @@ if __name__ == '__main__':
     # create a regression model
     print('start creating a model...', flush=True)
     
-    model = create_model(num_descriptors, num_obj_vars)
+    model = create_model(num_descriptors, num_obj_vars) 
     model.summary()
     
     # the patience parameter is the amount of epochs to check for improvement.

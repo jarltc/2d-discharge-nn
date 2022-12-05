@@ -1,6 +1,8 @@
 # ignore all
 *
+__pycache__
 
 # except
 !*.py
 !*.md
+__pycache__/data.cpython-39.pyc
