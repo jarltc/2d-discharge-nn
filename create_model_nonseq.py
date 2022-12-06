@@ -1,6 +1,9 @@
 #coding: utf-8
+"""
+Create model using non-sequential layers.
 
-''' model creation code created by Ikuse-san, modified by Jarl'''
+6 Dec 22: Start modifying to use tf.data input pipeline
+"""
 
 import os, sys
 import time, datetime
@@ -9,6 +12,7 @@ import posixpath
 import shutil
 import numpy as np
 import pandas as pd
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib import mathtext
 
@@ -19,7 +23,7 @@ import tensorflow as tf
 tf.config.set_visible_devices([], 'GPU')
 
 from tensorflow import keras
-from tensorflow.keras.utils import plot_model
+from keras.utils import plot_model
 from tensorflow.python.client import device_lib
 from sklearn.model_selection import train_test_split
 
@@ -40,16 +44,19 @@ def create_output_dir():
     return out_dir
 
 
-def data_preproc(data_table):
+def data_preproc(data_table, lin=True):
     global scale_exp
     scale_exp = []
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
+
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         if col_name in trgt_params:
-            # tmp_col = np.log10(col_vals.values.reshape(-1,1))
-            exp = round(np.log10(col_vals.mean()), 0) - 1.0
-            scale_exp.append(exp)            
-            tmp_col = col_vals.values.reshape(-1,1)/(10**exp)  # scale by dividing
+            if lin:
+                exponent = round(np.log10(col_vals.mean()), 0) - 1.0  # get exponent for scaling
+                scale_exp.append(exponent)            
+                tmp_col = col_vals.values.reshape(-1,1)/(10**exponent)  # scale by dividing
+            else:
+                tmp_col = np.log10(col_vals.values.reshape(-1,1))
         else:
             tmp_col = col_vals.values.reshape(-1,1)
         proced_table = tmp_col if col_n==1 else np.hstack([proced_table,tmp_col])
@@ -165,6 +172,7 @@ def save_history_vals(history, out_dir):
 
 
 def save_history_graph(history, out_dir, param='mae'):
+    matplotlib.rcParams['font.family'] = 'Arial'
     x  = np.array(history.epoch)
     if param=='mae':
         y1 = np.array(history.history['mae'])
@@ -226,7 +234,6 @@ if __name__ == '__main__':
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
-    
     print('versions')
     print('python    :', sys.version)
     print('tensorflow:', tf.__version__)
@@ -237,7 +244,8 @@ if __name__ == '__main__':
     print()
     
     # -------------------------------------------------------
-    
+    lin = True  # scale data linearly?
+
     voltages  = [200, 300, 400, 500] # V
     pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
     
@@ -255,7 +263,6 @@ if __name__ == '__main__':
     out_dir = create_output_dir()
     
     # copy some files for backup
-    
     shutil.copyfile(posixpath.join('.',sys.argv[0]), posixpath.join(out_dir, 'create_model.py'))
     shutil.copyfile(posixpath.join('.','data.py'), posixpath.join(out_dir,'data.py'))
     
@@ -267,8 +274,7 @@ if __name__ == '__main__':
         print('error: no data available.')
         raise Exception
     elapsed_time = time.time() - start_time
-    print(' done ({0:.1f} sec).\n'.format(elapsed_time))
-    #print(avg_data)
+    print(f' done ({elapsed_time:0.1f} sec).\n')
     
     # prepare data
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
@@ -280,8 +286,8 @@ if __name__ == '__main__':
     print('start preproc...', flush=True)
     pows = {'V':powV, 'P':powP, 'x':powX, 'y':powY}
     descriptors = create_descriptor_table(data_used.iloc[:,:4], pows, out_dir)
-    train_data = data_preproc(pd.concat([descriptors,data_used.iloc[:,4:]], axis=1))
-    print('preproc train data:')
+    train_data = data_preproc(pd.concat([descriptors,data_used.iloc[:,4:]], axis=1), lin=lin)
+    print('preproc train data ' + ('(lin): ' if lin else '(log): '))
     train_data.head()
     print('\n done.\n')
     
