@@ -194,7 +194,7 @@ name = 'M301'
 batch_size = 32
 learning_rate = 0.001
 validation_split = 0.1
-epochs = 10
+epochs = 100
 
 # architecture
 neurons = 64
