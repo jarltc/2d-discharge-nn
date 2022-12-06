@@ -299,7 +299,7 @@ if __name__ == '__main__':
     print()
     
     # randomly permutate
-    train_data = train_data.sample(frac=1).reset_index(drop=True)
+    # train_data = train_data.sample(frac=1).reset_index(drop=True)
     
     # store data for backup
     train_data.to_csv(posixpath.join(out_dir,'data_used.csv'), index=False)

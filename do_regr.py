@@ -123,7 +123,7 @@ def inv_scale(scaled_data, columns, model_dir):
     return inv_scaled_data_table
 
 
-def data_postproc(data_table):
+def data_postproc(data_table, lin=True):
     """
     Reverse log-scaling if model is trained on log-data.
 
@@ -153,8 +153,11 @@ def data_postproc(data_table):
         vals = col_vals.values.reshape(-1,1)
         
         # unscale log-data
-        tmp_col = 10**vals if col_name in trgt_params else vals
-        # tmp_col = vals * (10**scale_exp[col_n-1]) if col_name in trgt_params else vals
+        if lin:
+            tmp_col = vals * (10**scale_exp[col_n-1]) if col_name in trgt_params else vals
+        else:
+            tmp_col = 10**vals if col_name in trgt_params else vals
+        
         post_proced_table = tmp_col if col_n==1 else np.hstack([post_proced_table,tmp_col])
         
     return pd.DataFrame(post_proced_table, columns=data_table.columns)
@@ -180,9 +183,9 @@ def print_scores(ty, py, regr_dir=None):
             r2    = r2_score(ty_col, py_col)
             ratio = rmse/mae
             
-            if col_label in e_params:
-                print('MAE      = {0:.6e}'.format(mae), file=exp)
-                print('RMSE     = {0:.6e}'.format(rmse), file=exp)
+            if col_label in e_params: ## TODO
+                print('MAE      = {0:.6f}'.format(mae), file=exp)
+                print('RMSE     = {0:.6f}'.format(rmse), file=exp)
             else:
                 print('MAE      = {0:.6f}'.format(mae), file=exp)
                 print('RMSE     = {0:.6f}'.format(rmse), file=exp)
@@ -254,7 +257,11 @@ if __name__ == '__main__':
     
     data_dir = './data/avg_data'  # simulation data
     
-    model_dir = './created_models/2022-11-28_2135'
+    model_dir = './created_models/2022-12-06_2323'
+    # model_dir = './created_models/2022-11-28_2135'
+
+    model = keras.models.load_model(model_dir + '/model')
+    # TODO use model.name to check whether scaling should be applied or not
     
     # -------------------------------------------------------
     
@@ -263,7 +270,17 @@ if __name__ == '__main__':
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
     
     # split data into target x and y
-    tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
+    # tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
+    tX = avg_data.iloc[:, :4].copy()
+    tX['x**2'] = tX['X']**2
+    tX['y**2'] = tX['Y']**2
+
+    tX.rename(columns={'Vpp [V]'  : 'V',
+                        'P [Pa]'  : 'P',
+                        'X'       : 'x', 
+                        'Y'       : 'y'}, inplace=True)
+
+    tX = tX[['V', 'P', 'x', 'x**2', 'y', 'y**2']]
     
     # scale target data if necessary (if model predicts linearly)
     ty = ty_proc(avg_data.iloc[:,4:]) if lin else avg_data.iloc[:,4:]
@@ -284,14 +301,11 @@ if __name__ == '__main__':
     print()
     
     # predict
-    model = keras.models.load_model(model_dir+'/model')
     spy = model.predict(stX)
     py = inv_scale(spy, ty.columns, model_dir)
     py = pd.DataFrame(py, columns=ty.columns)
-    
-    if not lin:
-        py = data_postproc(py)
-    
+    # py = data_postproc(py)
+
     # create a directory
     regr_dir = model_dir + f'/regr_{voltage}Vpp_{pressure}Pa'
     if not os.path.exists(regr_dir):
@@ -308,9 +322,8 @@ if __name__ == '__main__':
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
         fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}.png'.format(n))
-        # data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file)
-        data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), 
-                                  p_param, triangles, lin=lin)
+        data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4], py], axis='columns'), 
+                                  p_param, triangles, file_path=fig_file, lin=lin)
     
     # scores if data available
     if ty.isnull().values.sum()==0:

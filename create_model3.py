@@ -188,7 +188,7 @@ def save_history_vals(history, out_dir):
 
 # --------------- Model hyperparameters -----------------
 # model name
-name = 'M301'
+name = 'M303'
 
 # training
 batch_size = 32
@@ -245,9 +245,9 @@ data_used.rename(columns={'Vpp [V]' : 'V',
                           'Y'       : 'y'}, inplace=True)
 
 data_used['x**2'] = data_used['x']**2
-data_used['y**2'] = data_used['x']**2
-features = scale_all(data_used[feature_names], 'x', scaler_dir)
-labels = data_preproc(data_used[label_names]).astype('float64')
+data_used['y**2'] = data_used['y']**2
+features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
+labels = scale_all(data_preproc(data_used[label_names]), 'y', scaler_dir).astype('float64')
 alldf = pd.concat([features, labels], axis=1)
 dataset_size = len(alldf)
 
