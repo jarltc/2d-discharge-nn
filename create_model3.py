@@ -186,21 +186,31 @@ def save_history_vals(history, out_dir):
     history_df = pd.DataFrame(history_table, columns=['epoch','mae','val_mae','loss','val_loss'])
     history_df.to_csv(history_path, index=False)
 
+
+def yn(str):
+    if str.lower() in ['y', 'yes', 'ok', 'sure', 'hai']:
+        return True
+    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this L']:
+        return False
+    else:
+        raise Exception(str + 'not recognized: use y - yes, n - no')
+
+
 # --------------- Model hyperparameters -----------------
 # model name
-name = 'M303'
+name = input('Enter model name: ')
 
 # training
-batch_size = 32
-learning_rate = 0.001
-validation_split = 0.1
-epochs = 100
-minmax_y = False
+batch_size = int(input('Batch size (default 32): ') or '32')
+learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
+validation_split = float(input('Validation split (default 0.1): ') or '0.1')
+epochs = int(input('Epochs (default 100): ') or '100')
+minmax_y = yn(input('Scale target data? [y/n]: '))
+lin = yn(input('Scale output data linearly? [y/n]: '))
 
 # architecture
 neurons = 64
 layers = 10
-lin = True  # scale data linearly
 
 # -------------------------------------------------------
 
