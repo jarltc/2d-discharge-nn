@@ -195,6 +195,7 @@ batch_size = 32
 learning_rate = 0.001
 validation_split = 0.1
 epochs = 100
+minmax_y = False
 
 # architecture
 neurons = 64
@@ -247,7 +248,12 @@ data_used.rename(columns={'Vpp [V]' : 'V',
 data_used['x**2'] = data_used['x']**2
 data_used['y**2'] = data_used['y']**2
 features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
-labels = scale_all(data_preproc(data_used[label_names]), 'y', scaler_dir).astype('float64')
+
+if minmax_y:
+    labels = scale_all(data_preproc(data_used[label_names]), 'y', scaler_dir).astype('float64')
+else:
+    labels = data_preproc(data_used[label_names]).astype('float64')
+
 alldf = pd.concat([features, labels], axis=1)
 dataset_size = len(alldf)
 

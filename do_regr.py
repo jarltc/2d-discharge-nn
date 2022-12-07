@@ -123,14 +123,18 @@ def inv_scale(scaled_data, columns, model_dir):
     return inv_scaled_data_table
 
 
-def data_postproc(data_table, lin=True):
+def data_postproc(data_table, lin=False):
     """
     Reverse log-scaling if model is trained on log-data.
+    Can also reverse scaling for lin data (if needed) using lin.
 
     Parameters
     ----------
     data_table : DataFrame
         DataFrame of predicted values (py).
+    
+    lin : bool
+        Switch if data is not linearly scaled. Defaults to False.
 
     Returns
     -------
@@ -239,7 +243,13 @@ def ty_proc(ty):
 
 
 if __name__ == '__main__':
-    lin = True
+    # -------------------------------------------------------
+    
+    lin = True  # is data scaled linearly?
+    minmax_y = True  # was y scaled during training?
+
+    # -------------------------------------------------------
+
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -300,11 +310,16 @@ if __name__ == '__main__':
     print('regr cond: {0:d} V, {1:d} Pa'.format(voltage,pressure))
     print()
     
-    # predict
+    # predict from target x, scale if necessary
     spy = model.predict(stX)
-    py = inv_scale(spy, ty.columns, model_dir)
-    py = pd.DataFrame(py, columns=ty.columns)
-    # py = data_postproc(py)
+    if minmax_y:
+        py = inv_scale(spy, ty.columns, model_dir)
+        py = pd.DataFrame(py, columns=ty.columns)
+    else:
+        py = py = pd.DataFrame(spy, columns=ty.columns)
+
+    if not lin:
+        py = data_postproc(py)
 
     # create a directory
     regr_dir = model_dir + f'/regr_{voltage}Vpp_{pressure}Pa'
