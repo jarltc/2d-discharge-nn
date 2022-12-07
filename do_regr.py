@@ -238,15 +238,21 @@ def ty_proc(ty):
     
     return ty
         
-
+def yn(str):
+    if str.lower() in ['y', 'yes', 'ok', 'sure', 'hai']:
+        return True
+    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this L']:
+        return False
+    else:
+        raise Exception(str + 'not recognized: use y - yes, n - no')
 ################################################################
 
 
 if __name__ == '__main__':
     # -------------------------------------------------------
-    
-    lin = True  # is data scaled linearly?
-    minmax_y = True  # was y scaled during training?
+    ## TODO: infer from model metadata
+    minmax_y = yn(input('Was target data scaled? [y/n]: '))
+    lin = yn(input('Was output data scaled linearly? [y/n]: '))  
 
     # -------------------------------------------------------
 
@@ -267,7 +273,7 @@ if __name__ == '__main__':
     
     data_dir = './data/avg_data'  # simulation data
     
-    model_dir = './created_models/2022-12-06_2323'
+    model_dir = input('Model directory: ')
     # model_dir = './created_models/2022-11-28_2135'
 
     model = keras.models.load_model(model_dir + '/model')
