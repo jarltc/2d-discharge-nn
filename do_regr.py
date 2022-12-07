@@ -5,6 +5,8 @@ Model test regression code.
 Perform regression of model on test (V, P). New code written to accommodate
 linearly scaled data.
 
+* to do: move redundant functions to a utils module, convert posixpath to pathlib
+
 """
 
 
@@ -13,6 +15,7 @@ import datetime
 import pickle
 import posixpath
 import shutil
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -93,10 +96,28 @@ def create_descriptors_for_regr(data_table, model_dir):
     return pd.DataFrame(dsc_table, columns=dsc_col_labels)
 
 
+def get_scale_exp():
+    if os.path.exists(model_dir / 'train_metadata.pkl'):
+        scale_exp = metadata['parameter_exponents']
+    elif os.path.exists(model_dir / 'scale_exp.pkl'):
+        def get_scale(path):
+            with open(path, 'rb') as sf:
+                scale_exp = pickle.load(sf) 
+            return scale_exp
+
+        scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
+        scale_exp = get_scale(scale_exp_file)
+    else:
+        print('Scaler unavailable, assuming data is logarithmically scaled.')
+        scale_exp = None
+    
+    return scale_exp
+
+
 def scale_for_regr(data_table, model_dir):
     for n,column in enumerate(data_table.columns, start=1):
         one_data_col = data_table[column].values.reshape(-1,1)
-        scaler_file = posixpath.join(model_dir+'/scalers', 'xscaler_{0:02d}.pkl'.format(n))
+        scaler_file = model_dir / 'scalers' / 'xscaler_{0:02d}.pkl'.format(n)
         with open(scaler_file, 'rb') as sf:
             xscaler = pickle.load(sf)
             xscaler.clip = False
@@ -111,7 +132,7 @@ def scale_for_regr(data_table, model_dir):
 def inv_scale(scaled_data, columns, model_dir):
     num_columns = len(columns)
     for n in range(num_columns):
-        scaler_file = posixpath.join(model_dir+'/scalers', 'yscaler_{0:02d}.pkl'.format(n+1))
+        scaler_file = model_dir / 'scalers' / 'yscaler_{0:02d}.pkl'.format(n+1)
         with open(scaler_file, 'rb') as sf:
             yscaler = pickle.load(sf)
             yscaler.clip = False
@@ -142,21 +163,14 @@ def data_postproc(data_table, lin=False):
         DataFrame of unscaled prediction values.
 
     """
-    def get_scale(path):
-        with open(path, 'rb') as sf:
-            scale_exp = pickle.load(sf) 
-            return scale_exp
-        
-    if lin:
-        scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
-        scale_exp = get_scale(scale_exp_file)
-        
+    scale_exp = get_scale_exp()
+
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
     
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         vals = col_vals.values.reshape(-1,1)
         
-        # unscale log-data
+        # unscale log-data if not lin
         if lin:
             tmp_col = vals * (10**scale_exp[col_n-1]) if col_name in trgt_params else vals
         else:
@@ -225,35 +239,17 @@ def ty_proc(ty):
         Returns scaled target data (ty.columns[i]* 10^(-n[i]) ).
 
     '''
-    def get_scale(path):
-        with open(path, 'rb') as sf:
-            scale_exp = pickle.load(sf) 
-            return scale_exp
-    scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
-    scale_exp = get_scale(scale_exp_file)
+    scale_exp = get_scale_exp()
     
     # trgt_params = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     for i in range(len(scale_exp)):
         ty.update(ty.iloc[:, i]/(10**scale_exp[i]))
     
     return ty
-        
-def yn(str):
-    if str.lower() in ['y', 'yes', 'ok', 'sure', 'hai']:
-        return True
-    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this L']:
-        return False
-    else:
-        raise Exception(str + 'not recognized: use y - yes, n - no')
+
+
 ################################################################
-
-
 if __name__ == '__main__':
-    # -------------------------------------------------------
-    ## TODO: infer from model metadata
-    minmax_y = yn(input('Was target data scaled? [y/n]: '))
-    lin = yn(input('Was output data scaled linearly? [y/n]: '))  
-
     # -------------------------------------------------------
 
     d = datetime.datetime.today()
@@ -264,7 +260,7 @@ if __name__ == '__main__':
     print('tensorflow:', tf.__version__)
     print('keras     :', keras.__version__)
     print('sklearn   :', sklearn.__version__)
-    print()
+    # print()
     
     # -------------------------------------------------------
     
@@ -273,12 +269,26 @@ if __name__ == '__main__':
     
     data_dir = './data/avg_data'  # simulation data
     
-    model_dir = input('Model directory: ')
+    model_dir = Path(input('Model directory: '))
     # model_dir = './created_models/2022-11-28_2135'
 
-    model = keras.models.load_model(model_dir + '/model')
-    # TODO use model.name to check whether scaling should be applied or not
-    
+    model = keras.models.load_model(model_dir / 'model')
+
+    # infer info from model metadata
+    if os.path.exists(model_dir / 'train_metadata.pkl'):
+        with open(model_dir / 'train_metadata.pkl', 'rb') as f:
+            metadata = pickle.load(f)
+        
+        minmax_y = metadata['is_target_scaled']
+        lin = metadata['scaling']
+        name = metadata['name']
+    else:
+        print('Metadata unavailable: using defaults lin=True, minmax_y=True\n')
+        lin = True
+        minmax_y = True
+        name = model_dir.name
+ 
+    print('\nLoaded model ' + name)
     # -------------------------------------------------------
     
     # get simulation data
@@ -328,7 +338,7 @@ if __name__ == '__main__':
         py = data_postproc(py)
 
     # create a directory
-    regr_dir = model_dir + f'/regr_{voltage}Vpp_{pressure}Pa'
+    regr_dir = model_dir / f'regr_{voltage}Vpp_{pressure}Pa'
     if not os.path.exists(regr_dir):
         os.mkdir(regr_dir)
     
@@ -342,7 +352,7 @@ if __name__ == '__main__':
     triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
-        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}.png'.format(n))
+        fig_file = regr_dir / 'regr_fig_{0:02d}.png'.format(n)
         data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4], py], axis='columns'), 
                                   p_param, triangles, file_path=fig_file, lin=lin)
     

@@ -9,6 +9,7 @@ import os
 import sys
 import time
 import shutil
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -24,6 +25,13 @@ from sklearn.preprocessing import MinMaxScaler
 import data
 
 tf.config.set_visible_devices([], 'GPU')
+
+# arguments
+parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+parser.add_argument('-n', '--name', default=None, help='Model name.')
+parser.add_argument('-l', '--log', action='store_true', help='Scale data logarithmically.')
+parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
+args = vars(parser.parse_args())
 
 def create_output_dir():
     rslt_dir = Path('./created_models')
@@ -41,7 +49,6 @@ def create_output_dir():
 
 def data_preproc(data_table, lin=True):
     global scale_exp
-    scale_exp = []
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
 
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
@@ -59,9 +66,6 @@ def data_preproc(data_table, lin=True):
     proced_table = pd.DataFrame(proced_table, columns=data_table.columns)
     proced_table = proced_table.replace([np.inf,-np.inf], np.nan)
     proced_table = proced_table.dropna(how='any')
-    
-    with open(posixpath.join(out_dir,'scale_exp.pkl'),'wb') as pf:
-        pickle.dump(scale_exp, pf, protocol=4)
     
     return proced_table
 
@@ -188,25 +192,28 @@ def save_history_vals(history, out_dir):
 
 
 def yn(str):
-    if str.lower() in ['y', 'yes', 'ok', 'sure', 'hai']:
+    if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
+                       'sure', 'hai', 'aye', 'ayt', 'fosho']:
         return True
-    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this L']:
+    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this l']:
         return False
     else:
         raise Exception(str + 'not recognized: use y - yes, n - no')
 
-
 # --------------- Model hyperparameters -----------------
 # model name
-name = input('Enter model name: ')
+if args['name'] == None:
+    name = input('Enter model name: ')
+else:
+    name = args['name']
 
 # training
 batch_size = int(input('Batch size (default 32): ') or '32')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
 epochs = int(input('Epochs (default 100): ') or '100')
-minmax_y = yn(input('Scale target data? [y/n]: '))
-lin = yn(input('Scale output data linearly? [y/n]: '))
+minmax_y = not args['unscaleY']  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
+lin = not args['log']  # opposite of args[log], i.e.: False if log flag is raised
 
 # architecture
 neurons = 64
@@ -257,12 +264,15 @@ data_used.rename(columns={'Vpp [V]' : 'V',
 
 data_used['x**2'] = data_used['x']**2
 data_used['y**2'] = data_used['y']**2
+
+# scale features and labels
+scale_exp = []
+
 features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
+labels = data_preproc(data_used[label_names]).astype('float64')
 
 if minmax_y:
-    labels = scale_all(data_preproc(data_used[label_names]), 'y', scaler_dir).astype('float64')
-else:
-    labels = data_preproc(data_used[label_names]).astype('float64')
+    labels = scale_all(labels, 'y', scaler_dir)
 
 alldf = pd.concat([features, labels], axis=1)
 dataset_size = len(alldf)
@@ -296,6 +306,15 @@ save_history_vals(history, out_dir)
 save_history_graph(history, out_dir, 'mae')
 save_history_graph(history, out_dir, 'loss')
 print('NN training history has been saved.\n')
+
+# save metadata
+metadata = {'name' : name,  # str
+            'scaling' : lin,  # bool
+            'is_target_scaled': minmax_y,  # bool
+            'parameter_exponents': scale_exp}  # list of float
+
+with open(out_dir / 'train_metadata.pkl', 'wb') as f:
+    pickle.dump(metadata, f)
 
 d = datetime.datetime.today()
 print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
