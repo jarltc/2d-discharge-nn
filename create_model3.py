@@ -304,7 +304,7 @@ metadata = {'name' : name,  # str
             'parameter_exponents': scale_exp}  # list of float
 
 with open('train_metadata.pkl', 'wb') as f:
-    pickle.dump(metadata, f)
+    pickle.dump(out_dir / metadata, f)
 
 d = datetime.datetime.today()
 print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
