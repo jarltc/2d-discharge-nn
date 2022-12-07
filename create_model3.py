@@ -200,6 +200,20 @@ def yn(str):
     else:
         raise Exception(str + 'not recognized: use y - yes, n - no')
 
+
+def read_aug_data(file):
+    """Read data file and return a DataFrame.
+
+    Args:
+        file (PosixPath): Path to .feather file.
+
+    Returns:
+        interp_df: DataFrame of interpolated data.
+    """
+    interp_df = pd.read_feather(file).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
+    return interp_df
+
+
 # --------------- Model hyperparameters -----------------
 # model name
 if args['name'] == None:
@@ -253,6 +267,14 @@ print(f' done ({elapsed_time:0.1f} sec).\n')
 data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded))].copy()
 data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ].copy()
 
+# add synthetic data
+data_augmentation_folder = Path('/Users/jarl/2d-discharge-nn/data/interpolation_feather')
+
+aug_data = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
+aug_data = pd.concat(aug_data)
+
+data_used = pd.concat([data_used, aug_data], ignore_index=True)
+
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
@@ -278,8 +300,8 @@ alldf = pd.concat([features, labels], axis=1)
 dataset_size = len(alldf)
 
 # save the data
-alldf.to_csv(out_dir / 'data_used.csv', index=False) 
-data_excluded.to_csv(out_dir / 'data_excluded.csv', index=False)
+alldf.to_feather(out_dir / 'data_used.feather') 
+data_excluded.reset_index().to_feather(out_dir / 'data_excluded.feather')
 
 # create tf dataset object and shuffle it
 dataset = tf.data.Dataset.from_tensor_slices((features, labels)).shuffle(dataset_size)
@@ -288,15 +310,26 @@ dataset = tf.data.Dataset.from_tensor_slices((features, labels)).shuffle(dataset
 train_size = int((1-validation_split) * dataset_size)
 val_size = int(validation_split * dataset_size)
 
-# create validation split
+# create validation split and batch the data
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
 model = create_model(len(feature_names), len(label_names))
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
+class TimeHistory(keras.callbacks.Callback):
+    def on_train_begin(self, logs={}):
+        self.times = []
+
+    def on_epoch_begin(self, batch, logs={}):
+        self.epoch_time_start = time.time()
+
+    def on_epoch_end(self, batch, logs={}):
+        self.times.append(time.time() - self.epoch_time_start)
+
+time_callback = TimeHistory()
 
 print('begin model training...')
-history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[early_stop])
+history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[early_stop, time_callback])
 print('\ndone.\n', flush=True)
 
 model.save(out_dir / 'model')
@@ -315,6 +348,17 @@ metadata = {'name' : name,  # str
 
 with open(out_dir / 'train_metadata.pkl', 'wb') as f:
     pickle.dump(metadata, f)
+
+with open(out_dir / 'train_metadata.txt', 'w') as f:
+    f.write(f'Model name: {name}\nLin scaling: {lin}\nTarget scaling: {minmax_y}\nParameter_exponents: {scale_exp}')
+
+times = time_callback.times
+with open(out_dir / 'times.txt', 'w') as f:
+    f.write('Train times per epoch')
+    for i, time in enumerate(times):
+        time = round(time, 2)
+        f.write(f'Epoch {i+1}:\t{time}\n')
+
 
 d = datetime.datetime.today()
 print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
