@@ -5,6 +5,8 @@ Model test regression code.
 Perform regression of model on test (V, P). New code written to accommodate
 linearly scaled data.
 
+* to do: move redundant functions to a utils module
+
 """
 
 
@@ -247,9 +249,10 @@ def ty_proc(ty):
         
 
 def yn(str):
-    if str.lower() in ['y', 'yes', 'ok', 'sure', 'hai']:
+    if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
+                       'sure', 'hai', 'aye', 'ayt', 'fosho']:
         return True
-    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this L']:
+    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this l']:
         return False
     else:
         raise Exception(str + 'not recognized: use y - yes, n - no')

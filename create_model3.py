@@ -185,9 +185,10 @@ def save_history_vals(history, out_dir):
 
 
 def yn(str):
-    if str.lower() in ['y', 'yes', 'ok', 'sure', 'hai']:
+    if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
+                       'sure', 'hai', 'aye', 'ayt', 'fosho']:
         return True
-    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this L']:
+    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this l']:
         return False
     else:
         raise Exception(str + 'not recognized: use y - yes, n - no')
