@@ -329,9 +329,11 @@ class TimeHistory(keras.callbacks.Callback):
 time_callback = TimeHistory()
 
 print('begin model training...')
+train_start = time.time()
 history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[early_stop, time_callback])
 print('\ndone.\n', flush=True)
 
+train_end = time.time()
 model.save(out_dir / 'model')
 print('NN model has been saved.\n')
 
@@ -349,16 +351,22 @@ metadata = {'name' : name,  # str
 with open(out_dir / 'train_metadata.pkl', 'wb') as f:
     pickle.dump(metadata, f)
 
-with open(out_dir / 'train_metadata.txt', 'w') as f:
-    f.write(f'Model name: {name}\nLin scaling: {lin}\nTarget scaling: {minmax_y}\nParameter_exponents: {scale_exp}')
-
 times = time_callback.times
 with open(out_dir / 'times.txt', 'w') as f:
-    f.write('Train times per epoch')
+    f.write('Train times per epoch\n')
     for i, time in enumerate(times):
         time = round(time, 2)
-        f.write(f'Epoch {i+1}:\t{time}\n')
+        f.write(f'Epoch {i+1}: {time} s\n')
 
 
 d = datetime.datetime.today()
 print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
+
+# human-readable metadata
+with open(out_dir / 'train_metadata.txt', 'w') as f:
+    f.write(f'Model name: {name}\n')
+    f.write(f'Lin scaling: {lin}\n')
+    f.write(f'Target scaling: {minmax_y}\n')
+    f.write(f'Parameter_exponents: {scale_exp}\n')
+    f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
+    f.write(f'Average time per epoch: {np.array(times).mean():.2f} s')
