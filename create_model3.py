@@ -268,7 +268,7 @@ data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['
 data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ].copy()
 
 # add synthetic data
-data_augmentation_folder = Path('/Users/jarl/2d-discharge-nn/data/interpolation_feather')
+data_augmentation_folder = Path('/Users/jarl/2d-discharge-nn/data/interpolation_feather/20221209')
 
 aug_data = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
 aug_data = pd.concat(aug_data)
