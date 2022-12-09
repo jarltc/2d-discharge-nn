@@ -10,6 +10,7 @@ Created on Mon Dec 5
 """
 
 import os
+import datetime as dt
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -92,7 +93,10 @@ interp_factor_v = float(input('Interpolation factor (V) (default 0.5): ') or '0.
 interp_factor_p = float(input('Interpolation factor (P) (default 0.5): ') or '0.5')
 
 out_dir = Path('/Users/jarl/2d-discharge-nn/data/interpolation')
-feather_outdir = Path('/Users/jarl/2d-discharge-nn/data/interpolation_feather')
+folder_name = dt.datetime.now().strftime('%Y%m%d')
+feather_outdir = Path('/Users/jarl/2d-discharge-nn/data/interpolation_feather') / folder_name
+if not os.path.exists(feather_outdir):
+    os.mkdir(feather_outdir)
 
 # iterate over intermediate voltages
 for pressure in tqdm(pressures, desc=' pressure', position=0):
