@@ -87,6 +87,10 @@ pressures = [5, 10, 30, 45, 60, 80, 100, 120]
 v_pairs = [(a, b) for a, b in list(zip(voltages, voltages[1:]))]
 p_pairs = [(a, b) for a, b in list(zip(pressures, pressures[1:]))]
 
+# interpolation factor (% distance from start point, use 0.5 for midpoint)
+interp_factor_v = float(input('Interpolation factor (V) (default 0.5): ') or '0.5')
+interp_factor_p = float(input('Interpolation factor (P) (default 0.5): ') or '0.5')
+
 out_dir = Path('/Users/jarl/2d-discharge-nn/data/interpolation')
 feather_outdir = Path('/Users/jarl/2d-discharge-nn/data/interpolation_feather')
 
@@ -96,7 +100,7 @@ for pressure in tqdm(pressures, desc=' pressure', position=0):
         start_df = get_data_table(data_folder, start_voltage, pressure)
         end_df = get_data_table(data_folder, end_voltage, pressure)
         parameters = list(start_df.columns[4:])
-        inter_voltage = (start_voltage + end_voltage)/2
+        inter_voltage = start_voltage + (end_voltage-start_voltage)*interp_factor_v
 
         # ensure X and Y are the same across both files
         assert start_df.iloc[:,2:4].all(axis=None) == end_df.iloc[:,2:4].all(axis=None)
@@ -110,7 +114,7 @@ for pressure in tqdm(pressures, desc=' pressure', position=0):
 
         assert (start_df.columns == end_df.columns).all()
         # inter_df[list(start_df.columns)].to_csv(out_dir / f'{voltage:.0f}V{pressure:.0f}Pa.csv', index=False) # csv
-        inter_df[list(start_df.columns)].to_feather(feather_outdir / f'{inter_voltage:.0f}Vpp{pressure:03.0f}Pa_node.feather')
+        inter_df[list(start_df.columns)].to_feather(feather_outdir / f'{inter_voltage:.2f}Vpp{pressure:03.2f}Pa_node.feather')
 
 # iterate over intermediate pressures
 for voltage in tqdm(voltages, desc='voltage'):
@@ -118,7 +122,7 @@ for voltage in tqdm(voltages, desc='voltage'):
         start_df = get_data_table(data_folder, voltage, start_pressure)
         end_df = get_data_table(data_folder, voltage, end_pressure)
         parameters = list(start_df.columns[4:])
-        inter_pressure = (start_pressure + end_pressure)/2
+        inter_pressure = start_pressure + (end_pressure - start_pressure)*interp_factor_p
 
         assert start_df.iloc[:,2:4].all(axis=None) == end_df.iloc[:,2:4].all(axis=None)
 
@@ -131,4 +135,4 @@ for voltage in tqdm(voltages, desc='voltage'):
 
         assert (start_df.columns == end_df.columns).all()
         # inter_df[list(start_df.columns)].to_csv(out_dir / f'{voltage:.0f}V{pressure:.0f}Pa.csv', index=False)
-        inter_df[list(start_df.columns)].to_feather(feather_outdir / f'{voltage:.0f}Vpp{inter_pressure:03.0f}Pa_node.feather')
+        inter_df[list(start_df.columns)].to_feather(feather_outdir / f'{voltage:.2f}Vpp{inter_pressure:03.2f}Pa_node.feather')
