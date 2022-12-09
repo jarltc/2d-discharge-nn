@@ -119,7 +119,7 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,
     ax.set_xlim(0, 21)
     ax.set_ylim(0, 72)
     
-    # electrodes(ax)
+    electrodes(ax)
     
     fig.tight_layout()
     

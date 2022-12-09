@@ -5,6 +5,8 @@ Model test regression code.
 Perform regression of model on test (V, P). New code written to accommodate
 linearly scaled data.
 
+* to do: move redundant functions to a utils module, convert posixpath to pathlib
+
 """
 
 
@@ -13,6 +15,7 @@ import datetime
 import pickle
 import posixpath
 import shutil
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -93,10 +96,28 @@ def create_descriptors_for_regr(data_table, model_dir):
     return pd.DataFrame(dsc_table, columns=dsc_col_labels)
 
 
+def get_scale_exp():
+    if os.path.exists(model_dir / 'train_metadata.pkl'):
+        scale_exp = metadata['parameter_exponents']
+    elif os.path.exists(model_dir / 'scale_exp.pkl'):
+        def get_scale(path):
+            with open(path, 'rb') as sf:
+                scale_exp = pickle.load(sf) 
+            return scale_exp
+
+        scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
+        scale_exp = get_scale(scale_exp_file)
+    else:
+        print('Scaler unavailable, assuming data is logarithmically scaled.')
+        scale_exp = None
+    
+    return scale_exp
+
+
 def scale_for_regr(data_table, model_dir):
     for n,column in enumerate(data_table.columns, start=1):
         one_data_col = data_table[column].values.reshape(-1,1)
-        scaler_file = posixpath.join(model_dir+'/scalers', 'xscaler_{0:02d}.pkl'.format(n))
+        scaler_file = model_dir / 'scalers' / 'xscaler_{0:02d}.pkl'.format(n)
         with open(scaler_file, 'rb') as sf:
             xscaler = pickle.load(sf)
             xscaler.clip = False
@@ -111,7 +132,7 @@ def scale_for_regr(data_table, model_dir):
 def inv_scale(scaled_data, columns, model_dir):
     num_columns = len(columns)
     for n in range(num_columns):
-        scaler_file = posixpath.join(model_dir+'/scalers', 'yscaler_{0:02d}.pkl'.format(n+1))
+        scaler_file = model_dir / 'scalers' / 'yscaler_{0:02d}.pkl'.format(n+1)
         with open(scaler_file, 'rb') as sf:
             yscaler = pickle.load(sf)
             yscaler.clip = False
@@ -123,14 +144,18 @@ def inv_scale(scaled_data, columns, model_dir):
     return inv_scaled_data_table
 
 
-def data_postproc(data_table):
+def data_postproc(data_table, lin=False):
     """
     Reverse log-scaling if model is trained on log-data.
+    Can also reverse scaling for lin data (if needed) using lin.
 
     Parameters
     ----------
     data_table : DataFrame
         DataFrame of predicted values (py).
+    
+    lin : bool
+        Switch if data is not linearly scaled. Defaults to False.
 
     Returns
     -------
@@ -138,23 +163,19 @@ def data_postproc(data_table):
         DataFrame of unscaled prediction values.
 
     """
-    def get_scale(path):
-        with open(path, 'rb') as sf:
-            scale_exp = pickle.load(sf) 
-            return scale_exp
-        
-    if lin:
-        scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
-        scale_exp = get_scale(scale_exp_file)
-        
+    scale_exp = get_scale_exp()
+
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
     
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         vals = col_vals.values.reshape(-1,1)
         
-        # unscale log-data
-        tmp_col = 10**vals if col_name in trgt_params else vals
-        # tmp_col = vals * (10**scale_exp[col_n-1]) if col_name in trgt_params else vals
+        # unscale log-data if not lin
+        if lin:
+            tmp_col = vals * (10**scale_exp[col_n-1]) if col_name in trgt_params else vals
+        else:
+            tmp_col = 10**vals if col_name in trgt_params else vals
+        
         post_proced_table = tmp_col if col_n==1 else np.hstack([post_proced_table,tmp_col])
         
     return pd.DataFrame(post_proced_table, columns=data_table.columns)
@@ -180,9 +201,9 @@ def print_scores(ty, py, regr_dir=None):
             r2    = r2_score(ty_col, py_col)
             ratio = rmse/mae
             
-            if col_label in e_params:
-                print('MAE      = {0:.6e}'.format(mae), file=exp)
-                print('RMSE     = {0:.6e}'.format(rmse), file=exp)
+            if col_label in e_params: ## TODO
+                print('MAE      = {0:.6f}'.format(mae), file=exp)
+                print('RMSE     = {0:.6f}'.format(rmse), file=exp)
             else:
                 print('MAE      = {0:.6f}'.format(mae), file=exp)
                 print('RMSE     = {0:.6f}'.format(rmse), file=exp)
@@ -218,25 +239,19 @@ def ty_proc(ty):
         Returns scaled target data (ty.columns[i]* 10^(-n[i]) ).
 
     '''
-    def get_scale(path):
-        with open(path, 'rb') as sf:
-            scale_exp = pickle.load(sf) 
-            return scale_exp
-    scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
-    scale_exp = get_scale(scale_exp_file)
+    scale_exp = get_scale_exp()
     
     # trgt_params = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     for i in range(len(scale_exp)):
         ty.update(ty.iloc[:, i]/(10**scale_exp[i]))
     
     return ty
-        
+
 
 ################################################################
-
-
 if __name__ == '__main__':
-    lin = True
+    # -------------------------------------------------------
+
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -245,7 +260,7 @@ if __name__ == '__main__':
     print('tensorflow:', tf.__version__)
     print('keras     :', keras.__version__)
     print('sklearn   :', sklearn.__version__)
-    print()
+    # print()
     
     # -------------------------------------------------------
     
@@ -254,8 +269,26 @@ if __name__ == '__main__':
     
     data_dir = './data/avg_data'  # simulation data
     
-    model_dir = './created_models/2022-11-28_2135'
-    
+    model_dir = Path(input('Model directory: '))
+    # model_dir = './created_models/2022-11-28_2135'
+
+    model = keras.models.load_model(model_dir / 'model')
+
+    # infer info from model metadata
+    if os.path.exists(model_dir / 'train_metadata.pkl'):
+        with open(model_dir / 'train_metadata.pkl', 'rb') as f:
+            metadata = pickle.load(f)
+        
+        minmax_y = metadata['is_target_scaled']
+        lin = metadata['scaling']
+        name = metadata['name']
+    else:
+        print('Metadata unavailable: using defaults lin=True, minmax_y=True\n')
+        lin = True
+        minmax_y = True
+        name = model_dir.name
+ 
+    print('\nLoaded model ' + name)
     # -------------------------------------------------------
     
     # get simulation data
@@ -263,7 +296,17 @@ if __name__ == '__main__':
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
     
     # split data into target x and y
-    tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
+    # tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
+    tX = avg_data.iloc[:, :4].copy()
+    tX['x**2'] = tX['X']**2
+    tX['y**2'] = tX['Y']**2
+
+    tX.rename(columns={'Vpp [V]'  : 'V',
+                        'P [Pa]'  : 'P',
+                        'X'       : 'x', 
+                        'Y'       : 'y'}, inplace=True)
+
+    tX = tX[['V', 'P', 'x', 'x**2', 'y', 'y**2']]
     
     # scale target data if necessary (if model predicts linearly)
     ty = ty_proc(avg_data.iloc[:,4:]) if lin else avg_data.iloc[:,4:]
@@ -283,17 +326,19 @@ if __name__ == '__main__':
     print('regr cond: {0:d} V, {1:d} Pa'.format(voltage,pressure))
     print()
     
-    # predict
-    model = keras.models.load_model(model_dir+'/model')
+    # predict from target x, scale if necessary
     spy = model.predict(stX)
-    py = inv_scale(spy, ty.columns, model_dir)
-    py = pd.DataFrame(py, columns=ty.columns)
-    
+    if minmax_y:
+        py = inv_scale(spy, ty.columns, model_dir)
+        py = pd.DataFrame(py, columns=ty.columns)
+    else:
+        py = py = pd.DataFrame(spy, columns=ty.columns)
+
     if not lin:
         py = data_postproc(py)
-    
+
     # create a directory
-    regr_dir = model_dir + f'/regr_{voltage}Vpp_{pressure}Pa'
+    regr_dir = model_dir / f'regr_{voltage}Vpp_{pressure}Pa'
     if not os.path.exists(regr_dir):
         os.mkdir(regr_dir)
     
@@ -307,10 +352,9 @@ if __name__ == '__main__':
     triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
-        fig_file = posixpath.join(regr_dir, 'regr_fig_{0:02d}.png'.format(n))
-        # data.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), p_param, file_path=fig_file)
-        data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4],py], axis='columns'), 
-                                  p_param, triangles, lin=lin)
+        fig_file = regr_dir / 'regr_fig_{0:02d}.png'.format(n)
+        data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4], py], axis='columns'), 
+                                  p_param, triangles, file_path=fig_file, lin=lin)
     
     # scores if data available
     if ty.isnull().values.sum()==0:
