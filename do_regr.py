@@ -13,7 +13,6 @@ linearly scaled data.
 import os, sys
 import datetime
 import pickle
-import posixpath
 import shutil
 from pathlib import Path
 
@@ -32,7 +31,7 @@ import data_plot
 
 def get_data_table(data_dir, voltage, pressure):
     file_name = '{0:d}Vpp_{1:03d}Pa_node.dat'.format(voltage,pressure)
-    file_path = posixpath.join(data_dir, file_name)
+    file_path = data_dir / file_name
     if os.path.exists(file_path):
         avg_data = data.read_all_data(data_dir, [voltage], [pressure])
     else:
@@ -60,7 +59,7 @@ def create_dummy_data_table(data_dir, voltage, pressure):
 
 def create_descriptors_for_regr(data_table, model_dir):
     def get_var(model_dir, var_file_name):
-        file_path = posixpath.join(model_dir, var_file_name)
+        file_path = model_dir / var_file_name
         if os.path.exists(file_path):
             with open(file_path, 'rb') as pf:
                 return pickle.load(pf)
@@ -105,7 +104,7 @@ def get_scale_exp():
                 scale_exp = pickle.load(sf) 
             return scale_exp
 
-        scale_exp_file = posixpath.join(model_dir + '/scale_exp.pkl')
+        scale_exp_file = model_dir / 'scale_exp.pkl'
         scale_exp = get_scale(scale_exp_file)
     else:
         print('Scaler unavailable, assuming data is logarithmically scaled.')
@@ -181,9 +180,11 @@ def data_postproc(data_table, lin=False):
     return pd.DataFrame(post_proced_table, columns=data_table.columns)
 
 
-def save_pred_vals(tX, py, rslt_dir='./'):
+def save_pred_vals(tX, py, rslt_dir=None):
+    if rslt_dir == None:
+        raise Exception('save_pred_vals: No result directory specified!')
     pred_rslts = pd.concat([tX,py], axis='columns')
-    rslt_file = posixpath.join(rslt_dir, 'predicted_rslts.csv')
+    rslt_file = rslt_dir / 'predicted_rslts.csv'
     pred_rslts.to_csv(rslt_file, index=False)
 
 
@@ -214,7 +215,7 @@ def print_scores(ty, py, regr_dir=None):
     print_scores_core(sys.stdout)
     
     if regr_dir is not None:
-        file_path = posixpath.join(regr_dir, 'scores.txt')
+        file_path = regr_dir / 'scores.txt'
         with open(file_path, 'w') as f:
             print_scores_core(f)
 
@@ -251,7 +252,7 @@ def ty_proc(ty):
 ################################################################
 if __name__ == '__main__':
     # -------------------------------------------------------
-
+    root = Path(os.getcwd())  # root folder where everything is saved
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -264,14 +265,12 @@ if __name__ == '__main__':
     
     # -------------------------------------------------------
     
+    # perform regression with these parameters
     voltage  = 300 # V
     pressure =  60 # Pa
     
-    data_dir = './data/avg_data'  # simulation data
-    
+    data_dir = root / 'data' / 'avg_data'  # simulation data
     model_dir = Path(input('Model directory: '))
-    # model_dir = './created_models/2022-11-28_2135'
-
     model = keras.models.load_model(model_dir / 'model')
 
     # infer info from model metadata
@@ -343,7 +342,7 @@ if __name__ == '__main__':
         os.mkdir(regr_dir)
     
     # back up
-    shutil.copyfile(posixpath.join('.',sys.argv[0]), posixpath.join(regr_dir, 'do_regr.py'))
+    shutil.copyfile(__file__, regr_dir / 'do_regr.py')
     
     # save results
     save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
