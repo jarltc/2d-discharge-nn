@@ -17,7 +17,6 @@ import pickle
 import tensorflow as tf
 import datetime
 from tensorflow import keras
-import posixpath
 import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
@@ -34,7 +33,7 @@ parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target 
 args = vars(parser.parse_args())
 
 def create_output_dir():
-    rslt_dir = Path('./created_models')
+    rslt_dir = root / 'created_models'
     if not os.path.exists(rslt_dir):
         os.mkdir(rslt_dir)
     
@@ -80,7 +79,7 @@ def scale_all(data_table, x_or_y, out_dir=None):
         scaled_data_table = scaled_data if n==1 else np.hstack([scaled_data_table,scaled_data])
         
         if out_dir is not None:
-            pickle_file = posixpath.join(out_dir, '{0:s}scaler_{1:02d}.pkl'.format(x_or_y,n))
+            pickle_file = out_dir / f'{x_or_y}scaler_{n:02d}.pkl'
             with open(pickle_file, mode='wb') as pf:
                 pickle.dump(scaler, pf, protocol=4)
     
@@ -176,12 +175,12 @@ def save_history_graph(history, out_dir, param='mae'):
         file_name = 'history_graph_mae.png'
     elif param=='loss':
         file_name = 'history_graph_loss.png'
-    file_path = posixpath.join(out_dir, file_name)
+    file_path = out_dir / file_name
     fig.savefig(file_path)
 
 
 def save_history_vals(history, out_dir):
-    history_path = posixpath.join(out_dir, 'history.csv')
+    history_path = out_dir / 'history.csv'
     history_table = np.hstack([np.array(history.epoch              ).reshape(-1,1),
                                np.array(history.history['mae']     ).reshape(-1,1),
                                np.array(history.history['val_mae'] ).reshape(-1,1),
@@ -238,7 +237,8 @@ layers = 10
 voltages  = [200, 300, 400, 500] # V
 pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
 
-data_fldr_path = './data/avg_data'
+root = Path(os.getcwd())  # root folder where everything is saved
+data_fldr_path = root / 'data' / 'avg_data'
 
 voltage_excluded = 300 # V
 pressure_excluded = 60 # Pa
@@ -250,8 +250,8 @@ scaler_dir = out_dir / 'scalers'
 os.mkdir(scaler_dir)
 
 # copy some files for backup
-shutil.copyfile(posixpath.join('.',sys.argv[0]), posixpath.join(out_dir, 'create_model.py'))
-shutil.copyfile(posixpath.join('.','data.py'), posixpath.join(out_dir,'data.py'))
+shutil.copyfile(__file__, out_dir / 'create_model.py')
+shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
 # get dataset
 print('start getting dataset...', end='', flush=True)
