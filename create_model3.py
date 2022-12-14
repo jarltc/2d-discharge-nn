@@ -32,8 +32,6 @@ parser.add_argument('-l', '--log', action='store_true', help='Scale data logarit
 parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
 args = vars(parser.parse_args())
 
-root = Path(os.getcwd())  # root folder where everything is saved
-
 def create_output_dir():
     rslt_dir = root / 'created_models'
     if not os.path.exists(rslt_dir):
@@ -239,6 +237,7 @@ layers = 10
 voltages  = [200, 300, 400, 500] # V
 pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
 
+root = Path(os.getcwd())  # root folder where everything is saved
 data_fldr_path = root / 'data' / 'avg_data'
 
 voltage_excluded = 300 # V
