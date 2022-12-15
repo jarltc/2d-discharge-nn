@@ -220,6 +220,9 @@ if args['name'] == None:
 else:
     name = args['name']
 
+root = Path(os.getcwd())
+data_fldr_path = root/'data'/'avg_data'
+
 # training
 batch_size = int(input('Batch size (default 32): ') or '32')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
@@ -237,8 +240,6 @@ layers = 10
 voltages  = [200, 300, 400, 500] # V
 pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
 
-root = Path(os.getcwd())  # root folder where everything is saved
-data_fldr_path = root / 'data' / 'avg_data'
 
 voltage_excluded = 300 # V
 pressure_excluded = 60 # Pa
