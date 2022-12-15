@@ -1,6 +1,6 @@
 #!/bin/zsh
 
-# this script updates 2d-discharge-nn on the remote directory
+# this script updates 2d-discharge-nn on the laboratory NAS
 
 terminal-notifier -title 'rsync Backup' -subtitle 'Starting' -message 'Backup started.' -sound Glass
 
@@ -13,7 +13,7 @@ Started on: $now
 
 EOF
 
-rsync -avP --stats ~/2d-discharge-nn/ /Volumes/home/Public_HamaLab/Data/22_jarl/2d-discharge-nn >> $LOG_FILE
+rsync -avzP --stats ~/2d-discharge-nn/ /Volumes/home/Public_HamaLab/Data/22_jarl/2d-discharge-nn >> $LOG_FILE
  
 end=$(date)
 printf "\nFinished on: $end" >> $LOG_FILE
