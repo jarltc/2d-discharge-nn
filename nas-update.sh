@@ -26,4 +26,4 @@ num_s=${size#*: }
 
 # send notification
 message="Transferred $num_t files ($num_s)"
-terminal-notifier -title 'rsync Backup' -subtitle 'Backup complete' -message $message -execute "open $LOG_FILE" -sound Glass
+terminal-notifier -title 'rsync Backup' -subtitle 'Backup complete' -message $message -execute "open $LOG_FILE" -sound Funk
