@@ -13,7 +13,7 @@ Started on: $now
 
 EOF
 
-rsync -avP --stats ~/2d-discharge-nn/created_models/ /Volumes/home/Public_HamaLab/Data/22_jarl/2d-discharge-nn/created_models >> $LOG_FILE
+rsync -avP --stats ~/2d-discharge-nn/ /Volumes/home/Public_HamaLab/Data/22_jarl/2d-discharge-nn >> $LOG_FILE
  
 end=$(date)
 printf "\nFinished on: $end" >> $LOG_FILE
