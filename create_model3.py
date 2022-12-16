@@ -270,10 +270,10 @@ data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['
 # add synthetic data
 data_augmentation_folder = Path(root/'data'/'interpolation_feather'/'20221209')
 
-aug_data = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
-aug_data = pd.concat(aug_data)
+aug_dataVP = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
+aug_dataVP = pd.concat(aug_dataVP)
 
-data_used = pd.concat([data_used, aug_data], ignore_index=True)
+data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
