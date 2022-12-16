@@ -159,7 +159,7 @@ for file in tqdm(files):
 print('Concatenating datasets...')
 ds = xr.combine_by_coords(ds_list)
 name = 'rec-interpolation'
-out_file = out_dir/'{name}.nc'
+out_file = out_dir/f'{name}.nc'
 
 # write the file in chunks
 write_job = ds.to_netcdf(out_file, compute=False)
@@ -174,6 +174,6 @@ metadata = {'dataset excluded': excluded,
             'file size (mb)' : os.path.getsize(out_file) / 1e6,
             'sizes' : str(ds.sizes)}
 
-with open(out_dir/'{name}_metadata.txt', 'w') as f:
+with open(out_dir/f'{name}_metadata.txt', 'w') as f:
     for key, value in metadata.items():
         f.write(key + ': ' + str(value) + '\n')
