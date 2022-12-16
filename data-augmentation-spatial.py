@@ -41,6 +41,18 @@ def read_file(file_path):
 
 
 def create_mask(X, Y):
+    """Create mask for electrodes.
+
+    This ensures that interpolation does not create new datapoints in
+    the region where the electrodes are. This is essential for proper model training.
+
+    Args:
+        X (_type_): _description_
+        Y (_type_): _description_
+
+    Returns:
+        _type_: _description_
+    """
     # masks (in mm) to m
     # top electrode
     mask1 = ((X >= 0*1e-3) & (X <= 95*1e-3)) & ((Y >= 487*1e-3) & (Y <= 489*1e-3))
@@ -66,6 +78,8 @@ def interpolation(df, parameter, voltage, pressure):
     Args:
         df (DataFrame): DataFrame of a single dataset
         parameter (str): Column label in parameters (list)
+        voltage (float): Voltage for the file
+        pressure (float): Pressure for the file
 
     Returns:
         DataArray: DataArray of the interpolated data. Dimensions are V, P, x, y
@@ -142,17 +156,6 @@ for file in tqdm(files):
 
     # create a list of DataArrays for each variable in the file
     var_array = [interpolation(df, parameter, voltage, pressure) for parameter in parameters]
-    # var_array = []
-    # for parameter in parameters:
-    #     points = df[['X', 'Y']].to_numpy()
-    #     values = df[parameter].to_numpy()
-    #     z = interpolate.griddata(points, values, (X, Y), method='linear')
-    #     # z = ma.array(z, mask=mask).filled(fill_value=np.nan)
-    #     da = xr.DataArray(z, coords={'y':y, 'x':x}, dims=['y', 'x'], name=parameter)
-    #     var_array.append(da.assign_coords(V=voltage, P=pressure).expand_dims(dim=['V','P']))
-    
-    # assign coordinates V and P to be the voltage and pressure of the dataset, then expand dims
-    # return da.assign_coords(V=voltage, P=pressure).expand_dims(dim=['V','P'])        
     ds_list.append(xr.merge(var_array))  # merge into Dataset
 
 # create one large Dataset from ds_list and save
@@ -174,6 +177,7 @@ metadata = {'dataset excluded': excluded,
             'file size (mb)' : os.path.getsize(out_file) / 1e6,
             'sizes' : str(ds.sizes)}
 
+# save metadata
 with open(out_dir/f'{name}_metadata.txt', 'w') as f:
     for key, value in metadata.items():
         f.write(key + ': ' + str(value) + '\n')
