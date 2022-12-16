@@ -94,9 +94,11 @@ if not os.path.exists(out_dir): os.mkdir(out_dir)
 
 files = [file for file in data_folder.rglob('*')]
 
+excluded = '300Vpp_060Pa_node'
+
 # remove test data
 for i, file in enumerate(files):
-    if file.name == '300Vpp_060Pa_node.dat':
+    if file.stem == excluded:
         files.pop(i)
 
 step = 0.001 # meters
@@ -159,9 +161,22 @@ for file in tqdm(files):
 # create one large Dataset from ds_list and save
 print('Concatenating datasets...')
 ds = xr.combine_by_coords(ds_list)
-out_file = out_dir/'rec-interpolation2.nc'
+name = 'rec-interpolation2'
+out_file = out_dir/'{name}.nc'
+
+# write the file in chunks
 write_job = ds.to_netcdf(out_file, compute=False)
 from dask.diagnostics import ProgressBar
 with ProgressBar():
     print(f"Writing to {out_file}")
     write_job.compute()
+
+metadata = {'dataset excluded': excluded,
+            'grid spacing (m)' : step,
+            'masking' : 'before interpolation',
+            'file size (mb)' : os.path.getsize(out_file) / 1e6,
+            'sizes' : str(ds.sizes)}
+
+with open(out_dir/'{name}_metadata.txt', 'w') as f:
+    for key, value in metadata.items():
+        f.write(key + ': ' + str(value) + '\n')
