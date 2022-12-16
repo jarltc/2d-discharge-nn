@@ -102,9 +102,6 @@ for i, file in enumerate(files):
         files.pop(i)
 
 step = 0.001 # meters
-# files = files[:4]
-# file = data_folder/'300Vpp_060Pa_node.dat'
-# fldr_path_to_save = root/'data'/'graphs'
 
 # list of parameters for the interpolation
 parameters = ['potential (V)', 
@@ -140,19 +137,19 @@ for file in tqdm(files):
    
     # convert points in the electrodes to nan to avoid interpolation inside
     mask = create_mask(X, Y)
-    # X = ma.array(X, mask=mask).filled(fill_value=np.nan)
-    # Y = ma.array(Y, mask=mask).filled(fill_value=np.nan)
+    X = ma.array(X, mask=mask).filled(fill_value=np.nan)
+    Y = ma.array(Y, mask=mask).filled(fill_value=np.nan)
 
-    # list of DataArrays for each variable in the file
-    # var_array = [interpolation(df, parameter, voltage, pressure) for parameter in parameters]
-    var_array = []
-    for parameter in parameters:
-        points = df[['X', 'Y']].to_numpy()
-        values = df[parameter].to_numpy()
-        z = interpolate.griddata(points, values, (X, Y), method='linear')
-        z = ma.array(z, mask=mask).filled(fill_value=np.nan)
-        da = xr.DataArray(z, coords={'y':y, 'x':x}, dims=['y', 'x'], name=parameter)
-        var_array.append(da.assign_coords(V=voltage, P=pressure).expand_dims(dim=['V','P']))
+    # create a list of DataArrays for each variable in the file
+    var_array = [interpolation(df, parameter, voltage, pressure) for parameter in parameters]
+    # var_array = []
+    # for parameter in parameters:
+    #     points = df[['X', 'Y']].to_numpy()
+    #     values = df[parameter].to_numpy()
+    #     z = interpolate.griddata(points, values, (X, Y), method='linear')
+    #     # z = ma.array(z, mask=mask).filled(fill_value=np.nan)
+    #     da = xr.DataArray(z, coords={'y':y, 'x':x}, dims=['y', 'x'], name=parameter)
+    #     var_array.append(da.assign_coords(V=voltage, P=pressure).expand_dims(dim=['V','P']))
     
     # assign coordinates V and P to be the voltage and pressure of the dataset, then expand dims
     # return da.assign_coords(V=voltage, P=pressure).expand_dims(dim=['V','P'])        
@@ -161,7 +158,7 @@ for file in tqdm(files):
 # create one large Dataset from ds_list and save
 print('Concatenating datasets...')
 ds = xr.combine_by_coords(ds_list)
-name = 'rec-interpolation2'
+name = 'rec-interpolation'
 out_file = out_dir/'{name}.nc'
 
 # write the file in chunks
