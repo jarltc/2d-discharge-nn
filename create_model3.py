@@ -337,9 +337,12 @@ class TimeHistory(keras.callbacks.Callback):
 
 time_callback = TimeHistory()
 
+tensorboard_callback = tf.keras.callbacks.TensorBoard(
+    log_dir=out_dir, histogram_freq=1)
+
 print('begin model training...')
 train_start = time.time()
-history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[early_stop, time_callback])
+history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[early_stop, tensorboard_callback, time_callback])
 print('\ndone.\n', flush=True)
 
 train_end = time.time()
