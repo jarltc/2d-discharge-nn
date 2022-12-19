@@ -375,7 +375,7 @@ print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
 with open(out_dir / 'train_metadata.txt', 'w') as f:
     f.write(f'Model name: {name}\n')
     f.write(f'Lin scaling: {lin}\n')
-    f.write(f'Number of points: {len(data_used)}')
+    f.write(f'Number of points: {len(data_used)}\n')
     f.write(f'Target scaling: {minmax_y}\n')
     f.write(f'Parameter_exponents: {scale_exp}\n')
     f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
