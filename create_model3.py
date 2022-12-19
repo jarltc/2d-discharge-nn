@@ -250,7 +250,7 @@ out_dir = create_output_dir()
 scaler_dir = out_dir / 'scalers'
 os.mkdir(scaler_dir)
 
-# copy some files for backup
+# copy some files for backup (probably made redundant by metadata)
 shutil.copyfile(__file__, out_dir / 'create_model.py')
 shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
@@ -271,12 +271,15 @@ data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['
 # add synthetic data
 data_augmentation_folder = Path(root/'data'/'interpolation_feather'/'20221209')
 
+# V, P interpolation
 aug_dataVP = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
 aug_dataVP = pd.concat(aug_dataVP)
 
+# X, Y interpolation
 data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolation.nc')
 aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().dropna()
 
+# combine datasets
 data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 
@@ -291,18 +294,20 @@ data_used.rename(columns={'Vpp [V]' : 'V',
 
 # set threshold to make very small values zero
 pd.set_option('display.chop_threshold', 1e-10)
+
+# aug_dataXY already has the correct format, so merge it after
 data_used = pd.concat([data_used, aug_dataXY], ignore_index=True)
 
+# create new column of x^2 and y^2
 data_used['x**2'] = data_used['x']**2
 data_used['y**2'] = data_used['y']**2
 
 # scale features and labels
 scale_exp = []
-
 features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
 labels = data_preproc(data_used[label_names]).astype('float64')
 
-if minmax_y:
+if minmax_y:  # if applying minmax to target data
     labels = scale_all(labels, 'y', scaler_dir)
 
 alldf = pd.concat([features, labels], axis=1)
@@ -335,17 +340,20 @@ class TimeHistory(keras.callbacks.Callback):
     def on_epoch_end(self, batch, logs={}):
         self.times.append(time.time() - self.epoch_time_start)
 
-time_callback = TimeHistory()
+time_callback = TimeHistory()  # record time of each epoch
 
+# use tensorboard to monitor training
 tensorboard_callback = tf.keras.callbacks.TensorBoard(
     log_dir=out_dir, histogram_freq=1)
 
+# train the model
 print('begin model training...')
-train_start = time.time()
+train_start = time.time()  # record start time
 history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[early_stop, tensorboard_callback, time_callback])
 print('\ndone.\n', flush=True)
+train_end = time.time()  # record end time
 
-train_end = time.time()
+# save the model
 model.save(out_dir / 'model')
 print('NN model has been saved.\n')
 
@@ -363,13 +371,13 @@ metadata = {'name' : name,  # str
 with open(out_dir / 'train_metadata.pkl', 'wb') as f:
     pickle.dump(metadata, f)
 
+# record time per epoch
 times = time_callback.times
 with open(out_dir / 'times.txt', 'w') as f:
     f.write('Train times per epoch\n')
     for i, time in enumerate(times):
         time = round(time, 2)
         f.write(f'Epoch {i+1}: {time} s\n')
-
 
 d = datetime.datetime.today()
 print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
