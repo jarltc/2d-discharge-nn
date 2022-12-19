@@ -12,6 +12,7 @@ import shutil
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import numpy as np
 import pandas as pd
+import xarray as xr
 from pathlib import Path
 import pickle
 import tensorflow as tf
@@ -270,10 +271,13 @@ data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['
 # add synthetic data
 data_augmentation_folder = Path(root/'data'/'interpolation_feather'/'20221209')
 
-aug_data = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
-aug_data = pd.concat(aug_data)
+aug_dataVP = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
+aug_dataVP = pd.concat(aug_dataVP)
 
-data_used = pd.concat([data_used, aug_data], ignore_index=True)
+data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolation.nc')
+aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().dropna()
+
+data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
@@ -283,6 +287,10 @@ data_used.rename(columns={'Vpp [V]' : 'V',
                           'P [Pa]'  : 'P',
                           'X'       : 'x', 
                           'Y'       : 'y'}, inplace=True)
+
+# set threshold to make very small values zero
+pd.set_option('display.chop_threshold', 1e-10)
+data_used = pd.concat([data_used, aug_dataXY], ignore_index=True)
 
 data_used['x**2'] = data_used['x']**2
 data_used['y**2'] = data_used['y']**2
@@ -300,8 +308,8 @@ alldf = pd.concat([features, labels], axis=1)
 dataset_size = len(alldf)
 
 # save the data
-alldf.to_feather(out_dir / 'data_used.feather') 
-data_excluded.reset_index().to_feather(out_dir / 'data_excluded.feather')
+# alldf.to_feather(out_dir / 'data_used.feather') 
+# data_excluded.reset_index().to_feather(out_dir / 'data_excluded.feather')
 
 # create tf dataset object and shuffle it
 dataset = tf.data.Dataset.from_tensor_slices((features, labels)).shuffle(dataset_size)
@@ -366,6 +374,7 @@ print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
 with open(out_dir / 'train_metadata.txt', 'w') as f:
     f.write(f'Model name: {name}\n')
     f.write(f'Lin scaling: {lin}\n')
+    f.write(f'Number of points: {len(data_used)}')
     f.write(f'Target scaling: {minmax_y}\n')
     f.write(f'Parameter_exponents: {scale_exp}\n')
     f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
