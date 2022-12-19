@@ -278,6 +278,7 @@ data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolati
 aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().dropna()
 
 data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
+data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
