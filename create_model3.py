@@ -54,7 +54,8 @@ def data_preproc(data_table, lin=True):
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         if col_name in trgt_params:
             if lin:
-                exponent = round(np.log10(col_vals.mean()), 0) - 1.0  # get exponent for scaling
+                # get exponent for scaling
+                exponent = round(np.log10(col_vals.mean()), 0) - 1.0 if (np.log10(col_vals.mean()) >= 0) else 0  # if statement prevents already small values from blowing up
                 scale_exp.append(exponent)            
                 tmp_col = col_vals.values.reshape(-1,1)/(10**exponent)  # scale by dividing
             else:
@@ -280,7 +281,6 @@ data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolati
 aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().dropna()
 
 # combine datasets
-data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
