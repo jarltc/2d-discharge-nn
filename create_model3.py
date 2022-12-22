@@ -31,7 +31,7 @@ parser.add_argument('-n', '--name', default=None, help='Model name.')
 parser.add_argument('-l', '--log', action='store_true', help='Scale data logarithmically.')
 parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
 parser.add_argument('-y', '--layers', default=10, help='Specify layer count.')
-parser.add_argument('-n', '--nodes', default=64, help='Specify nodes per layer.')
+parser.add_argument('-o', '--nodes', default=64, help='Specify nodes per layer.')
 args = vars(parser.parse_args())
 
 def create_output_dir():
