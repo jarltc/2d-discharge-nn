@@ -5,7 +5,7 @@ Model test regression code.
 Perform regression of model on test (V, P). New code written to accommodate
 linearly scaled data.
 
-* to do: move redundant functions to a utils module, convert posixpath to pathlib
+* to do: move redundant functions to a utils module
 
 """
 
@@ -27,7 +27,11 @@ from tensorflow import keras
 
 import data
 import data_plot
+from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
+parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+parser.add_argument('-m', '--mesh', action='store_false', help='Interpolate on mesh.')
+args = vars(parser.parse_args())
 
 def get_data_table(data_dir, voltage, pressure):
     file_name = '{0:d}Vpp_{1:03d}Pa_node.dat'.format(voltage,pressure)
@@ -253,6 +257,7 @@ def ty_proc(ty):
 if __name__ == '__main__':
     # -------------------------------------------------------
     root = Path(os.getcwd())  # root folder where everything is saved
+    on_grid = args['mesh']  # flag makes this false, and the prediction is made on a linear grid
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -272,6 +277,8 @@ if __name__ == '__main__':
     data_dir = root / 'data' / 'avg_data'  # simulation data
     model_dir = Path(input('Model directory: '))
     model = keras.models.load_model(model_dir / 'model')
+
+    step = 0.001  # controls grid spacing for grid data
 
     # infer info from model metadata
     if os.path.exists(model_dir / 'train_metadata.pkl'):
@@ -294,7 +301,7 @@ if __name__ == '__main__':
     avg_data = get_data_table(data_dir, voltage, pressure)
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
     
-    # split data into target x and y
+    # split data into target x and y; tX is created from mesh grid points in simulation data
     # tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
     tX = avg_data.iloc[:, :4].copy()
     tX['x**2'] = tX['X']**2
@@ -307,11 +314,24 @@ if __name__ == '__main__':
 
     tX = tX[['V', 'P', 'x', 'x**2', 'y', 'y**2']]
     
+    # create a grid of datapoints with 1x1 mm resolution, x2, y2, v, and p
+    x = np.arange(0, 0.707 + step, step)
+    y = np.arange(0, 0.2 + step, step)
+    X, Y = np.meshgrid(x, y)
+
+    tX_grid = pd.DataFrame({'x':X.flatten(), 'y':Y.flatten()})
+    tX_grid['V'] = voltage
+    tX_grid['P'] = pressure
+    tX_grid['x**2'] = tX_grid['x']**2
+    tX_grid['y**2'] = tX_grid['y']**2
+    tX_grid = tX_grid[['V', 'P', 'x', 'x**2', 'y', 'y**2']]
+
     # scale target data if necessary (if model predicts linearly)
     ty = ty_proc(avg_data.iloc[:,4:]) if lin else avg_data.iloc[:,4:]
     
     # scale tX for use in model.predict()
-    stX = scale_for_regr(tX, model_dir)
+    if on_grid: stX = scale_for_regr(tX_grid, model_dir)
+    else: stX = scale_for_regr(tX, model_dir)
     
     # display conds
     print('model_dir:', model_dir)
@@ -353,7 +373,7 @@ if __name__ == '__main__':
     for n,p_param in enumerate(ty.columns, start=1): # figs
         fig_file = regr_dir / 'regr_fig_{0:02d}.png'.format(n)
         data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4], py], axis='columns'), 
-                                  p_param, triangles, file_path=fig_file, lin=lin)
+                                  p_param, triangles, file_path=fig_file, lin=lin, on_grid=on_grid)
     
     # scores if data available
     if ty.isnull().values.sum()==0:
