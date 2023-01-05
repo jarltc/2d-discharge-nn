@@ -53,10 +53,21 @@ def data_preproc(data_table, lin=True):
     global scale_exp
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
 
+    def get_param_exp(col_vals):
+        ''' get exponent of the parameter's mean value for scaling. '''
+        mean_exp = round(np.log10(col_vals.mean()), 0) - 1.0
+        # return 0 if mean_exp is less than zero to avoid blowing up small values
+        if mean_exp >=  0.0:
+            return mean_exp
+        else:
+            return 0.0
+
+
     for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
         if col_name in trgt_params:
             if lin:
-                exponent = round(np.log10(col_vals.mean()), 0) - 1.0  # get exponent for scaling
+                # get exponent for scaling
+                exponent = get_param_exp(col_vals)
                 scale_exp.append(exponent)            
                 tmp_col = col_vals.values.reshape(-1,1)/(10**exponent)  # scale by dividing
             else:
@@ -284,7 +295,6 @@ aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().d
 
 # combine datasets
 data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
-data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
 
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
@@ -391,7 +401,7 @@ with open(out_dir / 'train_metadata.txt', 'w') as f:
     f.write(f'Lin scaling: {lin}\n')
     f.write(f'Number of points: {len(data_used)}\n')
     f.write(f'Target scaling: {minmax_y}\n')
-    f.write(f'Parameter_exponents: {scale_exp}\n')
+    f.write(f'Parameter exponents: {scale_exp}\n')
     f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
     f.write(f'Average time per epoch: {np.array(times).mean():.2f} s\n')
     f.write(f'\nUser-specified hyperparameters\n')
