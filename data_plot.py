@@ -53,8 +53,8 @@ def read_file(file_path):
     return pd.DataFrame(data, columns=column_labels)
 
 
-def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,   
-                    set_cbar_range=True, c_only=False, lin=False):          
+def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None, set_cbar_range=True,   
+                    on_grid=False, lin=False, X_mesh=None, Y_mesh=None):          
     """
     Plot the 2D graph.
 
@@ -80,6 +80,32 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,
     None.
 
     """
+
+    def data_plot_core(avg_data, param_col_label):
+
+        if on_grid:
+            image_array = avg_data[param_col_label].to_numpy().reshape(X_mesh.shape)
+            if set_cbar_range:  #
+                cmin, cmax = get_cbar_range_300V_60Pa(param_col_label, lin=lin) 
+                sc = ax.imshow(image_array, cmap=cmap, vmin=cmin, vmax=cmax, 
+                               aspect='equal', extent=[0, X_mesh.max()*100, 0, Y_mesh.max()*100], 
+                               origin='lower')
+            else:
+                sc = ax.imshow(image_array, cmap=cmap, aspect='equal', 
+                               extent=[0, X_mesh.max()*100, 0, Y_mesh.max()*100], origin='lower')
+        else:
+            if set_cbar_range:
+                cmin, cmax = get_cbar_range_300V_60Pa(param_col_label, lin=lin)
+                sc = plt.tricontourf(triangles, avg_data[param_col_label], levels=36, 
+                                 cmap=cmap, vmin=cmin, vmax=cmax)
+            else:
+                sc = plt.tricontourf(triangles, avg_data[param_col_label], levels=36, cmap=cmap)
+
+        return sc
+
+
+    cmap = plt.cm.viridis
+
     # change units on fig title if lin scale
     units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
              'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
@@ -87,25 +113,21 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,
              'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
              'Te (eV)'          :' (eV)'}
     
-    x = avg_data.X.values.reshape(-1,1)*100
-    y = avg_data.Y.values.reshape(-1,1)*100
-    z = avg_data[param_col_label].values.reshape(-1,1)
-    
-    cmap=plt.cm.viridis
+    if not on_grid:
+        # x = avg_data.X.values.reshape(-1,1)*100
+        # y = avg_data.Y.values.reshape(-1,1)*100
+        # z = avg_data[param_col_label].values.reshape(-1,1)
+        data = avg_data.set_index(['x', 'y'])
+
+    else: data = avg_data
     
     # settings for drawing
     fig = plt.figure(figsize=(3.3, 7), dpi=200)
     ax = fig.add_subplot(111)
     ax.set_aspect('equal')
-    if set_cbar_range:
-        #cmin, cmax = get_cbar_range(param_col_label)
-        cmin, cmax = get_cbar_range_300V_60Pa(param_col_label, lin=lin) 
-        sc = plt.tricontourf(triangles, avg_data[param_col_label], levels=36,
-                             cmap=cmap, vmin=cmin, vmax=cmax)
-    else:
-        # sc = ax.scatter(x, y, c=z, cmap=cmap, alpha=0.5, s=2, linewidths=0)
-        sc = plt.tricontourf(triangles, avg_data[param_col_label],
-                             levels=36, cmap=cmap)
+
+    sc = data_plot_core(data, param_col_label)
+
     cbar = plt.colorbar(sc)
     cbar.minorticks_off()
     
@@ -117,8 +139,8 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None,
     ax.set_title(title, fontsize=13)
     ax.set_xlabel('r [cm]')
     ax.set_ylabel('z [cm]')
-    ax.set_xlim(0, 21)
-    ax.set_ylim(0, 72)
+    ax.set_xlim(0, X_mesh.max()*100)
+    ax.set_ylim(0, Y_mesh.max()*100)
     
     electrodes(ax)
     
