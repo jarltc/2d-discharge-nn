@@ -85,7 +85,7 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None, set_cb
 
         if on_grid:
             image_array = avg_data[param_col_label].to_numpy().reshape(X_mesh.shape)
-            if set_cbar_range:  # TODO
+            if set_cbar_range:  #
                 cmin, cmax = get_cbar_range_300V_60Pa(param_col_label, lin=lin) 
                 sc = ax.imshow(image_array, cmap=cmap, vmin=cmin, vmax=cmax, 
                                aspect='equal', extent=[0, X_mesh.max()*100, 0, Y_mesh.max()*100], 

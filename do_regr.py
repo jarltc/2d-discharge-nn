@@ -197,14 +197,14 @@ def print_scores(ty, py, regr_dir=None):
     if on_grid:
         stX = scale_for_regr(tX, model_dir)
         spy = model.predict(stX)
-        if minmax_y:
-            py = inv_scale(spy, ty.columns, model_dir)
-            py = pd.DataFrame(py, columns=ty.columns)
-        else:
-            py = py = pd.DataFrame(spy, columns=ty.columns)
+    if minmax_y:
+        py = inv_scale(spy, ty.columns, model_dir)
+        py = pd.DataFrame(py, columns=ty.columns)
+    else:
+        py = py = pd.DataFrame(spy, columns=ty.columns)
 
-        if not lin:  # if data is logarithmic, add postprocessing step
-            py = data_postproc(py)
+    if not lin:  # if data is logarithmic, add postprocessing step
+        py = data_postproc(py)
 
     def print_scores_core(exp):
         e_params = ('Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)')
