@@ -193,6 +193,19 @@ def save_pred_vals(tX, py, rslt_dir=None):
 
 
 def print_scores(ty, py, regr_dir=None):
+
+    if on_grid:
+        stX = scale_for_regr(tX, model_dir)
+        spy = model.predict(stX)
+        if minmax_y:
+            py = inv_scale(spy, ty.columns, model_dir)
+            py = pd.DataFrame(py, columns=ty.columns)
+        else:
+            py = py = pd.DataFrame(spy, columns=ty.columns)
+
+        if not lin:  # if data is logarithmic, add postprocessing step
+            py = data_postproc(py)
+
     def print_scores_core(exp):
         e_params = ('Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)')
         for col_n,col_label in enumerate(ty.columns, start=1):
@@ -257,7 +270,7 @@ def ty_proc(ty):
 if __name__ == '__main__':
     # -------------------------------------------------------
     root = Path(os.getcwd())  # root folder where everything is saved
-    on_grid = args['mesh']  # flag makes this false, and the prediction is made on a linear grid
+    on_grid = args['mesh']  # raised flag stores false: the prediction is made on a linear grid
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -301,7 +314,7 @@ if __name__ == '__main__':
     avg_data = get_data_table(data_dir, voltage, pressure)
     avg_data = avg_data.drop(columns=['Ex (V/m)','Ey (V/m)'])
     
-    # split data into target x and y; tX is created from mesh grid points in simulation data
+    # split data into target x and y; tX is created from mesh grid points from simulation data
     # tX = create_descriptors_for_regr(avg_data.iloc[:,:4], model_dir)
     tX = avg_data.iloc[:, :4].copy()
     tX['x**2'] = tX['X']**2
@@ -315,8 +328,8 @@ if __name__ == '__main__':
     tX = tX[['V', 'P', 'x', 'x**2', 'y', 'y**2']]
     
     # create a grid of datapoints with 1x1 mm resolution, x2, y2, v, and p
-    x = np.arange(0, 0.707 + step, step)
-    y = np.arange(0, 0.2 + step, step)
+    y = np.arange(0, 0.707 + step, step)
+    x = np.arange(0, 0.2 + step, step)
     X, Y = np.meshgrid(x, y)
 
     tX_grid = pd.DataFrame({'x':X.flatten(), 'y':Y.flatten()})
@@ -353,7 +366,7 @@ if __name__ == '__main__':
     else:
         py = py = pd.DataFrame(spy, columns=ty.columns)
 
-    if not lin:
+    if not lin:  # if data is logarithmic, add postprocessing step
         py = data_postproc(py)
 
     # create a directory
@@ -368,12 +381,17 @@ if __name__ == '__main__':
     save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
     
     # create triangulations for tricontourf
-    triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
+    if on_grid:
+        triangles = None  # TODO
+    else:
+        triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
         fig_file = regr_dir / 'regr_fig_{0:02d}.png'.format(n)
-        data_plot.draw_a_2D_graph(pd.concat([avg_data.iloc[:,:4], py], axis='columns'), 
-                                  p_param, triangles, file_path=fig_file, lin=lin, on_grid=on_grid)
+        plot_df = pd.concat([avg_data.iloc[:,:4], py], axis='columns')
+
+        data_plot.draw_a_2D_graph(plot_df, p_param, triangles, file_path=fig_file, 
+                                  lin=lin, on_grid=on_grid, X_mesh=X, Y_mesh=Y)
     
     # scores if data available
     if ty.isnull().values.sum()==0:
