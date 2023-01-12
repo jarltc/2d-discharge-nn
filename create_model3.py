@@ -246,8 +246,8 @@ minmax_y = not args['unscaleY']  # opposite of args[unscaleY], i.e.: False if un
 lin = not args['log']  # opposite of args[log], i.e.: False if log flag is raised
 
 # architecture
-neurons = args['layers']
-layers = args['nodes']
+neurons = args['nodes']
+layers = args['layers']
 
 # -------------------------------------------------------
 
