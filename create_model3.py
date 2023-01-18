@@ -246,8 +246,8 @@ minmax_y = not args['unscaleY']  # opposite of args[unscaleY], i.e.: False if un
 lin = not args['log']  # opposite of args[log], i.e.: False if log flag is raised
 
 # architecture
-neurons = args['layers']
-layers = args['nodes']
+neurons = args['nodes']
+layers = args['layers']
 
 # -------------------------------------------------------
 
@@ -290,7 +290,7 @@ aug_dataVP = [read_aug_data(file) for file in data_augmentation_folder.glob('*.f
 aug_dataVP = pd.concat(aug_dataVP)
 
 # X, Y interpolation
-data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolation.nc')
+data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolation2.nc')
 aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().dropna()
 
 # combine datasets
@@ -362,7 +362,7 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 # train the model
 print('begin model training...')
 train_start = time.time()  # record start time
-history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[early_stop, tensorboard_callback, time_callback])
+history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])
 print('\ndone.\n', flush=True)
 train_end = time.time()  # record end time
 
