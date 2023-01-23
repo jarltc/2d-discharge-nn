@@ -237,7 +237,7 @@ else:
 root = Path(os.getcwd())
 data_fldr_path = root/'data'/'avg_data'
 
-# training
+# training inputs
 batch_size = int(input('Batch size (default 32): ') or '32')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
@@ -341,7 +341,7 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-model = create_model(len(feature_names), len(label_names))
+model = create_model(len(feature_names), len(label_names))  # creates the model
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
 class TimeHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
@@ -362,7 +362,7 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 # train the model
 print('begin model training...')
 train_start = time.time()  # record start time
-history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])
+history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
 print('\ndone.\n', flush=True)
 train_end = time.time()  # record end time
 
