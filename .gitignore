@@ -8,3 +8,4 @@ __pycache__/data.cpython-39.pyc
 !*.ipynb
 !*.md
 !*.sh
+!requirements.txt

@@ -1,0 +1,6 @@
+argparse
+tensorflow
+pandas
+xarray
+matplotlib
+scikit-learn
