@@ -1,5 +1,4 @@
 argparse
-tensorflow
 pandas
 xarray
 matplotlib
