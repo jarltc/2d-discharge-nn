@@ -9,7 +9,7 @@ import os
 import sys
 import time
 import shutil
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+# from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -27,13 +27,13 @@ import data
 tf.config.set_visible_devices([], 'GPU')
 
 # arguments
-parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument('-n', '--name', default=None, help='Model name.')
-parser.add_argument('-l', '--log', action='store_true', help='Scale data logarithmically.')
-parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
-parser.add_argument('-y', '--layers', default=10, help='Specify layer count.')
-parser.add_argument('-o', '--nodes', default=64, help='Specify nodes per layer.')
-args = vars(parser.parse_args())
+# parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+# parser.add_argument('-n', '--name', default=None, help='Model name.')
+# parser.add_argument('-l', '--log', action='store_true', help='Scale data logarithmically.')
+# parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
+# parser.add_argument('-y', '--layers', default=10, help='Specify layer count.')
+# parser.add_argument('-o', '--nodes', default=64, help='Specify nodes per layer.')
+# args = vars(parser.parse_args())
 
 def create_output_dir():
     rslt_dir = root / 'created_models'
@@ -251,25 +251,25 @@ def read_aug_data(file):
 
 # --------------- Model hyperparameters -----------------
 # model name
-if args['name'] == None:
-    name = input('Enter model name: ')
-else:
-    name = args['name']
+# if args['name'] == None:
+name = input('Enter model name: ')
+# else:
+#     name = args['name']
 
 root = Path(os.getcwd())
 data_fldr_path = root/'data'/'avg_data'
 
 # training inputs
-batch_size = int(input('Batch size (default 32): ') or '32')
+batch_size = int(input('Batch size (default 128): ') or '128')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
 epochs = int(input('Epochs (default 100): ') or '100')
-minmax_y = not args['unscaleY']  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
-lin = not args['log']  # opposite of args[log], i.e.: False if log flag is raised
+minmax_y = True  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
+lin = True  # opposite of args[log], i.e.: False if log flag is raised
 
 # architecture
-neurons = args['nodes']
-layers = args['layers']
+neurons = None # args['nodes']
+layers = None # args['layers']
 
 # -------------------------------------------------------
 
