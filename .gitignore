@@ -5,5 +5,7 @@ __pycache__/data.cpython-39.pyc
 
 # except
 !*.py
+!*.ipynb
 !*.md
 !*.sh
+!requirements.txt

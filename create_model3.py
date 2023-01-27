@@ -9,7 +9,7 @@ import os
 import sys
 import time
 import shutil
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+# from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -27,13 +27,13 @@ import data
 tf.config.set_visible_devices([], 'GPU')
 
 # arguments
-parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument('-n', '--name', default=None, help='Model name.')
-parser.add_argument('-l', '--log', action='store_true', help='Scale data logarithmically.')
-parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
-parser.add_argument('-y', '--layers', default=10, help='Specify layer count.')
-parser.add_argument('-o', '--nodes', default=64, help='Specify nodes per layer.')
-args = vars(parser.parse_args())
+# parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
+# parser.add_argument('-n', '--name', default=None, help='Model name.')
+# parser.add_argument('-l', '--log', action='store_true', help='Scale data logarithmically.')
+# parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
+# parser.add_argument('-y', '--layers', default=10, help='Specify layer count.')
+# parser.add_argument('-o', '--nodes', default=64, help='Specify nodes per layer.')
+# args = vars(parser.parse_args())
 
 def create_output_dir():
     rslt_dir = root / 'created_models'
@@ -142,6 +142,28 @@ def create_model(num_descriptors, num_obj_vars):
     
     return model
 
+def create_model2(num_descriptors, num_obj_vars):
+    weight_decay = 7.480215373453682e-10
+    model = keras.Sequential([
+        keras.layers.Dense(116, activation=tf.nn.relu, input_shape=(num_descriptors,)),
+        keras.layers.Dense(115, activation=tf.nn.relu),
+        keras.layers.Dense(78, activation=tf.nn.relu),
+        keras.layers.Dense(26, activation=tf.nn.relu),
+        keras.layers.Dense(46, activation=tf.nn.relu),
+        keras.layers.Dense(82, activation=tf.nn.relu),
+        keras.layers.Dense(106, activation=tf.nn.relu),
+        
+        keras.layers.Dense(num_obj_vars)
+        #keras.layers.Dropout(0.1),
+        #keras.layers.Dense(9, activation=tf.nn.relu),
+    ])
+    
+    #optimizer = tf.train.RMSPropOptimizer(0.001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    
+    model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
+    
+    return model
 
 def save_history_graph(history, out_dir, param='mae'):
     matplotlib.rcParams['font.family'] = 'Arial'
@@ -229,25 +251,25 @@ def read_aug_data(file):
 
 # --------------- Model hyperparameters -----------------
 # model name
-if args['name'] == None:
-    name = input('Enter model name: ')
-else:
-    name = args['name']
+# if args['name'] == None:
+name = input('Enter model name: ')
+# else:
+#     name = args['name']
 
 root = Path(os.getcwd())
 data_fldr_path = root/'data'/'avg_data'
 
 # training inputs
-batch_size = int(input('Batch size (default 32): ') or '32')
+batch_size = int(input('Batch size (default 128): ') or '128')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
 epochs = int(input('Epochs (default 100): ') or '100')
-minmax_y = not args['unscaleY']  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
-lin = not args['log']  # opposite of args[log], i.e.: False if log flag is raised
+minmax_y = True  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
+lin = True  # opposite of args[log], i.e.: False if log flag is raised
 
 # architecture
-neurons = args['nodes']
-layers = args['layers']
+neurons = None # args['nodes']
+layers = None # args['layers']
 
 # -------------------------------------------------------
 
@@ -341,7 +363,7 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-model = create_model(len(feature_names), len(label_names))  # creates the model
+model = create_model2(len(feature_names), len(label_names))  # creates the model
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
 class TimeHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
