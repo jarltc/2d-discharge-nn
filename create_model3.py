@@ -142,6 +142,28 @@ def create_model(num_descriptors, num_obj_vars):
     
     return model
 
+def create_model2(num_descriptors, num_obj_vars):
+    weight_decay = 7.480215373453682e-10
+    model = keras.Sequential([
+        keras.layers.Dense(116, activation=tf.nn.relu, input_shape=(num_descriptors,)),
+        keras.layers.Dense(115, activation=tf.nn.relu),
+        keras.layers.Dense(78, activation=tf.nn.relu),
+        keras.layers.Dense(26, activation=tf.nn.relu),
+        keras.layers.Dense(46, activation=tf.nn.relu),
+        keras.layers.Dense(82, activation=tf.nn.relu),
+        keras.layers.Dense(106, activation=tf.nn.relu),
+        
+        keras.layers.Dense(num_obj_vars)
+        #keras.layers.Dropout(0.1),
+        #keras.layers.Dense(9, activation=tf.nn.relu),
+    ])
+    
+    #optimizer = tf.train.RMSPropOptimizer(0.001)
+    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+    
+    model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
+    
+    return model
 
 def save_history_graph(history, out_dir, param='mae'):
     matplotlib.rcParams['font.family'] = 'Arial'
@@ -341,7 +363,7 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-model = create_model(len(feature_names), len(label_names))  # creates the model
+model = create_model2(len(feature_names), len(label_names))  # creates the model
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
 class TimeHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
