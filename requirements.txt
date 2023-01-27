@@ -3,3 +3,4 @@ pandas
 xarray
 matplotlib
 scikit-learn
+pyarrow
