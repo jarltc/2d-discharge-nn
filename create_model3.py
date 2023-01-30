@@ -142,6 +142,7 @@ def create_model_old(num_descriptors, num_obj_vars):
     
     return model
 
+
 def create_model(num_descriptors, num_obj_vars):
     """Create a model and compile it. 
 
@@ -175,6 +176,7 @@ def create_model(num_descriptors, num_obj_vars):
     model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
     
     return model
+
 
 def save_history_graph(history, out_dir, param='mae'):
     matplotlib.rcParams['font.family'] = 'Arial'
@@ -441,18 +443,71 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 # train the model
 print('begin model training...')
 train_start = time.time()  # record start time
-history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
+# history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
 print('\ndone.\n', flush=True)
 train_end = time.time()  # record end time
+
+
+def neighbor_loss(x, y_pred, df):
+    """Return loss between prediction and its nearest neighbors.
+
+    Args:
+        x (_type_): Batch of train features.
+        y_pred (_type_): Batch of predictions (model(x))
+        df (_type_): df of prediction values
+
+    Returns:
+        err: Mean squared error of neighbor loss, multiplied by a constant c.
+    """
+    global tree
+    coordinates = [x[0], x[1]]
+    k = 6  # number of neighbors
+    c = 0.3  # coefficient
+
+    # query the tree for k nearest neighbors
+    _, ii = tree.query(coordinates, k=k)
+
+    err = tf.reduce_mean([tf.square(df[param].iloc[ii].mean() - y_pred) \
+                          for param in label_names])
+
+    return c*err
+
+# custom model training loop
+optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+for epoch in range(epochs):
+    print(f"\nEpoch {epoch}:")
+
+    # iterate over batches of the dataset
+    for step, (x_batch_train, y_batch_train) in enumerate(train_ds):
+
+        with tf.GradientTape as tape:
+            # open a GradientTape to record the operations run during the forward pass,
+            # which enables auto-differentiation
+            prediction = model(x_batch_train, Training=True)  # should be a batch of vectors of 5 numbers
+
+            # compute the loss value for this minibatch
+            loss_value = keras.losses.MeanSquaredError() + neighbor_loss(x_batch_train, prediction, df)
+    
+        grads = tape.gradient(loss_value, model.trainable_weights)
+
+        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
+        # log every 200 batches
+        if step % 200 == 0:
+            print(
+                f"Training loss (for one batch) at step {step}: {float(loss_value)}"
+            )
+            print(f"Seen so far: {(step+1) * batch_size}samples")
+
 
 # save the model
 model.save(out_dir / 'model')
 print('NN model has been saved.\n')
 
-save_history_vals(history, out_dir)
-save_history_graph(history, out_dir, 'mae')
-save_history_graph(history, out_dir, 'loss')
-print('NN training history has been saved.\n')
+# save_history_vals(history, out_dir)
+# save_history_graph(history, out_dir, 'mae')
+# save_history_graph(history, out_dir, 'loss')
+# print('NN training history has been saved.\n')
 
 # save metadata
 metadata = {'name' : name,  # str
