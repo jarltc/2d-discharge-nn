@@ -237,6 +237,16 @@ def save_history_vals(history, out_dir):
     history_df.to_csv(history_path, index=False)
 
 
+def yn(str):
+    if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
+                       'sure', 'hai', 'aye', 'ayt', 'fosho']:
+        return True
+    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this l']:
+        return False
+    else:
+        raise Exception(str + 'not recognized: use y - yes, n - no')
+
+
 def read_aug_data(file):
     """Read data file and return a DataFrame.
 
@@ -344,11 +354,13 @@ name = input('Enter model name: ')
 root = Path(os.getcwd())
 data_fldr_path = root/'data'/'avg_data'
 
-# training inputs
+# user inputs
 batch_size = int(input('Batch size (default 128): ') or '128')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
 epochs = int(input('Epochs (default 100): ') or '100')
+xy = yn(input('Grid augment (y/n, default y): ') or 'y')
+vp = yn(input('VP augment (y/n, default y): ') or 'y')
 minmax_y = True  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
 lin = True  # opposite of args[log], i.e.: False if log flag is raised
 
@@ -378,7 +390,7 @@ shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-data_used, data_excluded = get_data(xy=False, vp=True)
+data_used, data_excluded = get_data(xy, vp)
 
 # set threshold to make very small values zero
 pd.set_option('display.chop_threshold', 1e-10)
@@ -394,10 +406,6 @@ if minmax_y:  # if applying minmax to target data
 alldf = pd.concat([features, labels], axis=1)
 dataset_size = len(alldf)
 
-# save the data
-# alldf.to_feather(out_dir / 'data_used.feather') 
-# data_excluded.reset_index().to_feather(out_dir / 'data_excluded.feather')
-
 # create tf dataset object and shuffle it
 dataset = tf.data.Dataset.from_tensor_slices((features, labels)).shuffle(dataset_size)
 
@@ -405,11 +413,14 @@ dataset = tf.data.Dataset.from_tensor_slices((features, labels)).shuffle(dataset
 train_size = int((1-validation_split) * dataset_size)
 val_size = int(validation_split * dataset_size)
 
-# create validation split and batch the data
+# split and batch the data
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-model = create_model(len(feature_names), len(label_names))  # creates the model
+# create the model
+model = create_model(len(feature_names), len(label_names))
+
+# callbacks
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
 class TimeHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
@@ -477,4 +488,6 @@ with open(out_dir / 'train_metadata.txt', 'w') as f:
     f.write(f'Learning rate: {learning_rate}\n')
     f.write(f'Validation split: {validation_split}\n')
     f.write(f'Epochs: {epochs}\n')
+    f.write(f'Grid augment: {xy}\n')
+    f.write(f'VP augment: {vp}\n')
     f.write('\n*** end of file ***\n')
