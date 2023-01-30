@@ -226,16 +226,6 @@ def save_history_vals(history, out_dir):
     history_df.to_csv(history_path, index=False)
 
 
-def yn(str):
-    if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
-                       'sure', 'hai', 'aye', 'ayt', 'fosho']:
-        return True
-    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this l']:
-        return False
-    else:
-        raise Exception(str + 'not recognized: use y - yes, n - no')
-
-
 def read_aug_data(file):
     """Read data file and return a DataFrame.
 
