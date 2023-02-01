@@ -156,19 +156,25 @@ def create_model(num_descriptors, num_obj_vars):
         _type_: _description_
     """
     weight_decay = 7.480215373453682e-10
-    model = keras.Sequential([
-        keras.layers.Dense(116, activation=tf.nn.relu, input_shape=(num_descriptors,)),
-        keras.layers.Dense(115, activation=tf.nn.relu),
-        keras.layers.Dense(78, activation=tf.nn.relu),
-        keras.layers.Dense(26, activation=tf.nn.relu),
-        keras.layers.Dense(46, activation=tf.nn.relu),
-        keras.layers.Dense(82, activation=tf.nn.relu),
-        keras.layers.Dense(106, activation=tf.nn.relu),
-        
-        keras.layers.Dense(num_obj_vars)
-        #keras.layers.Dropout(0.1),
-        #keras.layers.Dense(9, activation=tf.nn.relu),
-    ])
+    def hidden_layer(neurons, activation=tf.nn.relu):
+      return keras.layers.Dense(neurons, activation=activation)
+
+    weight_decay = 7.480215373453682e-10
+
+    inputs = keras.Input(shape=(num_descriptors,))
+
+    # hidden layers
+    x = keras.layers.Dense(116, activation=tf.nn.relu, input_shape=(num_descriptors,))(inputs)
+    x = hidden_layer(115)(x)
+    x = hidden_layer(78)(x)
+    x = hidden_layer(26)(x)
+    x = hidden_layer(46)(x)
+    x = hidden_layer(82)(x)
+    x = hidden_layer(106)(x)
+
+    outputs = keras.layers.Dense(num_obj_vars)(x)
+
+    model = keras.Model(inputs=inputs, outputs=outputs, name=name)
     
     #optimizer = tf.train.RMSPropOptimizer(0.001)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
@@ -447,21 +453,24 @@ train_start = time.time()  # record start time
 print('\ndone.\n', flush=True)
 train_end = time.time()  # record end time
 
+from scipy.spatial import cKDTree
+# if on mesh, create ckdtree of grid points
+tree = cKDTree(np.c_[data_excluded['X'].to_numpy(), data_excluded['Y'].to_numpy()])
 
-def neighbor_loss(x, y_pred, df):
-    """Return loss between prediction and its nearest neighbors.
+def neighbor_loss(y_true, y_pred, x, k = 6):
+    """
 
     Args:
-        x (_type_): Batch of train features.
-        y_pred (_type_): Batch of predictions (model(x))
-        df (_type_): df of prediction values
+        y_true (tensor): _description_
+        y_pred (tensor): _description_
+        x (tensor): _description_
+        k (int, optional): Number of neighbors to query. Defaults to 6.
 
     Returns:
-        err: Mean squared error of neighbor loss, multiplied by a constant c.
+        error: Combined train MSE and weighted MSE on nearest neighbors.
     """
     global tree
     coordinates = [x[0], x[1]]
-    k = 6  # number of neighbors
     c = 0.3  # coefficient
 
     # query the tree for k nearest neighbors
@@ -473,6 +482,7 @@ def neighbor_loss(x, y_pred, df):
     return c*err
 
 # custom model training loop
+model.add_loss(neighbor_loss(label, output, x))  # TODO
 optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
 for epoch in range(epochs):
     print(f"\nEpoch {epoch}:")
