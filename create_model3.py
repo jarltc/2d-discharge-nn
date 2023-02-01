@@ -398,6 +398,7 @@ shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
+# get data
 data_used, data_excluded = get_data(xy, vp)
 
 # set threshold to make very small values zero
@@ -455,9 +456,21 @@ train_end = time.time()  # record end time
 
 from scipy.spatial import cKDTree
 # if on mesh, create ckdtree of grid points
-tree = cKDTree(np.c_[data_excluded['X'].to_numpy(), data_excluded['Y'].to_numpy()])
+nodes_df = data_excluded[['x', 'y']]  # TODO: needs to have scaled values
+tree = cKDTree(np.c_[nodes_df['x'].to_numpy(), nodes_df['y'].to_numpy()])
 
-def neighbor_loss(y_true, y_pred, x, k = 6):
+def neighbor_mean(tensor_list):
+    def list_to_tensor(tensors):
+        return tensors
+
+    input_tensors = list_to_tensor(tensor_list)
+    values = [model(tensor) for tensor in input_tensors]  # this should be a list of 5-dimensional vectors
+
+    return tf.reduce_mean(values, axis=0)
+
+
+def neighbor_loss(y_true, y_pred, x, k=6, c=0.3):
+    
     """
 
     Args:
@@ -465,25 +478,36 @@ def neighbor_loss(y_true, y_pred, x, k = 6):
         y_pred (tensor): _description_
         x (tensor): _description_
         k (int, optional): Number of neighbors to query. Defaults to 6.
+        c (float, optional): Weight for the neighbor MSE
 
     Returns:
         error: Combined train MSE and weighted MSE on nearest neighbors.
     """
+
     global tree
-    coordinates = [x[0], x[1]]
-    c = 0.3  # coefficient
+    v, p, r, _, z, _ = x
 
     # query the tree for k nearest neighbors
-    _, ii = tree.query(coordinates, k=k)
+    _, ii = tree.query([r, z], k=k)
 
-    err = tf.reduce_mean([tf.square(df[param].iloc[ii].mean() - y_pred) \
-                          for param in label_names])
+    neighbor_tensors = [model(np.array([nodes_df['X'].iloc[i], 
+                           nodes_df['Y'].iloc[ii],
+                           v,
+                           p])) for i in ii]
 
-    return c*err
+    # get the mean prediction for each variable (5-dimensional vector of means)
+    neighbor_mean =  neighbor_mean(neighbor_tensors)
+
+    mse_train = tf.keras.losses.mean_squared_error(y_true, y_pred)
+    mse_neighbor = tf.keras.losses.mean_squared_error(y_pred, neighbor_mean)
+
+    return mse_train + c*mse_neighbor
+
 
 # custom model training loop
 model.add_loss(neighbor_loss(label, output, x))  # TODO
 optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+
 for epoch in range(epochs):
     print(f"\nEpoch {epoch}:")
 
