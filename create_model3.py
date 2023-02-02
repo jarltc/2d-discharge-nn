@@ -166,7 +166,8 @@ def create_model(num_descriptors, num_obj_vars):
     inputs = keras.Input(shape=(num_descriptors,))
 
     # hidden layers
-    x = keras.layers.Dense(116, activation=tf.nn.relu, input_shape=(num_descriptors,))(inputs)
+    x = keras.layers.Dense(116, activation=tf.nn.relu, 
+                           input_shape=(num_descriptors,))(inputs)
     x = hidden_layer(115)(x)
     x = hidden_layer(78)(x)
     x = hidden_layer(26)(x)
@@ -399,8 +400,9 @@ def neighbor_loss(x, k=4, c=0.3):
     """
 
     global tree
-    x = tf.convert_to_tensor(x)
-    v, p, r, _, z, _ = x.numpy()  # unpack the input vector x into its elements
+    
+    # unpack the input vector x into its elements
+    v, p, r, _, z, _ = x[0] 
 
     # query the tree for k nearest neighbors
     _, ii = tree.query([r, z], k=k)
