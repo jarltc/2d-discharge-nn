@@ -8,23 +8,25 @@ author @jarl
 import os
 import sys
 import time
+import data
 import shutil
 # from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+import pickle
+import datetime
+from pathlib import Path
+
+
 import numpy as np
 import pandas as pd
 import xarray as xr
-from pathlib import Path
-import pickle
 import tensorflow as tf
-import datetime
+from scipy.spatial import cKDTree
 from tensorflow import keras
 import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
-import data
-
-tf.config.set_visible_devices([], 'GPU')
+tf.config.set_visible_devices([], 'GPU')  # disable gpu (cpu is faster)
 
 # arguments
 # parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
@@ -179,7 +181,7 @@ def create_model(num_descriptors, num_obj_vars):
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     # model.add_loss(neighbor_loss(inputs))
 
-    model.compile(loss=neighbor_loss(model.Input), optimizer=optimizer, metrics=['mae'])
+    model.compile(loss=neighbor_loss(inputs), optimizer=optimizer, metrics=['mae'])
     # model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
     
     return model
@@ -369,7 +371,7 @@ def neighbor_mean(ii, v, p):
         of each variable for x's neighbors.
     """
     rs = nodes_df['X'].iloc[ii].values
-    rs = nodes_df['Y'].iloc[ii].values
+    zs = nodes_df['Y'].iloc[ii].values
     vs = np.repeat(np.array([v]), len(rs))
     ps = np.repeat(np.array([p]), len(rs))
 
@@ -397,7 +399,8 @@ def neighbor_loss(x, k=4, c=0.3):
     """
 
     global tree
-    v, p, r, _, z, _ = x  # unpack the input vector x into its elements
+    x = tf.convert_to_tensor(x)
+    v, p, r, _, z, _ = x.numpy()  # unpack the input vector x into its elements
 
     # query the tree for k nearest neighbors
     _, ii = tree.query([r, z], k=k)
@@ -488,7 +491,11 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-# TODO create the model 
+# if on mesh, create ckdtree of grid points
+nodes_df = scale_all(data_excluded[['X', 'Y']], 'x') 
+tree = cKDTree(np.c_[nodes_df['X'].to_numpy(), nodes_df['Y'].to_numpy()])
+
+# create the model 
 model = create_model(len(feature_names), len(label_names))
 
 # callbacks
@@ -512,14 +519,9 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 # train the model
 print('begin model training...')
 train_start = time.time()  # record start time
-# history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
+history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
 print('\ndone.\n', flush=True)
 train_end = time.time()  # record end time
-
-from scipy.spatial import cKDTree
-# if on mesh, create ckdtree of grid points
-nodes_df = scale_all(data_excluded[['x', 'y']]) 
-tree = cKDTree(np.c_[nodes_df['x'].to_numpy(), nodes_df['y'].to_numpy()])
 
 # save the model
 model.save(out_dir / 'model')
