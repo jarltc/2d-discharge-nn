@@ -144,7 +144,7 @@ def create_model_old(num_descriptors, num_obj_vars):
 
 
 def create_model(num_descriptors, num_obj_vars):
-    """Create a model and compile it. 
+    """Create a model.
 
     Model layers, activation,
 
@@ -155,9 +155,9 @@ def create_model(num_descriptors, num_obj_vars):
     Returns:
         _type_: _description_
     """
-    weight_decay = 7.480215373453682e-10
-    def hidden_layer(neurons, activation=tf.nn.relu):
-      return keras.layers.Dense(neurons, activation=activation)
+    weight_decay = 7.480215373453682e-10  # TODO: optimize value for (loss - val_loss)
+    def hidden_layer(neurons):
+      return keras.layers.Dense(neurons, activation=tf.nn.relu)
 
     weight_decay = 7.480215373453682e-10
 
@@ -176,10 +176,11 @@ def create_model(num_descriptors, num_obj_vars):
 
     model = keras.Model(inputs=inputs, outputs=outputs, name=name)
     
-    #optimizer = tf.train.RMSPropOptimizer(0.001)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    
-    model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
+    # model.add_loss(neighbor_loss(inputs))
+
+    model.compile(loss=neighbor_loss(model.Input), optimizer=optimizer, metrics=['mae'])
+    # model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
     
     return model
 
@@ -255,6 +256,7 @@ def yn(str):
         raise Exception(str + 'not recognized: use y - yes, n - no')
 
 
+##### data processing ######
 def read_aug_data(file):
     """Read data file and return a DataFrame.
 
@@ -268,7 +270,6 @@ def read_aug_data(file):
     return interp_df
 
 
-##### data processing ######
 def get_augmentation_data(data_used, xy: bool, vp: bool):
     """Get augmentation data for training.
 
@@ -352,6 +353,66 @@ def get_data(xy=False, vp=False):
     return data_used, data_excluded
 
 
+###### neighbor regularization ######
+def neighbor_mean(ii, v, p):
+    """Get a vector of mean values predicted by the model for neighboring points.
+
+    For each point x, the model needs to predict all k neighbors.
+
+    Args:
+        ii (list of int): Indices of x's neighbors from nodes_df.
+        v (float): Voltage of x (scaled).
+        p (float): Pressure of x (scaled).
+
+    Returns:
+        tf.Tensor: Tensor of shape (num_neighbors, num_vars) containing the mean value 
+        of each variable for x's neighbors.
+    """
+    rs = nodes_df['X'].iloc[ii].values
+    rs = nodes_df['Y'].iloc[ii].values
+    vs = np.repeat(np.array([v]), len(rs))
+    ps = np.repeat(np.array([p]), len(rs))
+
+    tensors = tf.convert_to_tensor(np.stack([vs, ps, rs, rs**2, zs, zs**2]).T)
+
+    values = [model(tensor) for tensor in tensors]  # this should be a list of 5-dimensional vectors
+
+    return tf.reduce_mean(values, axis=0)
+
+
+def neighbor_loss(x, k=4, c=0.3):
+    """Custom loss function with neighbor regularization. 
+    
+    Neighbor loss is parametrized by c.
+
+    Args:
+        y_true (tensor): Vector of true values.
+        y_pred (tensor): Vector of predicted values.
+        x (tensor): Model input.
+        k (int, optional): Number of neighbors to query. Defaults to 6.
+        c (float, optional): Weight for the neighbor MSE
+
+    Returns:
+        error: Combined train MSE and weighted MSE on nearest neighbors.
+    """
+
+    global tree
+    v, p, r, _, z, _ = x  # unpack the input vector x into its elements
+
+    # query the tree for k nearest neighbors
+    _, ii = tree.query([r, z], k=k)
+
+    # get the mean vector of x's neighbors
+    neighbor_mean =  neighbor_mean(ii, v, p)
+
+    def neighbor_loss_core(y_true, y_pred):
+        mse_train = tf.keras.losses.mean_squared_error(y_true, y_pred)
+        mse_neighbor = tf.keras.losses.mean_squared_error(y_pred, neighbor_mean)
+        return mse_train + c*mse_neighbor
+    
+    return neighbor_loss_core
+
+
 # --------------- Model hyperparameters -----------------
 # model name
 # if args['name'] == None:
@@ -387,9 +448,10 @@ pressure_excluded = 60 # Pa
 
 # -------------------------------------------------------
 
-out_dir = create_output_dir()
+out_dir = root/'created_models'/'test_dir' if name == 'test' else create_output_dir()
 scaler_dir = out_dir / 'scalers'
-os.mkdir(scaler_dir)
+if not scaler_dir.is_dir():
+    os.mkdir(scaler_dir) 
 
 # copy some files for backup (probably made redundant by metadata)
 shutil.copyfile(__file__, out_dir / 'create_model.py')
@@ -426,7 +488,7 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-# create the model
+# TODO create the model 
 model = create_model(len(feature_names), len(label_names))
 
 # callbacks
@@ -456,83 +518,8 @@ train_end = time.time()  # record end time
 
 from scipy.spatial import cKDTree
 # if on mesh, create ckdtree of grid points
-nodes_df = data_excluded[['x', 'y']]  # TODO: needs to have scaled values
+nodes_df = scale_all(data_excluded[['x', 'y']]) 
 tree = cKDTree(np.c_[nodes_df['x'].to_numpy(), nodes_df['y'].to_numpy()])
-
-def neighbor_mean(tensor_list):
-    def list_to_tensor(tensors):
-        return tensors
-
-    input_tensors = list_to_tensor(tensor_list)
-    values = [model(tensor) for tensor in input_tensors]  # this should be a list of 5-dimensional vectors
-
-    return tf.reduce_mean(values, axis=0)
-
-
-def neighbor_loss(y_true, y_pred, x, k=6, c=0.3):
-    
-    """
-
-    Args:
-        y_true (tensor): _description_
-        y_pred (tensor): _description_
-        x (tensor): _description_
-        k (int, optional): Number of neighbors to query. Defaults to 6.
-        c (float, optional): Weight for the neighbor MSE
-
-    Returns:
-        error: Combined train MSE and weighted MSE on nearest neighbors.
-    """
-
-    global tree
-    v, p, r, _, z, _ = x
-
-    # query the tree for k nearest neighbors
-    _, ii = tree.query([r, z], k=k)
-
-    neighbor_tensors = [model(np.array([nodes_df['X'].iloc[i], 
-                           nodes_df['Y'].iloc[ii],
-                           v,
-                           p])) for i in ii]
-
-    # get the mean prediction for each variable (5-dimensional vector of means)
-    neighbor_mean =  neighbor_mean(neighbor_tensors)
-
-    mse_train = tf.keras.losses.mean_squared_error(y_true, y_pred)
-    mse_neighbor = tf.keras.losses.mean_squared_error(y_pred, neighbor_mean)
-
-    return mse_train + c*mse_neighbor
-
-
-# custom model training loop
-model.add_loss(neighbor_loss(label, output, x))  # TODO
-optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
-
-for epoch in range(epochs):
-    print(f"\nEpoch {epoch}:")
-
-    # iterate over batches of the dataset
-    for step, (x_batch_train, y_batch_train) in enumerate(train_ds):
-
-        with tf.GradientTape as tape:
-            # open a GradientTape to record the operations run during the forward pass,
-            # which enables auto-differentiation
-            prediction = model(x_batch_train, Training=True)  # should be a batch of vectors of 5 numbers
-
-            # compute the loss value for this minibatch
-            loss_value = keras.losses.MeanSquaredError() + neighbor_loss(x_batch_train, prediction, df)
-    
-        grads = tape.gradient(loss_value, model.trainable_weights)
-
-        optimizer.apply_gradients(zip(grads, model.trainable_weights))
-
-        # log every 200 batches
-        if step % 200 == 0:
-            print(
-                f"Training loss (for one batch) at step {step}: {float(loss_value)}"
-            )
-            print(f"Seen so far: {(step+1) * batch_size}samples")
-
 
 # save the model
 model.save(out_dir / 'model')
