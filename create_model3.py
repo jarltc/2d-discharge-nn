@@ -383,7 +383,7 @@ def neighbor_mean(ii, v, p):
     return tf.reduce_mean(values, axis=0)
 
 
-def neighbor_loss(x, k=4, c=0.3):
+def neighbor_loss(x, k=4, c=0.3, decay=False):
     """Custom loss function with neighbor regularization. 
     
     Neighbor loss is parametrized by c.
@@ -396,7 +396,7 @@ def neighbor_loss(x, k=4, c=0.3):
         c (float, optional): Weight for the neighbor MSE
 
     Returns:
-        error: Combined train MSE and weighted MSE on nearest neighbors.
+        error: Weighted MSE between x and its k nearest neighbors.
     """
 
     global tree
@@ -408,14 +408,14 @@ def neighbor_loss(x, k=4, c=0.3):
     _, ii = tree.query([r, z], k=k)
 
     # get the mean vector of x's neighbors
-    neighbor_mean =  neighbor_mean(ii, v, p)
+    return c*neighbor_mean(ii, v, p)
 
-    def neighbor_loss_core(y_true, y_pred):
-        mse_train = tf.keras.losses.mean_squared_error(y_true, y_pred)
-        mse_neighbor = tf.keras.losses.mean_squared_error(y_pred, neighbor_mean)
-        return mse_train + c*mse_neighbor
+    # def neighbor_loss_core(y_true, y_pred):
+    #     mse_train = tf.keras.losses.mean_squared_error(y_true, y_pred)
+    #     mse_neighbor = tf.keras.losses.mean_squared_error(y_pred, neighbor_mean)
+    #     return mse_train + c*mse_neighbor
     
-    return neighbor_loss_core
+    # return neighbor_loss_core
 
 
 # --------------- Model hyperparameters -----------------
@@ -521,9 +521,37 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 # train the model
 print('begin model training...')
 train_start = time.time()  # record start time
-history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
+# history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
 print('\ndone.\n', flush=True)
 train_end = time.time()  # record end time
+
+# custom training loop
+for epoch in range(epochs):
+    print(f"\nStart of epoch {epoch}")
+
+    # Iterate over the batches of the dataset
+    for step, (x_batch_train, y_batch_train) in enumerate(train):
+        # Get neighbor mean for each item in the batch:
+        neighbor_means = np.stack([neighbor_loss(x) for x in x_batch_train]).T
+        neighbor_means = tf.convert_to_tensor(neighbor_means)
+
+        with tf.GradientTape as tape:
+            # Run the forward pass of the layer. The operations that the layer applies to its inputs are going to be 
+            # recorded on the GradientTape
+            logits = model(x_batch_train, training=True)  # logits for this minibatch
+
+            # Compute the loss value for this minibatch
+            loss_value = loss_fn(y_batch_train, logits) + \
+             tf.keras.losses.mean_squared_error(y_batch_train, neighbor_mean)
+
+        # use the gradient tape to automatically retrieve the gradients of the trainable variables
+        # with respect to the loss.
+        grads = tape.gradient(loss_value, model.trainable_weights)
+
+        # Run one step of gradient descent by updating the value
+        # of the variables to minimize the loss.
+        optimizer.apply_gradients(zip(grads, model.trainable_weights))
+
 
 # save the model
 model.save(out_dir / 'model')
