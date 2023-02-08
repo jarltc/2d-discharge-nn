@@ -179,12 +179,6 @@ def create_model(num_descriptors, num_obj_vars):
 
     model = keras.Model(inputs=inputs, outputs=outputs, name=name)
     
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    # model.add_loss(neighbor_loss(inputs))
-
-    model.compile(loss=neighbor_loss(inputs), optimizer=optimizer, metrics=['mae'])
-    # model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
-    
     return model
 
 
@@ -357,65 +351,79 @@ def get_data(xy=False, vp=False):
 
 
 ###### neighbor regularization ######
-def neighbor_mean(ii, v, p):
-    """Get a vector of mean values predicted by the model for neighboring points.
+def neighbor_loss(x_batch, y_batch, training=False, k=4):
+    """Calculate neighbor difference for each training point.
 
-    For each point x, the model needs to predict all k neighbors.
-
+    This loss is added as a regularizer to improve smoothness.
     Args:
-        ii (list of int): Indices of x's neighbors from nodes_df.
-        v (float): Voltage of x (scaled).
-        p (float): Pressure of x (scaled).
+        x_batch (tf.Tensor): Batched features of the specified batch size.
+        y_batch (tf.Tensor): Batched labels of the specified batch size.
+        training (bool, optional): Make model weights trainable. Defaults to False.
+        k (int, optional): Number of neighbors to query. Defaults to 4.
 
     Returns:
-        tf.Tensor: Tensor of shape (num_neighbors, num_vars) containing the mean value 
-        of each variable for x's neighbors.
+        Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
     """
-    rs = nodes_df['X'].iloc[ii].values
-    zs = nodes_df['Y'].iloc[ii].values
-    vs = np.repeat(np.array([v]), len(rs))
-    ps = np.repeat(np.array([p]), len(rs))
-
-    tensors = tf.convert_to_tensor(np.stack([vs, ps, rs, rs**2, zs, zs**2]).T)
-
-    values = [model(tensor) for tensor in tensors]  # this should be a list of 5-dimensional vectors
-
-    return tf.reduce_mean(values, axis=0)
-
-
-def neighbor_loss(x, k=4, c=0.3, decay=False):
-    """Custom loss function with neighbor regularization. 
+    global c
+    y_pred = model(x_batch, training=training)
     
-    Neighbor loss is parametrized by c.
+    for point in x_batch:
+        x, y, v, p = point  # unpack point, returns tensors
+        v = np.array([v.numpy()])  # convert tensor to 1D vector (numpy)
+        p = np.array([p.numpy()])
+
+        _, ii = tree.query([x, y], k=k)  # get nearest k neighbors of the point
+        
+        # get pair of x, y of point's neighbors
+        neighbor_xy = [features[['x', 'y']].iloc[i].to_numpy() for i in ii]
+
+        # combine (x,y) with v and p, as input to the model
+        neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
+
+        # convert to tensor (expand dims cause it expects a batch size)
+        neighbors = [tf.expand_dims(tf.convert_to_tensor(neighbor), axis=0) for neighbor in neighbors]
+        
+        # get mean of neighbor predictions for 5 variables
+        neighbors_mean = tf.reduce_mean([model(neighbor) for neighbor in neighbors], axis=1)
+        batch_mean = tf.stack(neighbors_mean)
+
+    def neighbor_loss_core(y_true, y_pred):
+        """Calculate the combined MSE.
+
+        Args:
+            y_true (tf.Tensor): Tensor of shape (batch_size, num_labels).
+            y_pred (tf.Tensor): Output of model(x_batch), with a shape of (batch_size, num_labels)
+
+        Returns:
+            Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
+            *not sure if this is proper behavior
+        """
+        mse_train = tf.cast(tf.losses.mean_squared_error(y_pred, y_true), 'float64')
+        mse_neighbor = tf.cast(c*tf.losses.mean_squared_error(batch_mean, y_pred), 'float64')
+
+        return tf.math.add(mse_train, mse_neighbor)
+
+    return neighbor_loss_core(y_pred, y_batch)
+
+
+def reg_coefficient(epoch, c=0.3, r=25, which='exp'):
+    """Calclulate regularization coefficient.
 
     Args:
-        y_true (tensor): Vector of true values.
-        y_pred (tensor): Vector of predicted values.
-        x (tensor): Model input.
-        k (int, optional): Number of neighbors to query. Defaults to 6.
-        c (float, optional): Weight for the neighbor MSE
+        epoch (int): Current epoch.
+        c (float, optional): Regularization coefficient to be approached. Defaults to 0.3.
+        r (int, optional): Rate of increase. Coefficient increases by {} over r epochs. Defaults to 25.
 
     Returns:
-        error: Weighted MSE between x and its k nearest neighbors.
+        c: Coefficient at each epoch.
     """
 
-    global tree
-    
-    # unpack the input vector x into its elements
-    v, p, r, _, z, _ = x[0] 
-
-    # query the tree for k nearest neighbors
-    _, ii = tree.query([r, z], k=k)
-
-    # get the mean vector of x's neighbors
-    return c*neighbor_mean(ii, v, p)
-
-    # def neighbor_loss_core(y_true, y_pred):
-    #     mse_train = tf.keras.losses.mean_squared_error(y_true, y_pred)
-    #     mse_neighbor = tf.keras.losses.mean_squared_error(y_pred, neighbor_mean)
-    #     return mse_train + c*mse_neighbor
-    
-    # return neighbor_loss_core
+    if which=='exp':
+        return c - c*np.exp(-epoch/r)
+    elif which=='sigmoid':
+        k = 0.085
+        x_0 = 100
+        return c/(1 + np.exp(-k*(x-x_0)))
 
 
 # --------------- Model hyperparameters -----------------
@@ -499,6 +507,8 @@ tree = cKDTree(np.c_[nodes_df['X'].to_numpy(), nodes_df['Y'].to_numpy()])
 
 # create the model 
 model = create_model(len(feature_names), len(label_names))
+optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
+# model.compile(loss=, optimizer=optimizer, metrics=['mae'])
 
 # callbacks
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
@@ -522,36 +532,27 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(
 print('begin model training...')
 train_start = time.time()  # record start time
 # history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
-print('\ndone.\n', flush=True)
-train_end = time.time()  # record end time
 
 # custom training loop
-for epoch in range(epochs):
-    print(f"\nStart of epoch {epoch}")
+num_epochs = 10
+optimizer = tf.keras.optimizers.Adam()
 
-    # Iterate over the batches of the dataset
-    for step, (x_batch_train, y_batch_train) in enumerate(train):
-        # Get neighbor mean for each item in the batch:
-        neighbor_means = np.stack([neighbor_loss(x) for x in x_batch_train]).T
-        neighbor_means = tf.convert_to_tensor(neighbor_means)
-
-        with tf.GradientTape as tape:
-            # Run the forward pass of the layer. The operations that the layer applies to its inputs are going to be 
-            # recorded on the GradientTape
-            logits = model(x_batch_train, training=True)  # logits for this minibatch
-
-            # Compute the loss value for this minibatch
-            loss_value = loss_fn(y_batch_train, logits) + \
-             tf.keras.losses.mean_squared_error(y_batch_train, neighbor_mean)
-
-        # use the gradient tape to automatically retrieve the gradients of the trainable variables
-        # with respect to the loss.
-        grads = tape.gradient(loss_value, model.trainable_weights)
-
-        # Run one step of gradient descent by updating the value
-        # of the variables to minimize the loss.
+for epoch in range(num_epochs):
+    epoch_loss_avg = tf.keras.metrics.Mean()
+    c = reg_coefficient(epoch)
+    
+    for (x, y) in data:
+        loss_value, grads = grad(model, x, y)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
+        
+        epoch_loss_avg.update_state(loss_value)
 
+    # end epoch
+    print(f"Epoch {epoch}: loss = {epoch_loss_avg.result()}")
+
+
+print('\ndone.\n', flush=True)
+train_end = time.time()  # record end time
 
 # save the model
 model.save(out_dir / 'model')
