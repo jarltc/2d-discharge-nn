@@ -344,15 +344,41 @@ def get_data(xy=False, vp=False):
         data_used = get_augmentation_data(data_used, xy, vp)
 
     # create new column of x^2 and y^2
-    data_used['x**2'] = data_used['x']**2
-    data_used['y**2'] = data_used['y']**2
+    # data_used['x**2'] = data_used['x']**2
+    # data_used['y**2'] = data_used['y']**2
+
+    try: 
+        data_used.drop(columns=['x**2', 'y**2'], inplace=True)
+    except:
+        print("Columns x**2 and y**2 don't exist lol")
     
     return data_used, data_excluded
 
 
 ###### neighbor regularization ######
-def neighbor_loss(x_batch, y_batch, training=False, k=4):
-    """Calculate neighbor difference for each training point.
+def neighbor_mean(point, k):
+    # get a point's neighbors and get a vector of the means for each variable (shape: (k,5))
+    x, y, v, p = point  # unpack point, returns tensors
+    v = np.array([v.numpy()])  # convert tensor to 1D vector (numpy)
+    p = np.array([p.numpy()])
+
+    _, ii = tree.query([x, y], k)  # get nearest k neighbors of the point
+    
+    # get pair of x, y of point's neighbors
+    neighbor_xy = [features[['x', 'y']].iloc[i].to_numpy() for i in ii]
+
+    # combine (x,y) with v and p, as input to the model
+    neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
+
+    # convert to tensor (expand dims cause it expects a batch size)
+    neighbors = [tf.expand_dims(tf.convert_to_tensor(neighbor), axis=0) for neighbor in neighbors]
+    
+    # get mean of neighbor predictions for 5 variables
+    return tf.reduce_mean([model(neighbor) for neighbor in neighbors], axis=0)
+
+
+def neighbor_loss(x_batch, y_batch, training=False, k=3):
+    """Calculate neighbor difference for each training point in a batch.
 
     This loss is added as a regularizer to improve smoothness.
     Args:
@@ -367,25 +393,8 @@ def neighbor_loss(x_batch, y_batch, training=False, k=4):
     global c
     y_pred = model(x_batch, training=training)
     
-    for point in x_batch:
-        x, y, v, p = point  # unpack point, returns tensors
-        v = np.array([v.numpy()])  # convert tensor to 1D vector (numpy)
-        p = np.array([p.numpy()])
-
-        _, ii = tree.query([x, y], k=k)  # get nearest k neighbors of the point
-        
-        # get pair of x, y of point's neighbors
-        neighbor_xy = [features[['x', 'y']].iloc[i].to_numpy() for i in ii]
-
-        # combine (x,y) with v and p, as input to the model
-        neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
-
-        # convert to tensor (expand dims cause it expects a batch size)
-        neighbors = [tf.expand_dims(tf.convert_to_tensor(neighbor), axis=0) for neighbor in neighbors]
-        
-        # get mean of neighbor predictions for 5 variables
-        neighbors_mean = tf.reduce_mean([model(neighbor) for neighbor in neighbors], axis=1)
-        batch_mean = tf.stack(neighbors_mean)
+    neighbor_means = [neighbor_mean(point, k) for point in x_batch]    
+    batch_mean = tf.concat(neighbor_means, axis=0)
 
     def neighbor_loss_core(y_true, y_pred):
         """Calculate the combined MSE.
@@ -396,7 +405,6 @@ def neighbor_loss(x_batch, y_batch, training=False, k=4):
 
         Returns:
             Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
-            *not sure if this is proper behavior
         """
         mse_train = tf.cast(tf.losses.mean_squared_error(y_pred, y_true), 'float64')
         mse_neighbor = tf.cast(c*tf.losses.mean_squared_error(batch_mean, y_pred), 'float64')
@@ -406,12 +414,14 @@ def neighbor_loss(x_batch, y_batch, training=False, k=4):
     return neighbor_loss_core(y_pred, y_batch)
 
 
-def reg_coefficient(epoch, c=0.3, r=25, which='exp'):
-    """Calclulate regularization coefficient.
+def c_e(epoch, c=0.5, r=25, which='exp'):
+    """Get regularization coefficient following a specified curve.
+
+    function c(e), where e is the epoch and c is the coefficient at the epoch.
 
     Args:
         epoch (int): Current epoch.
-        c (float, optional): Regularization coefficient to be approached. Defaults to 0.3.
+        c (float, optional): Regularization coefficient to be approached. Defaults to 0.5.
         r (int, optional): Rate of increase. Coefficient increases by {} over r epochs. Defaults to 25.
 
     Returns:
@@ -440,7 +450,7 @@ data_fldr_path = root/'data'/'avg_data'
 batch_size = int(input('Batch size (default 128): ') or '128')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
-epochs = int(input('Epochs (default 100): ') or '100')
+epochs = int(input('Epochs (default 5): ') or '5')
 xy = yn(input('Grid augment (y/n, default y): ') or 'y')
 vp = yn(input('VP augment (y/n, default y): ') or 'y')
 minmax_y = True  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
@@ -470,7 +480,8 @@ if not scaler_dir.is_dir():
 shutil.copyfile(__file__, out_dir / 'create_model.py')
 shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
-feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
+# feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
+feature_names = ['V', 'P', 'x', 'y']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
 # get data
@@ -534,17 +545,23 @@ train_start = time.time()  # record start time
 # history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
 
 # custom training loop
-num_epochs = 10
-optimizer = tf.keras.optimizers.Adam()
-
-for epoch in range(num_epochs):
+for epoch in range(epochs):
+    print(f'Start epoch {epoch}')
     epoch_loss_avg = tf.keras.metrics.Mean()
-    c = reg_coefficient(epoch)
+    c = c_e(epoch)
     
-    for (x, y) in data:
-        loss_value, grads = grad(model, x, y)
+    for (x, y) in train_ds:
+        # open a GradientTape to record operations
+        with tf.GradientTape() as tape:
+            loss_value = neighbor_loss(x, y, training=True)
+        
+        # compute the gradient of the loss with respect to the model's weights
+        grads = tape.gradient(loss_value, model.trainable_weights)
+        
+        # use the optimizer to update model's weights
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
         
+        # update the epoch loss
         epoch_loss_avg.update_state(loss_value)
 
     # end epoch
