@@ -102,7 +102,7 @@ def scale_all(data_table, x_or_y, out_dir=None):
     return scaled_data_table
 
 
-def create_model(num_descriptors, num_obj_vars):
+def create_model_old(num_descriptors, num_obj_vars):
     '''
     Create the model and compile it
 
@@ -142,23 +142,36 @@ def create_model(num_descriptors, num_obj_vars):
     
     return model
 
-def create_model2(num_descriptors, num_obj_vars):
+def create_model(num_descriptors, num_obj_vars):
+    """Create a model.
+    Model layers, activation,
+    Args:
+        num_descriptors (_type_): _description_
+        num_obj_vars (_type_): _description_
+    Returns:
+        model: Keras model
+    """
+    weight_decay = 7.480215373453682e-10  # TODO: optimize value for (loss - val_loss)
+    def hidden_layer(neurons):
+      return keras.layers.Dense(neurons, activation=tf.nn.relu)
+
     weight_decay = 7.480215373453682e-10
-    model = keras.Sequential([
-        keras.layers.Dense(116, activation=tf.nn.relu, input_shape=(num_descriptors,)),
-        keras.layers.Dense(115, activation=tf.nn.relu),
-        keras.layers.Dense(78, activation=tf.nn.relu),
-        keras.layers.Dense(26, activation=tf.nn.relu),
-        keras.layers.Dense(46, activation=tf.nn.relu),
-        keras.layers.Dense(82, activation=tf.nn.relu),
-        keras.layers.Dense(106, activation=tf.nn.relu),
-        
-        keras.layers.Dense(num_obj_vars)
-        #keras.layers.Dropout(0.1),
-        #keras.layers.Dense(9, activation=tf.nn.relu),
-    ])
-    
-    #optimizer = tf.train.RMSPropOptimizer(0.001)
+
+    inputs = keras.Input(shape=(num_descriptors,))
+
+    # hidden layers
+    x = keras.layers.Dense(116, activation=tf.nn.relu, 
+                           input_shape=(num_descriptors,))(inputs)
+    x = hidden_layer(115)(x)
+    x = hidden_layer(78)(x)
+    x = hidden_layer(26)(x)
+    x = hidden_layer(46)(x)
+    x = hidden_layer(82)(x)
+    x = hidden_layer(106)(x)
+
+    outputs = keras.layers.Dense(num_obj_vars)(x)
+
+    model = keras.Model(inputs=inputs, outputs=outputs, name=name)
     optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
     
     model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
@@ -363,7 +376,7 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-model = create_model2(len(feature_names), len(label_names))  # creates the model
+model = create_model(len(feature_names), len(label_names))  # creates the model
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
 class TimeHistory(keras.callbacks.Callback):
     def on_train_begin(self, logs={}):
