@@ -545,12 +545,13 @@ train_start = time.time()  # record start time
 # history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
 
 # custom training loop
-for epoch in range(epochs):
+from tqdm import tqdm
+for epoch in tqdm(range(epochs)):
     print(f'Start epoch {epoch}')
     epoch_loss_avg = tf.keras.metrics.Mean()
     c = c_e(epoch)
     
-    for (x, y) in train_ds:
+    for (x, y) in tqdm(train_ds):
         # open a GradientTape to record operations
         with tf.GradientTape() as tape:
             loss_value = neighbor_loss(x, y, training=True)
