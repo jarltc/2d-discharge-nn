@@ -13,7 +13,6 @@ import shutil
 import pickle
 from tqdm import tqdm
 from pathlib import Path
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 
 import numpy as np
 import pandas as pd
@@ -25,7 +24,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from sklearn.preprocessing import MinMaxScaler
 
 import data
 
@@ -63,127 +61,6 @@ class MLP(nn.Module):
         return output
 
 
-def create_output_dir():
-    # TODO: move to data module
-    rslt_dir = root / 'created_models'
-    if not os.path.exists(rslt_dir):
-        os.mkdir(rslt_dir)
-    
-    date_str = datetime.datetime.today().strftime('%Y-%m-%d_%H%M')
-    out_dir = rslt_dir / date_str
-    if not os.path.exists(out_dir):
-        os.mkdir(out_dir)
-    print('directory', out_dir, 'has been created.\n')
-    
-    return out_dir
-
-
-def data_preproc(data_table, lin=True):
-    # TODO: move to data module
-    global scale_exp
-    trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
-
-    def get_param_exp(col_vals):
-        ''' get exponent of the parameter's mean value for scaling. '''
-        mean_exp = round(np.log10(col_vals.mean()), 0) - 1.0
-        # return 0 if mean_exp is less than zero to avoid blowing up small values
-        if mean_exp >=  0.0:
-            return mean_exp
-        else:
-            return 0.0
-
-
-    for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
-        if col_name in trgt_params:
-            if lin:
-                # get exponent for scaling
-                exponent = get_param_exp(col_vals)
-                scale_exp.append(exponent)            
-                tmp_col = col_vals.values.reshape(-1,1)/(10**exponent)  # scale by dividing
-            else:
-                tmp_col = np.log10(col_vals.values.reshape(-1,1))
-        else:
-            tmp_col = col_vals.values.reshape(-1,1)
-        proced_table = tmp_col if col_n==1 else np.hstack([proced_table,tmp_col])
-    
-    proced_table = pd.DataFrame(proced_table, columns=data_table.columns)
-    proced_table = proced_table.replace([np.inf,-np.inf], np.nan)
-    proced_table = proced_table.dropna(how='any')
-    
-    return proced_table
-
-
-def scale_all(data_table, x_or_y, out_dir=None):
-    # TODO: move to data module
-    data_table = data_table.copy()
-    for n,column in enumerate(data_table.columns, start=1):
-        scaler = MinMaxScaler()
-        data_col = data_table[column].values.reshape(-1,1)
-        scaler.fit(data_col)
-        scaled_data = scaler.transform(data_col)
-        scaled_data_table = scaled_data if n==1 else np.hstack([scaled_data_table,scaled_data])
-        
-        if out_dir is not None:
-            pickle_file = out_dir / f'{x_or_y}scaler_{n:02d}.pkl'
-            with open(pickle_file, mode='wb') as pf:
-                pickle.dump(scaler, pf, protocol=4)
-    
-    scaled_data_table = pd.DataFrame(scaled_data_table, columns=data_table.columns)
-    
-    return scaled_data_table
-
-
-def save_history_graph(history, out_dir, param='mae'):
-    # TODO: move to plot module
-    matplotlib.rcParams['font.family'] = 'Arial'
-    x  = np.array(history.epoch)
-    if param=='mae':
-        y1 = np.array(history.history['mae'])
-        y2 = np.array(history.history['val_mae'])
-    elif param=='loss':
-        y1 = np.array(history.history['loss'])
-        y2 = np.array(history.history['val_loss'])
-    
-
-    plt.rcParams['font.size'] = 12 # 12 is the default size
-    plt.rcParams['xtick.minor.size'] = 2
-    plt.rcParams['ytick.minor.size'] = 2
-    fig = plt.figure(figsize=(6.0,6.0))
-    
-    # axis labels
-    plt.xlabel('Epoch')
-    if param=='mae':
-        plt.ylabel('MAE')
-    elif param=='loss':
-        plt.ylabel('Loss')
-    
-    plt.plot(x, y1, color='green', lw=1.0, label='train')
-    plt.plot(x, y2, color='red'  , lw=1.0, label='test')
-    
-    # set both x_min and y_min as zero
-    ax = plt.gca()
-    x_min, x_max = ax.get_xlim()
-    y_min, y_max = ax.get_ylim()
-    ax.set_xlim(0, x_max)
-    ax.set_ylim(0, y_max)
-    
-    ax.xaxis.get_ticklocs(minor=True)
-    ax.yaxis.get_ticklocs(minor=True)
-    ax.minorticks_on()
-    
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    
-    # save the figure
-    if param=='mae':
-        file_name = 'history_graph_mae.png'
-    elif param=='loss':
-        file_name = 'history_graph_loss.png'
-    file_path = out_dir / file_name
-    fig.savefig(file_path)
-
-
 def save_history_vals(history, out_dir):
     history_path = out_dir / 'history.csv'
     history_table = np.hstack([np.array(history.epoch              ).reshape(-1,1),
@@ -193,117 +70,6 @@ def save_history_vals(history, out_dir):
                                np.array(history.history['val_loss']).reshape(-1,1)])
     history_df = pd.DataFrame(history_table, columns=['epoch','mae','val_mae','loss','val_loss'])
     history_df.to_csv(history_path, index=False)
-
-
-def yn(str):
-    # TODO: move to data module
-    if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
-                       'sure', 'hai', 'aye', 'ayt', 'fosho']:
-        return True
-    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this l']:
-        return False
-    else:
-        raise Exception(str + 'not recognized: use y - yes, n - no')
-
-
-def read_aug_data(file):
-    # TODO: move to data module
-    """Read data file and return a DataFrame.
-
-    Args:
-        file (PosixPath): Path to .feather file.
-
-    Returns:
-        interp_df: DataFrame of interpolated data.
-    """
-    interp_df = pd.read_feather(file).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
-    return interp_df
-
-
-##### data processing ######
-def get_augmentation_data(data_used, xy: bool, vp: bool):
-    # TODO: move to data module
-    """Get augmentation data for training.
-
-    Args:
-        xy (bool): Include xy grid augmented data
-        vp (bool): Inclde vp augmentation data
-    """
-    if xy:  # xy augmentation
-        xyfile = Path(root/'data'/'interpolation_datasets'/'rec-interpolation2.nc')
-        xydf = xr.open_dataset(xyfile).to_dataframe().reset_index().dropna()
-    else: xydf = None
-
-    if vp:  # vp augmentation
-        vpfolder = Path(root/'data'/'interpolation_feather'/'20221209')
-        # read all files and combine into a single df
-        vpdf = [read_aug_data(file) for file in vpfolder.glob('*.feather')]
-        vpdf = pd.concat(vpdf).rename(columns={'Vpp [V]' : 'V', 
-                                               'P [Pa]'  : 'P',
-                                               'X'       : 'x',
-                                               'Y'       : 'y'}, inplace=True)
-    else: vpdf = None
-
-    # make sure that the data follows the correct format before returning
-    assert list(data_used.columns) == ['V', 'P', 'x', 'y'] + label_names
-    return pd.concat([data_used, xydf, vpdf], ignore_index=True)
-    
-
-def get_data(xy=False, vp=False):
-    # TODO: move to data module
-    """Get dataset
-
-    Assumes the DataFrame has previously been saved as a .feather file. If not,
-    a new .feather file is created in the root/data folder.
-
-    Args:
-        xy (bool, optional): Include xy augmentation. Defaults to False.
-        vp (bool, optional): Include vp augmentation. Defaults to False.
-
-    Raises:
-        Exception: Raises an error if no data is available in avg_data.
-
-    Returns:
-        data_used: DataFrame of data to be used, with specified augmentation data.
-        data_excluded: DataFrame of excluded data.
-    """
-    avg_data_file = root/'data'/'avg_data.feather'
-
-    # check if feather file exists and load avg_data
-    if avg_data_file.is_file():
-        print('reading data feather file...')
-        avg_data = pd.read_feather(avg_data_file)
-    
-    else:
-        print('data feather file not found, building file...')
-        start_time = time.time()
-        avg_data = data.read_all_data(data_fldr_path, voltages, pressures).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
-        elapsed_time = time.time() - start_time
-        print(f' done ({elapsed_time:0.1f} sec).\n')
-
-        if len(avg_data)==0:
-            raise Exception('No data available.')
-
-        avg_data.to_feather(avg_data_file)
-
-    # separate data to be excluded (to later check the model)
-    data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded))].copy()
-    data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ].copy()
-
-    # rename columns
-    data_used.rename(columns={'Vpp [V]' : 'V',
-                              'P [Pa]'  : 'P',
-                              'X'       : 'x', 
-                              'Y'       : 'y'}, inplace=True)
-
-    if (xy or vp):
-        data_used = get_augmentation_data(data_used, xy, vp)
-
-    # create new column of x^2 and y^2
-    data_used['x**2'] = data_used['x']**2
-    data_used['y**2'] = data_used['y']**2
-    
-    return data_used, data_excluded
 
 
 # --------------- Model hyperparameters -----------------
@@ -333,7 +99,7 @@ pressure_excluded = 60 # Pa
 # -------------------------------------------------------
 
 # TODO: include test modifications
-out_dir = create_output_dir()
+out_dir = data.create_output_dir(root)
 scaler_dir = out_dir / 'scalers'
 os.mkdir(scaler_dir)
 
@@ -344,18 +110,18 @@ shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 feature_names = ['V', 'P', 'x', 'y']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-data_used, data_excluded = get_data(xy=False, vp=True)
+data_used, data_excluded = data.get_data(xy=False, vp=True)
 
 # set threshold to make very small values zero
 pd.set_option('display.chop_threshold', 1e-10)
 
 # scale features and labels
 scale_exp = []
-features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
-labels = data_preproc(data_used[label_names]).astype('float64')
+features = data.scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
+labels = data.data_preproc(data_used[label_names]).astype('float64')
 
 if minmax_y:  # if applying minmax to target data
-    labels = scale_all(labels, 'y', scaler_dir)
+    labels = data.scale_all(labels, 'y', scaler_dir)
 
 alldf = pd.concat([features, labels], axis=1)
 dataset_size = len(alldf)
