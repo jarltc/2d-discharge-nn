@@ -1,6 +1,10 @@
 # Helper functions for data preprocessing.
 
 import os
+import time
+import pickle
+import xarray as xr
+from pathlib import Path
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -88,7 +92,7 @@ def read_aug_data(file):
 
 ##### data processing ######
 def get_augmentation_data(data_used, xy: bool, vp: bool):
-    # TODO: move to data module
+    # TODO: include root
     """Get augmentation data for training.
 
     Args:
@@ -111,12 +115,13 @@ def get_augmentation_data(data_used, xy: bool, vp: bool):
     else: vpdf = None
 
     # make sure that the data follows the correct format before returning
-    assert list(data_used.columns) == ['V', 'P', 'x', 'y'] + label_names
+    assert list(data_used.columns) == ['V', 'P', 'x', 'y'] + label_names  # TODO move back to main script
     return pd.concat([data_used, xydf, vpdf], ignore_index=True)
     
 
 def get_data(xy=False, vp=False):
-    # TODO: move to data module
+    # TODO include root, from root get data_fldr_path
+    # TODO get voltages, pressures, and excluded
     """Get dataset
 
     Assumes the DataFrame has previously been saved as a .feather file. If not,
@@ -173,7 +178,6 @@ def get_data(xy=False, vp=False):
 
 ##### misc #####
 def yn(str):
-    # TODO: move to data module
     if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
                        'sure', 'hai', 'aye', 'ayt', 'fosho']:
         return True
