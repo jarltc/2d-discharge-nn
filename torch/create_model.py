@@ -91,8 +91,8 @@ batch_size = int(input('Batch size (default 128): ') or '128')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
 epochs = int(input('Epochs (default 5): ') or '5')
-xy = data.yn(input('Include xy augmentation? [y/n] (default y): ')) or True
-vp = data.yn(input('Include vp augmentation? [y/n] (default y): ')) or True
+xy = data.yn(input('Include xy augmentation? [y/n]: ')) 
+vp = data.yn(input('Include vp augmentation? [y/n]: '))
 minmax_y = True  # apply minmax scaling to targets 
 lin = True  # scale the targets linearly
 
@@ -106,10 +106,10 @@ voltage_excluded = 300 # V
 pressure_excluded = 60 # Pa
 
 # -------------------------------------------------------
-if ((name=='test') & (root/'created_models'/'test_dir').exists()):
-    out_dir = root/'created_models'/'test_dir'  
-elif ((name=='test') & (not (root/'created_models'/'test_dir').exists())): 
-    os.mkdir(root/'created_models'/'test_dir')
+if ((name=='test') & (root/'created_models'/'test_dir_torch').exists()):
+    out_dir = root/'created_models'/'test_dir_torch'  
+elif ((name=='test') & (not (root/'created_models'/'test_dir_torch').exists())): 
+    os.mkdir(root/'created_models'/'test_dir_torch')
 else:
     out_dir = data.create_output_dir(root) 
 
@@ -172,7 +172,7 @@ for epoch in tqdm(range(epochs)):  # TODO: validation data
     loop = tqdm(trainloader)
 
     running_loss = 0.0
-    for i, data in enumerate(trainloader, 0):
+    for i, data in enumerate(loop):
         # get the inputs; data is a list of [inputs, labels]
         inputs, labels = data
 
@@ -201,7 +201,7 @@ print('Finished training')
 train_end = time.time()  # record end time
 
 # save the model
-model.save(out_dir / 'model')
+torch.save(model, out_dir/f'{name}')
 print('NN model has been saved.\n')
 
 # save_history_vals(history, out_dir)
@@ -242,4 +242,6 @@ with open(out_dir / 'train_metadata.txt', 'w') as f:
     f.write(f'Learning rate: {learning_rate}\n')
     f.write(f'Validation split: {validation_split}\n')
     f.write(f'Epochs: {epochs}\n')
+    f.write(f'Grid augmentation: {xy}\n')
+    f.write(f'VP augmentation: {vp}\n')
     f.write('\n*** end of file ***\n')
