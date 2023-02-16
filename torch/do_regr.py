@@ -127,7 +127,7 @@ def reverse_minmax(df: pd.DataFrame, model_dir: Path):
             yscaler.clip = False
             return yscaler.inverse_transform(values).item()
 
-    columns = [df[column].apply(reverse_minmax_core, args=(n,)) for n, column in enumerate(df.columns)]
+    columns = [df[column].apply(reverse_minmax_core, args=(n,)) for n, column in enumerate(df.columns, start=1)]
     scaled_df = pd.concat(columns, axis=1)
 
     return scaled_df
@@ -208,5 +208,5 @@ if __name__ == '__main__':
         return triangles
 
     triangles = triangulate(features[['x', 'y']])
-    plot.quickplot(scaled_prediction, triangles=triangles)
+    plot.quickplot(prediction, model_dir, triangles=triangles)
     
