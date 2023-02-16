@@ -6,7 +6,7 @@ author @jarl
 """
 
 import os
-import sys
+# import sys
 import time
 import datetime
 import shutil
@@ -16,9 +16,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import xarray as xr
-import matplotlib
-import matplotlib.pyplot as plt
+# import xarray as xr
+# import matplotlib
+# import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -62,6 +62,12 @@ class MLP(nn.Module):
 
 
 def save_history_vals(history, out_dir):
+    """Save history values
+
+    Args:
+        history (_type_): _description_
+        out_dir (_type_): _description_
+    """
     history_path = out_dir / 'history.csv'
     history_table = np.hstack([np.array(history.epoch              ).reshape(-1,1),
                                np.array(history.history['mae']     ).reshape(-1,1),
@@ -76,7 +82,7 @@ def save_history_vals(history, out_dir):
 # model name
 name = input('Enter model name: ') or 'test'
 
-root = Path(os.getcwd())
+root = Path.cwd().parents[0]  # the script will be in 2d-discharge-nn/torch, so move up one level
 data_fldr_path = root/'data'/'avg_data'
 
 # training inputs
@@ -84,8 +90,10 @@ batch_size = int(input('Batch size (default 128): ') or '128')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
 epochs = int(input('Epochs (default 5): ') or '5')
-minmax_y = True # not args['unscaleY']  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
-lin = True # not args['log']  # opposite of args[log], i.e.: False if log flag is raised
+xy = data.yn(input('Include xy augmentation? [y/n] (default y): ' or True))
+vp = data.yn(input('Include vp augmentation? [y/n] (default y): ' or True))
+minmax_y = True  # apply minmax scaling to targets 
+lin = True  # scale the targets linearly
 
 # -------------------------------------------------------
 
@@ -97,9 +105,13 @@ voltage_excluded = 300 # V
 pressure_excluded = 60 # Pa
 
 # -------------------------------------------------------
+if ((name=='test') & (root/'created_models'/'test_dir').exists()):
+    out_dir = root/'created_models'/'test_dir'  
+elif ((name=='test') & (not (root/'created_models'/'test_dir').exists())): 
+    os.mkdir(root/'created_models'/'test_dir')
+else:
+    out_dir = data.create_output_dir(root) 
 
-# TODO: include test modifications
-out_dir = data.create_output_dir(root)
 scaler_dir = out_dir / 'scalers'
 os.mkdir(scaler_dir)
 
@@ -110,7 +122,11 @@ shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 feature_names = ['V', 'P', 'x', 'y']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-data_used, data_excluded = data.get_data(xy=False, vp=True)
+data_used, data_excluded = data.get_data(root, voltages, pressures, 
+                                        (voltage_excluded, pressure_excluded),
+                                         xy=xy, vp=vp)
+# sanity check
+assert list(data_used.columns) == feature_names + label_names
 
 # set threshold to make very small values zero
 pd.set_option('display.chop_threshold', 1e-10)
@@ -123,17 +139,21 @@ labels = data.data_preproc(data_used[label_names]).astype('float64')
 if minmax_y:  # if applying minmax to target data
     labels = data.scale_all(labels, 'y', scaler_dir)
 
-alldf = pd.concat([features, labels], axis=1)
+alldf = pd.concat([features, labels], axis=1)  # what is this used for??
 dataset_size = len(alldf)
 
 # create dataset object and shuffle it()  # TODO: train/val split
-trainset = torch.utils.data.TensorDataset(features.to_numpy(), labels.to_numpy())
-trainloader = torch.utils.data.DataLoader(trainset, 
+dataset = torch.utils.data.TensorDataset(features.to_numpy(), labels.to_numpy())
+
+# determine validation split
+# trainset, valset = torch.utils.data.random_split(dataset, 
+#                                                  lengths=[validation_split, (1-validation_split)],
+#                                                  generator=torch.Generator().manual_seed(64))
+
+trainloader = torch.utils.data.DataLoader(dataset, 
                                           batch_size=batch_size, 
                                           shuffle=True,
                                           num_workers=2)
-
-# determine validation split
 
 
 # create validation split and batch the data
@@ -146,7 +166,10 @@ optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 print('begin model training...')
 train_start = time.time()  # record start time
 
-for epoch in tqdm(range(epochs)):
+epoch_times = []
+
+for epoch in tqdm(range(epochs)):  # TODO: validation data
+    epoch_start = time.time()  # record time per epoch
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
@@ -164,9 +187,14 @@ for epoch in tqdm(range(epochs)):
 
         # print statistics
         running_loss += loss.item()
-        # if i % 4 == 3:  # print every 4 mini batches (?)
         print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss/4:.3f}\r')
         running_loss = 0.0
+
+    epoch_end = time.time()
+    epoch_times.append(epoch_end - epoch_start)
+        # if i % 4 == 3:  # print every 4 mini batches (?)
+        #     model.eval()
+        #     val_pred = model(valset)
 
 print('Finished training')
 train_end = time.time()  # record end time
@@ -190,10 +218,9 @@ with open(out_dir / 'train_metadata.pkl', 'wb') as f:
     pickle.dump(metadata, f)
 
 # record time per epoch
-# TODO: record epoch times in times
 with open(out_dir / 'times.txt', 'w') as f:
     f.write('Train times per epoch\n')
-    for i, time in enumerate(times):
+    for i, time in enumerate(epoch_times):
         time = round(time, 2)
         f.write(f'Epoch {i+1}: {time} s\n')
 
@@ -208,7 +235,7 @@ with open(out_dir / 'train_metadata.txt', 'w') as f:
     f.write(f'Target scaling: {minmax_y}\n')
     f.write(f'Parameter exponents: {scale_exp}\n')
     f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
-    f.write(f'Average time per epoch: {np.array(times).mean():.2f} s\n')
+    f.write(f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
     f.write(f'\nUser-specified hyperparameters\n')
     f.write(f'Batch size: {batch_size}\n')
     f.write(f'Learning rate: {learning_rate}\n')

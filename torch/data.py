@@ -2,9 +2,11 @@
 # TODO: add type hinting
 
 import os
+import re
 import time
 import pickle
 import xarray as xr
+import posixpath
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -47,7 +49,13 @@ def read_file(file_path):
     return pd.DataFrame(data, columns=column_labels)
 
 
-# more stuff
+def attach_VP_columns(data, voltage, pressure):
+    num_data_points = len(data)
+    vp_columns = [[voltage, pressure] for n in range(num_data_points)]
+    vp_columns = pd.DataFrame(vp_columns, columns=['Vpp [V]', 'P [Pa]'])
+    return vp_columns.join(data)
+
+
 def create_output_dir(root):
     rslt_dir = root / 'created_models'
     if not os.path.exists(rslt_dir):
@@ -62,6 +70,7 @@ def create_output_dir(root):
     return out_dir
 
 
+# more stuff from elsewhere
 def data_preproc(data_table, lin=True):
     scale_exp = []
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
@@ -151,7 +160,6 @@ def get_augmentation_data(data_used, root, xy: bool, vp: bool):
     else: vpdf = None
 
     # make sure that the data follows the correct format before returning
-    assert list(data_used.columns) == ['V', 'P', 'x', 'y'] + label_names  # TODO move back to main script? 
     return pd.concat([data_used, xydf, vpdf], ignore_index=True)
     
 
@@ -173,6 +181,7 @@ def get_data(root, voltages, pressures, excluded, xy=False, vp=False):
         data_excluded: DataFrame of excluded data.
     """
     avg_data_file = root/'data'/'avg_data.feather'
+    data_fldr_path = root/'data'
     voltage_excluded, pressure_excluded = excluded
 
     # check if feather file exists and load avg_data
