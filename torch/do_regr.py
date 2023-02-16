@@ -16,6 +16,7 @@ import pickle
 from pathlib import Path
 
 import data
+import plot
 
 
 class MLP(nn.Module):
@@ -104,19 +105,18 @@ def scale_targets(data_table: pd.DataFrame, label_names: list, scale_exp=[1.0, 1
     return data_table
 
 
-def reverse_minmax(df: pd.DataFrame, columns: list, model_dir: Path):
+def reverse_minmax(df: pd.DataFrame, model_dir: Path):
     """Reverse minmax scaling on data.
 
     Model predictions are minmax-scaled to lie between 0 and 1. This function
     reverses it for comparison with simulation data.
 
     Args:
-        df (pd.DataFrame): _description_
-        columns (list): _description_
-        model_dir (Path): _description_
+        df (pd.DataFrame): DataFrame of scaled predictions.
+        model_dir (Path): Path to model directory where scalers are stored.
 
     Returns:
-        _type_: _description_
+        pd.DataFrame: DataFrame of unscaled predictions.
     """
 
     def reverse_minmax_core(values, n):
@@ -179,7 +179,7 @@ if __name__ == '__main__':
     model.eval()  # set model to eval mode
     model(features_tensor)
     scaled_prediction = pd.DataFrame(model(features_tensor).detach().numpy(), columns=label_names)  # get the prediction
-    
+    prediction = reverse_minmax(scaled_prediction, model_dir)
     # pred_df = pd.concat([features[['x', 'y']], scaled_prediction])
 
     # plot the predictions
@@ -208,24 +208,5 @@ if __name__ == '__main__':
         return triangles
 
     triangles = triangulate(features[['x', 'y']])
-    n = 1
-    fig = plt.figure(figsize=(6, 8))
-    fig.suptitle('Autoencoder predicting potential (V)')
-    # for i in range(n):
-    #     # display original
-    #     ax = plt.subplot(n, 2, i + 1)
-    #     im = plt.imshow(v_test[0,:,:,0], origin='lower', vmin=0, vmax = 0.4)
-    #     plt.title("original")
-    #     plt.gray()
-    #     ax.get_xaxis().set_visible(False)
-    #     ax.get_yaxis().set_visible(False)
-
-    #     # display reconstruction
-    #     ax = plt.subplot(n, 2, i + 1 + n)
-    #     plt.imshow(decoded_imgs[0,:,:,0], origin='lower', vmin=0, vmax = 0.4)
-    #     plt.title("reconstructed")
-    #     ax.get_xaxis().set_visible(False)
-    #     ax.get_yaxis().set_visible(False)
-    fig.colorbar(im)
-    plt.show()
+    plot.quickplot(scaled_prediction, triangles=triangles)
     
