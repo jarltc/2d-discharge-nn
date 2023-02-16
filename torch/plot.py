@@ -205,7 +205,9 @@ def quickplot(df, data_dir=None, grid=False, triangles=None):
     matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
-    fig, ax = plt.subplots(1, len(df.columns), figsize=(12, 4))
+    fig, ax = plt.subplots(1, len(df.columns), figsize=(20, 4), dpi=200)
+
+    titles = [column.split()[0] for column in df.columns]
 
     for i, column in enumerate(df.columns):
         ax[i].set_aspect('equal')
@@ -214,7 +216,9 @@ def quickplot(df, data_dir=None, grid=False, triangles=None):
                                  cmap=cmap, vmin=cmin, vmax=cmax)
         plt.colorbar(tri)
         draw_apparatus(ax[i])
-        
+        ax[i].set_title(titles[i])
+    
+    fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)        
     plt.show()
     fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
     return fig
