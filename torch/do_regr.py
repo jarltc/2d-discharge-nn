@@ -99,7 +99,7 @@ def scale_targets(data_table: pd.DataFrame, label_names: list, scale_exp=[1.0, 1
 
     # label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     for i, column in enumerate(label_names):
-        data_table.update(data_table[column]/(10**scale_exp[i]))
+        data_table.update(data_table.iloc[:, i]/(10**scale_exp[i]))
 
     return data_table
 
@@ -145,6 +145,11 @@ if __name__ == '__main__':
     model_dir = Path(input('Model directory: '))
     regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
         .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
+    regr_df['V'] = 300
+    regr_df['P'] = 60
+    regr_df.rename(columns={'X':'x', 'Y':'y'}, inplace=True)
+    regr_df = regr_df[feature_names + label_names]  # fix arrangement
+
     features = regr_df.drop(columns=label_names)
     labels = regr_df[label_names]
 
@@ -172,4 +177,55 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(model_dir/f'{name}'))
     
     model.eval()  # set model to eval mode
-    scaled_prediction = pd.DataFrame(model(features_tensor), columns=label_names)  # get the prediction
+    model(features_tensor)
+    scaled_prediction = pd.DataFrame(model(features_tensor).detach().numpy(), columns=label_names)  # get the prediction
+    
+    # pred_df = pd.concat([features[['x', 'y']], scaled_prediction])
+
+    # plot the predictions
+    import matplotlib
+    def triangulate(df):   
+        """
+        Create triangulation of the mesh grid, which is passed to tricontourf.
+        
+        Uses Delaunay triangulation.
+
+        Parameters
+        ----------
+        df : DataFrame
+            DataFrame with X and Y values for the triangulation.
+
+        Returns
+        -------
+        triangles : matplotlib.tri.triangulation.Triangulation
+            Triangulated grid.
+
+        """
+        x = df['x'].to_numpy()*100
+        y = df['y'].to_numpy()*100
+        triangles = matplotlib.tri.Triangulation(x, y)
+        
+        return triangles
+
+    triangles = triangulate(features[['x', 'y']])
+    n = 1
+    fig = plt.figure(figsize=(6, 8))
+    fig.suptitle('Autoencoder predicting potential (V)')
+    # for i in range(n):
+    #     # display original
+    #     ax = plt.subplot(n, 2, i + 1)
+    #     im = plt.imshow(v_test[0,:,:,0], origin='lower', vmin=0, vmax = 0.4)
+    #     plt.title("original")
+    #     plt.gray()
+    #     ax.get_xaxis().set_visible(False)
+    #     ax.get_yaxis().set_visible(False)
+
+    #     # display reconstruction
+    #     ax = plt.subplot(n, 2, i + 1 + n)
+    #     plt.imshow(decoded_imgs[0,:,:,0], origin='lower', vmin=0, vmax = 0.4)
+    #     plt.title("reconstructed")
+    #     ax.get_xaxis().set_visible(False)
+    #     ax.get_yaxis().set_visible(False)
+    fig.colorbar(im)
+    plt.show()
+    
