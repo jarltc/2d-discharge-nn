@@ -1,6 +1,7 @@
 # Plotting functions module
 
 import matplotlib.pyplot as plt
+import matplotlib.patches as pat
 import matplotlib
 import numpy as np
 
@@ -177,3 +178,39 @@ def save_history_graph(history, out_dir, param='mae'):
         file_name = 'history_graph_loss.png'
     file_path = out_dir / file_name
     fig.savefig(file_path)
+
+
+def draw_apparatus(ax):
+    def edge_unit_conv(edges):
+        u = 1e-1 # unit conv. mm -> cm
+        return [(xy[0]*u,xy[1]*u) for xy in edges]
+    
+    pt_colors = {'fc':'white', 'ec':'black'}
+    
+    edges = [(0,453), (0,489), (95,489), (95,487), (40,487), (40,453)]
+    patch_top = pat.Polygon(xy=edge_unit_conv(edges), fc=pt_colors['fc'], ec=pt_colors['ec'])
+    ax.add_patch(patch_top)
+    
+    edges = [(0,0), (0,415), (95,415), (95,395), (90,395), (90,310), (120,310), (120,277), (90,277), (90,0)]
+    patch_bottom = pat.Polygon(xy=edge_unit_conv(edges), fc=pt_colors['fc'], ec=pt_colors['ec'])
+    ax.add_patch(patch_bottom)
+    
+    edges = [(122,224), (122,234), (185,234), (185,224)]
+    patch_float = pat.Polygon(xy=edge_unit_conv(edges), fc=pt_colors['fc'], ec=pt_colors['ec'])
+    ax.add_patch(patch_float)
+
+
+def quickplot(df, grid=False, triangles=None):
+    matplotlib.rcParams['font.family'] = 'Arial'
+    cmap = plt.cm.viridis
+
+    fig, ax = plt.subplots(1, len(df.columns))
+
+    for i, column in enumerate(df.columns):
+        cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+        ax[i].tricontourf(triangles, df[column], levels=36, 
+                                 cmap=cmap, vmin=cmin, vmax=cmax)
+        
+    plt.show()
+    return fig
+
