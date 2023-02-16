@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import matplotlib
 import numpy as np
+from pathlib import Path
 
 # from data.py
 def get_cbar_range(param_col_label):
@@ -200,11 +201,11 @@ def draw_apparatus(ax):
     ax.add_patch(patch_float)
 
 
-def quickplot(df, grid=False, triangles=None):
+def quickplot(df, data_dir=None, grid=False, triangles=None):
     matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
-    fig, ax = plt.subplots(1, len(df.columns))
+    fig, ax = plt.subplots(1, len(df.columns), figsize=(12, 4))
 
     for i, column in enumerate(df.columns):
         ax[i].set_aspect('equal')
@@ -212,8 +213,9 @@ def quickplot(df, grid=False, triangles=None):
         tri = ax[i].tricontourf(triangles, df[column], levels=36, 
                                  cmap=cmap, vmin=cmin, vmax=cmax)
         plt.colorbar(tri)
-        draw_apparatus(ax)
+        draw_apparatus(ax[i])
         
     plt.show()
+    fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
     return fig
 
