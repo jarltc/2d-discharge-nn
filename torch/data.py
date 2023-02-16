@@ -212,11 +212,11 @@ def get_data(root, voltages, pressures, excluded, xy=False, vp=False):
                               'Y'       : 'y'}, inplace=True)
 
     if (xy or vp):
-        data_used = get_augmentation_data(data_used, xy, vp)
+        data_used = get_augmentation_data(data_used, root, xy, vp)
 
     # create new column of x^2 and y^2
-    data_used['x**2'] = data_used['x']**2
-    data_used['y**2'] = data_used['y']**2
+    # data_used['x**2'] = data_used['x']**2
+    # data_used['y**2'] = data_used['y']**2
     
     return data_used, data_excluded
 
