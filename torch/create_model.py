@@ -201,7 +201,7 @@ print('Finished training')
 train_end = time.time()  # record end time
 
 # save the model
-torch.save(model, out_dir/f'{name}')
+torch.save(model.state_dict(), out_dir/f'{name}')
 print('NN model has been saved.\n')
 
 # save_history_vals(history, out_dir)
