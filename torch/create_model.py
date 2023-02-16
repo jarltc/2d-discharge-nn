@@ -6,7 +6,7 @@ author @jarl
 """
 
 import os
-# import sys
+import sys
 import time
 import datetime
 import shutil
@@ -24,6 +24,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
 
 import data
 
@@ -82,7 +83,7 @@ def save_history_vals(history, out_dir):
 # model name
 name = input('Enter model name: ') or 'test'
 
-root = Path.cwd().parents[0]  # the script will be in 2d-discharge-nn/torch, so move up one level
+root = Path.cwd() 
 data_fldr_path = root/'data'/'avg_data'
 
 # training inputs
@@ -113,7 +114,8 @@ else:
     out_dir = data.create_output_dir(root) 
 
 scaler_dir = out_dir / 'scalers'
-os.mkdir(scaler_dir)
+if (not scaler_dir.exists()):
+    os.mkdir(scaler_dir) 
 
 # copy some files for backup (probably made redundant by metadata)
 shutil.copyfile(__file__, out_dir / 'create_model.py')
@@ -143,21 +145,18 @@ alldf = pd.concat([features, labels], axis=1)  # what is this used for??
 dataset_size = len(alldf)
 
 # create dataset object and shuffle it()  # TODO: train/val split
-dataset = torch.utils.data.TensorDataset(features.to_numpy(), labels.to_numpy())
+features = torch.FloatTensor(features.to_numpy())
+labels = torch.FloatTensor(labels.to_numpy())
+dataset = TensorDataset(features, labels)
 
 # determine validation split
 # trainset, valset = torch.utils.data.random_split(dataset, 
 #                                                  lengths=[validation_split, (1-validation_split)],
 #                                                  generator=torch.Generator().manual_seed(64))
 
-trainloader = torch.utils.data.DataLoader(dataset, 
-                                          batch_size=batch_size, 
-                                          shuffle=True,
-                                          num_workers=2)
-
+trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
 # create validation split and batch the data
-
 model = MLP(name, len(feature_names), len(label_names)) 
 criterion = nn.MSELoss()
 optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -170,6 +169,7 @@ epoch_times = []
 
 for epoch in tqdm(range(epochs)):  # TODO: validation data
     epoch_start = time.time()  # record time per epoch
+    loop = tqdm(trainloader)
 
     running_loss = 0.0
     for i, data in enumerate(trainloader, 0):
@@ -187,7 +187,8 @@ for epoch in tqdm(range(epochs)):  # TODO: validation data
 
         # print statistics
         running_loss += loss.item()
-        print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss/4:.3f}\r')
+        loop.set_description(f"Epoch {epoch}/{epochs}")
+        loop.set_postfix(loss=running_loss)
         running_loss = 0.0
 
     epoch_end = time.time()
