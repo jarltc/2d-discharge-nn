@@ -1,4 +1,5 @@
 # Helper functions for data preprocessing.
+# TODO: add type hinting
 
 import os
 import time
@@ -10,7 +11,43 @@ import numpy as np
 from datetime import datetime
 from sklearn.preprocessing import MinMaxScaler
 
+# original data functions
+def read_all_data(fldr_path, voltages, pressures):
+    file_count = 0
+    for voltage in voltages:
+        for pressure in pressures:
+            file_name = '{0:d}Vpp_{1:03d}Pa_node.dat'.format(voltage,pressure)
+            file_path = posixpath.join(fldr_path, file_name)
+            if os.path.exists(file_path):
+                data = read_file(file_path)
+                file_count += 1
+            else:
+                continue
+            
+            data = attach_VP_columns(data, voltage, pressure)
+            data_table = data if file_count==1 else pd.concat([data_table,data], ignore_index=True)
+    return data_table
 
+
+def read_file(file_path):
+    with open(file_path, 'r') as f:
+        data = []
+        for n,line in enumerate(f,1):
+            if n==1:
+                line = line.strip()
+                line = re.findall(r'"[^"]*"', line) # get ['"var_name1"', '"var_name2"', ...]
+                column_labels = [var_name.replace('"','') for var_name in line]
+            elif n==2:
+                continue
+            else:
+                data_line = [eval(data) for data in line.split()]
+                if len(data_line)==4:
+                    break
+                data.append(data_line)
+    return pd.DataFrame(data, columns=column_labels)
+
+
+# more stuff
 def create_output_dir(root):
     rslt_dir = root / 'created_models'
     if not os.path.exists(rslt_dir):
@@ -91,8 +128,7 @@ def read_aug_data(file):
 
 
 ##### data processing ######
-def get_augmentation_data(data_used, xy: bool, vp: bool):
-    # TODO: include root
+def get_augmentation_data(data_used, root, xy: bool, vp: bool):
     """Get augmentation data for training.
 
     Args:
@@ -115,13 +151,11 @@ def get_augmentation_data(data_used, xy: bool, vp: bool):
     else: vpdf = None
 
     # make sure that the data follows the correct format before returning
-    assert list(data_used.columns) == ['V', 'P', 'x', 'y'] + label_names  # TODO move back to main script
+    assert list(data_used.columns) == ['V', 'P', 'x', 'y'] + label_names  # TODO move back to main script? 
     return pd.concat([data_used, xydf, vpdf], ignore_index=True)
     
 
-def get_data(xy=False, vp=False):
-    # TODO include root, from root get data_fldr_path
-    # TODO get voltages, pressures, and excluded
+def get_data(root, voltages, pressures, excluded, xy=False, vp=False):
     """Get dataset
 
     Assumes the DataFrame has previously been saved as a .feather file. If not,
@@ -139,6 +173,7 @@ def get_data(xy=False, vp=False):
         data_excluded: DataFrame of excluded data.
     """
     avg_data_file = root/'data'/'avg_data.feather'
+    voltage_excluded, pressure_excluded = excluded
 
     # check if feather file exists and load avg_data
     if avg_data_file.is_file():
@@ -148,7 +183,7 @@ def get_data(xy=False, vp=False):
     else:
         print('data feather file not found, building file...')
         start_time = time.time()
-        avg_data = data.read_all_data(data_fldr_path, voltages, pressures).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
+        avg_data = read_all_data(data_fldr_path, voltages, pressures).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
         elapsed_time = time.time() - start_time
         print(f' done ({elapsed_time:0.1f} sec).\n')
 
