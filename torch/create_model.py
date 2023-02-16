@@ -90,8 +90,8 @@ batch_size = int(input('Batch size (default 128): ') or '128')
 learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
 validation_split = float(input('Validation split (default 0.1): ') or '0.1')
 epochs = int(input('Epochs (default 5): ') or '5')
-xy = data.yn(input('Include xy augmentation? [y/n] (default y): ' or True))
-vp = data.yn(input('Include vp augmentation? [y/n] (default y): ' or True))
+xy = data.yn(input('Include xy augmentation? [y/n] (default y): ')) or True
+vp = data.yn(input('Include vp augmentation? [y/n] (default y): ')) or True
 minmax_y = True  # apply minmax scaling to targets 
 lin = True  # scale the targets linearly
 
