@@ -71,8 +71,7 @@ def create_output_dir(root):
 
 
 # more stuff from elsewhere
-def data_preproc(data_table, lin=True):
-    scale_exp = []
+def data_preproc(data_table, scale_exp, lin=True):
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
 
     def get_param_exp(col_vals):

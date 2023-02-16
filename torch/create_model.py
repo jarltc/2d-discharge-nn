@@ -78,6 +78,28 @@ def save_history_vals(history, out_dir):
     history_df = pd.DataFrame(history_table, columns=['epoch','mae','val_mae','loss','val_loss'])
     history_df.to_csv(history_path, index=False)
 
+def save_metadata(out_dir: Path):
+    """Save readable metadata.
+
+    Args:
+        out_dir (Path): Path to where the model is saved.
+    """
+    with open(out_dir / 'train_metadata.txt', 'w') as f:
+            f.write(f'Model name: {name}\n')
+            f.write(f'Lin scaling: {lin}\n')
+            f.write(f'Number of points: {len(data_used)}\n')
+            f.write(f'Target scaling: {minmax_y}\n')
+            f.write(f'Parameter exponents: {scale_exp}\n')
+            f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
+            f.write(f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
+            f.write(f'\nUser-specified hyperparameters\n')
+            f.write(f'Batch size: {batch_size}\n')
+            f.write(f'Learning rate: {learning_rate}\n')
+            f.write(f'Validation split: {validation_split}\n')
+            f.write(f'Epochs: {epochs}\n')
+            f.write(f'Grid augmentation: {xy}\n')
+            f.write(f'VP augmentation: {vp}\n')
+            f.write('\n*** end of file ***\n')
 
 # --------------- Model hyperparameters -----------------
 # model name
@@ -106,142 +128,127 @@ voltage_excluded = 300 # V
 pressure_excluded = 60 # Pa
 
 # -------------------------------------------------------
-if ((name=='test') & (root/'created_models'/'test_dir_torch').exists()):
-    out_dir = root/'created_models'/'test_dir_torch'  
-elif ((name=='test') & (not (root/'created_models'/'test_dir_torch').exists())): 
-    os.mkdir(root/'created_models'/'test_dir_torch')
-else:
-    out_dir = data.create_output_dir(root) 
+if __name__ == '__main__':
+    if ((name=='test') & (root/'created_models'/'test_dir_torch').exists()):
+        out_dir = root/'created_models'/'test_dir_torch'  
+    elif ((name=='test') & (not (root/'created_models'/'test_dir_torch').exists())): 
+        os.mkdir(root/'created_models'/'test_dir_torch')
+    else:
+        out_dir = data.create_output_dir(root) 
 
-scaler_dir = out_dir / 'scalers'
-if (not scaler_dir.exists()):
-    os.mkdir(scaler_dir) 
+    scaler_dir = out_dir / 'scalers'
+    if (not scaler_dir.exists()):
+        os.mkdir(scaler_dir) 
 
-# copy some files for backup (probably made redundant by metadata)
-shutil.copyfile(__file__, out_dir / 'create_model.py')
-shutil.copyfile(root / 'data.py', out_dir / 'data.py')
+    # copy some files for backup (probably made redundant by metadata)
+    shutil.copyfile(__file__, out_dir / 'create_model.py')
+    shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
-feature_names = ['V', 'P', 'x', 'y']
-label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    feature_names = ['V', 'P', 'x', 'y']
+    label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-data_used, data_excluded = data.get_data(root, voltages, pressures, 
-                                        (voltage_excluded, pressure_excluded),
-                                         xy=xy, vp=vp)
-# sanity check
-assert list(data_used.columns) == feature_names + label_names
+    data_used, data_excluded = data.get_data(root, voltages, pressures, 
+                                            (voltage_excluded, pressure_excluded),
+                                            xy=xy, vp=vp)
+    # sanity check
+    assert list(data_used.columns) == feature_names + label_names
 
-# set threshold to make very small values zero
-pd.set_option('display.chop_threshold', 1e-10)
+    # set threshold to make very small values zero
+    pd.set_option('display.chop_threshold', 1e-10)
 
-# scale features and labels
-scale_exp = []
-features = data.scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
-labels = data.data_preproc(data_used[label_names]).astype('float64')
+    # scale features and labels
+    scale_exp = []
+    features = data.scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
+    labels = data.data_preproc(data_used[label_names], scale_exp).astype('float64')
 
-if minmax_y:  # if applying minmax to target data
-    labels = data.scale_all(labels, 'y', scaler_dir)
+    if minmax_y:  # if applying minmax to target data
+        labels = data.scale_all(labels, 'y', scaler_dir)
 
-alldf = pd.concat([features, labels], axis=1)  # what is this used for??
-dataset_size = len(alldf)
+    alldf = pd.concat([features, labels], axis=1)  # what is this used for??
+    dataset_size = len(alldf)
 
-# create dataset object and shuffle it()  # TODO: train/val split
-features = torch.FloatTensor(features.to_numpy())
-labels = torch.FloatTensor(labels.to_numpy())
-dataset = TensorDataset(features, labels)
+    # create dataset object and shuffle it()  # TODO: train/val split
+    features = torch.FloatTensor(features.to_numpy())
+    labels = torch.FloatTensor(labels.to_numpy())
+    dataset = TensorDataset(features, labels)
 
-# determine validation split
-# trainset, valset = torch.utils.data.random_split(dataset, 
-#                                                  lengths=[validation_split, (1-validation_split)],
-#                                                  generator=torch.Generator().manual_seed(64))
+    # determine validation split
+    # trainset, valset = torch.utils.data.random_split(dataset, 
+    #                                                  lengths=[validation_split, (1-validation_split)],
+    #                                                  generator=torch.Generator().manual_seed(64))
 
-trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-# create validation split and batch the data
-model = MLP(name, len(feature_names), len(label_names)) 
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    # create validation split and batch the data
+    model = MLP(name, len(feature_names), len(label_names)) 
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-# train the model
-print('begin model training...')
-train_start = time.time()  # record start time
+    # train the model
+    print('begin model training...')
+    train_start = time.time()  # record start time
 
-epoch_times = []
+    epoch_times = []
 
-for epoch in tqdm(range(epochs)):  # TODO: validation data
-    epoch_start = time.time()  # record time per epoch
-    loop = tqdm(trainloader)
+    for epoch in tqdm(range(epochs)):  # TODO: validation data
+        epoch_start = time.time()  # record time per epoch
+        loop = tqdm(trainloader)
 
-    running_loss = 0.0
-    for i, data in enumerate(loop):
-        # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data
-
-        # zero the parameter gradients
-        optimizer.zero_grad()
-
-        # forward + backward + optimize
-        outputs = model(inputs)
-        loss = criterion(outputs, labels)
-        loss.backward()
-        optimizer.step()
-
-        # print statistics
-        running_loss += loss.item()
-        loop.set_description(f"Epoch {epoch}/{epochs}")
-        loop.set_postfix(loss=running_loss)
         running_loss = 0.0
+        for i, data in enumerate(loop):
+            # get the inputs; data is a list of [inputs, labels]
+            inputs, labels = data
 
-    epoch_end = time.time()
-    epoch_times.append(epoch_end - epoch_start)
-        # if i % 4 == 3:  # print every 4 mini batches (?)
-        #     model.eval()
-        #     val_pred = model(valset)
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-print('Finished training')
-train_end = time.time()  # record end time
+            # forward + backward + optimize
+            outputs = model(inputs)
+            loss = criterion(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-# save the model
-torch.save(model.state_dict(), out_dir/f'{name}')
-print('NN model has been saved.\n')
+            # print statistics
+            running_loss += loss.item()
+            loop.set_description(f"Epoch {epoch}/{epochs}")
+            loop.set_postfix(loss=running_loss)
+            running_loss = 0.0
 
-# save_history_vals(history, out_dir)
-# save_history_graph(history, out_dir, 'mae')
-# save_history_graph(history, out_dir, 'loss')
-print('NN training history has been saved.\n')
+        epoch_end = time.time()
+        epoch_times.append(epoch_end - epoch_start)
+            # if i % 4 == 3:  # print every 4 mini batches (?)
+            #     model.eval()
+            #     val_pred = model(valset)
 
-# save metadata
-metadata = {'name' : name,  # str
-            'scaling' : lin,  # bool
-            'is_target_scaled': minmax_y,  # bool
-            'parameter_exponents': scale_exp}  # list of float
+    print('Finished training')
+    train_end = time.time()  # record end time
 
-with open(out_dir / 'train_metadata.pkl', 'wb') as f:
-    pickle.dump(metadata, f)
+    # save the model
+    torch.save(model.state_dict(), out_dir/f'{name}')
+    print('NN model has been saved.\n')
 
-# record time per epoch
-with open(out_dir / 'times.txt', 'w') as f:
-    f.write('Train times per epoch\n')
-    for i, time in enumerate(epoch_times):
-        time = round(time, 2)
-        f.write(f'Epoch {i+1}: {time} s\n')
+    # save_history_vals(history, out_dir)
+    # save_history_graph(history, out_dir, 'mae')
+    # save_history_graph(history, out_dir, 'loss')
+    print('NN training history has been saved.\n')
 
-d = datetime.datetime.today()
-print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
+    # save metadata
+    metadata = {'name' : name,  # str
+                'scaling' : lin,  # bool
+                'is_target_scaled': minmax_y,  # bool
+                'parameter_exponents': scale_exp}  # list of float
 
-# human-readable metadata
-with open(out_dir / 'train_metadata.txt', 'w') as f:
-    f.write(f'Model name: {name}\n')
-    f.write(f'Lin scaling: {lin}\n')
-    f.write(f'Number of points: {len(data_used)}\n')
-    f.write(f'Target scaling: {minmax_y}\n')
-    f.write(f'Parameter exponents: {scale_exp}\n')
-    f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
-    f.write(f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
-    f.write(f'\nUser-specified hyperparameters\n')
-    f.write(f'Batch size: {batch_size}\n')
-    f.write(f'Learning rate: {learning_rate}\n')
-    f.write(f'Validation split: {validation_split}\n')
-    f.write(f'Epochs: {epochs}\n')
-    f.write(f'Grid augmentation: {xy}\n')
-    f.write(f'VP augmentation: {vp}\n')
-    f.write('\n*** end of file ***\n')
+    with open(out_dir / 'train_metadata.pkl', 'wb') as f:
+        pickle.dump(metadata, f)
+
+    # record time per epoch
+    with open(out_dir / 'times.txt', 'w') as f:
+        f.write('Train times per epoch\n')
+        for i, time in enumerate(epoch_times):
+            time = round(time, 2)
+            f.write(f'Epoch {i+1}: {time} s\n')
+
+    d = datetime.datetime.today()
+    print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
+
+    save_metadata(out_dir)
