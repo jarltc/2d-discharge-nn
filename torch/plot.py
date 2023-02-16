@@ -208,8 +208,9 @@ def quickplot(df, grid=False, triangles=None):
 
     for i, column in enumerate(df.columns):
         cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
-        ax[i].tricontourf(triangles, df[column], levels=36, 
+        tri = ax[i].tricontourf(triangles, df[column], levels=36, 
                                  cmap=cmap, vmin=cmin, vmax=cmax)
+        plt.colorbar(tri)
         
     plt.show()
     return fig
