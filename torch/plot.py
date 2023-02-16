@@ -207,10 +207,12 @@ def quickplot(df, grid=False, triangles=None):
     fig, ax = plt.subplots(1, len(df.columns))
 
     for i, column in enumerate(df.columns):
+        ax[i].set_aspect('equal')
         cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
         tri = ax[i].tricontourf(triangles, df[column], levels=36, 
                                  cmap=cmap, vmin=cmin, vmax=cmax)
         plt.colorbar(tri)
+        draw_apparatus(ax)
         
     plt.show()
     return fig
