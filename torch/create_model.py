@@ -27,6 +27,7 @@ import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
 import data
+import plot
 
 
 class MLP(nn.Module):
@@ -78,6 +79,7 @@ def save_history_vals(history, out_dir):
     history_df = pd.DataFrame(history_table, columns=['epoch','mae','val_mae','loss','val_loss'])
     history_df.to_csv(history_path, index=False)
 
+
 def save_metadata(out_dir: Path):
     """Save readable metadata.
 
@@ -101,34 +103,35 @@ def save_metadata(out_dir: Path):
             f.write(f'VP augmentation: {vp}\n')
             f.write('\n*** end of file ***\n')
 
-# --------------- Model hyperparameters -----------------
-# model name
-name = input('Enter model name: ') or 'test'
-
-root = Path.cwd() 
-data_fldr_path = root/'data'/'avg_data'
-
-# training inputs
-batch_size = int(input('Batch size (default 128): ') or '128')
-learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
-validation_split = float(input('Validation split (default 0.1): ') or '0.1')
-epochs = int(input('Epochs (default 5): ') or '5')
-xy = data.yn(input('Include xy augmentation? [y/n]: ')) 
-vp = data.yn(input('Include vp augmentation? [y/n]: '))
-minmax_y = True  # apply minmax scaling to targets 
-lin = True  # scale the targets linearly
-
-# -------------------------------------------------------
-
-voltages  = [200, 300, 400, 500] # V
-pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
-
-
-voltage_excluded = 300 # V
-pressure_excluded = 60 # Pa
-
-# -------------------------------------------------------
 if __name__ == '__main__':
+    # --------------- Model hyperparameters -----------------
+    # model name
+    name = input('Enter model name: ') or 'test'
+
+    root = Path.cwd() 
+    data_fldr_path = root/'data'/'avg_data'
+
+    # training inputs
+    batch_size = int(input('Batch size (default 128): ') or '128')
+    learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
+    validation_split = float(input('Validation split (default 0.1): ') or '0.1')
+    epochs = int(input('Epochs (default 5): ') or '5')
+    xy = data.yn(input('Include xy augmentation? [y/n]: ')) 
+    vp = data.yn(input('Include vp augmentation? [y/n]: '))
+    minmax_y = True  # apply minmax scaling to targets 
+    lin = True  # scale the targets linearly
+
+    # -------------------------------------------------------
+
+    voltages  = [200, 300, 400, 500] # V
+    pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
+
+
+    voltage_excluded = 300 # V
+    pressure_excluded = 60 # Pa
+
+    # -------------------------------------------------------
+
     if ((name=='test') & (root/'created_models'/'test_dir_torch').exists()):
         out_dir = root/'created_models'/'test_dir_torch'  
     elif ((name=='test') & (not (root/'created_models'/'test_dir_torch').exists())): 
@@ -189,36 +192,36 @@ if __name__ == '__main__':
     train_start = time.time()  # record start time
 
     epoch_times = []
+    epoch_loss = []
 
     for epoch in tqdm(range(epochs)):  # TODO: validation data
         epoch_start = time.time()  # record time per epoch
         loop = tqdm(trainloader)
 
+        # record losses
         running_loss = 0.0
-        for i, data in enumerate(loop):
+
+        for i, batch_data in enumerate(loop):
             # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
+            inputs, labels = batch_data
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
-            # forward + backward + optimize
-            outputs = model(inputs)
+            outputs = model(inputs)  # forward pass
             loss = criterion(outputs, labels)
-            loss.backward()
-            optimizer.step()
+            loss.backward()  # compute gradients
+            optimizer.step()  # apply changes to network
 
             # print statistics
             running_loss += loss.item()
             loop.set_description(f"Epoch {epoch}/{epochs}")
-            loop.set_postfix(loss=running_loss)
+            # loop.set_postfix(loss=running_loss, epoch_loss=epoch_loss)
             running_loss = 0.0
 
         epoch_end = time.time()
         epoch_times.append(epoch_end - epoch_start)
-            # if i % 4 == 3:  # print every 4 mini batches (?)
-            #     model.eval()
-            #     val_pred = model(valset)
+        epoch_loss.append(loss.item())
 
     print('Finished training')
     train_end = time.time()  # record end time
@@ -226,10 +229,8 @@ if __name__ == '__main__':
     # save the model
     torch.save(model.state_dict(), out_dir/f'{name}')
     print('NN model has been saved.\n')
-
-    # save_history_vals(history, out_dir)
-    # save_history_graph(history, out_dir, 'mae')
-    # save_history_graph(history, out_dir, 'loss')
+    
+    plot.save_history_graph(epoch_loss, out_dir)
     print('NN training history has been saved.\n')
 
     # save metadata
