@@ -3,8 +3,33 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import matplotlib
+import pandas as pd
 import numpy as np
 from pathlib import Path
+
+def triangulate(df: pd.DataFrame):   
+    """
+    Create triangulation of the mesh grid, which is passed to tricontourf.
+    
+    Uses Delaunay triangulation.
+
+    Parameters
+    ----------
+    df : DataFrame
+        DataFrame with X and Y values for the triangulation.
+
+    Returns
+    -------
+    triangles : matplotlib.tri.triangulation.Triangulation
+        Triangulated grid.
+
+    """
+    x = df['x'].to_numpy()*100
+    y = df['y'].to_numpy()*100
+    triangles = matplotlib.tri.Triangulation(x, y)
+    
+    return triangles
+
 
 # from data.py
 def get_cbar_range(param_col_label):
@@ -201,7 +226,20 @@ def draw_apparatus(ax):
     ax.add_patch(patch_float)
 
 
-def quickplot(df, data_dir=None, grid=False, triangles=None):
+def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
+    """Quick plot of all 5 parameters.
+
+    This makes a plot for just the predictions, but it might help to have
+    the actual simulation results for comparison (TODO).
+    Args:
+        df (pd.DataFrame): DataFrame of only the predictions (no features).
+        data_dir (Path, optional): Path to where the model is saved. Defaults to None.
+        grid (bool, optional): _description_. Defaults to False.
+        triangles (_type_, optional): _description_. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
     matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
@@ -218,8 +256,11 @@ def quickplot(df, data_dir=None, grid=False, triangles=None):
         draw_apparatus(ax[i])
         ax[i].set_title(titles[i])
     
-    fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)        
+    fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
+     
     plt.show()
-    fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
+    if data_dir is not None:
+        fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
+
     return fig
 
