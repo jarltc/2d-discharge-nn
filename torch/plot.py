@@ -168,7 +168,7 @@ def save_history_graph(history: list, out_dir: Path):
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
     
-    ax.plot(x, y1, color='green', lw=1.0, label='train_error')
+    ax.plot(x, color='green', lw=1.0, label='train_error')
     
     # set both x_min and y_min as zero
     _, x_max = ax.get_xlim()
