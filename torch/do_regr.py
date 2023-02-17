@@ -183,30 +183,6 @@ if __name__ == '__main__':
     # pred_df = pd.concat([features[['x', 'y']], scaled_prediction])
 
     # plot the predictions
-    import matplotlib
-    def triangulate(df):   
-        """
-        Create triangulation of the mesh grid, which is passed to tricontourf.
-        
-        Uses Delaunay triangulation.
-
-        Parameters
-        ----------
-        df : DataFrame
-            DataFrame with X and Y values for the triangulation.
-
-        Returns
-        -------
-        triangles : matplotlib.tri.triangulation.Triangulation
-            Triangulated grid.
-
-        """
-        x = df['x'].to_numpy()*100
-        y = df['y'].to_numpy()*100
-        triangles = matplotlib.tri.Triangulation(x, y)
-        
-        return triangles
-
-    triangles = triangulate(features[['x', 'y']])
+    triangles = plot.triangulate(features[['x', 'y']])
     plot.quickplot(prediction, model_dir, triangles=triangles)
     
