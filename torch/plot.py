@@ -155,37 +155,24 @@ def draw_a_2D_graph(avg_data, param_col_label, file_path=None, set_cbar_range=Tr
     plt.close('all')
 
 
-def save_history_graph(history, out_dir, param='mae'):
-    # TODO: move to plot module
+def save_history_graph(history: list, out_dir: Path):
     matplotlib.rcParams['font.family'] = 'Arial'
-    x  = np.array(history.epoch)
-    if param=='mae':
-        y1 = np.array(history.history['mae'])
-        y2 = np.array(history.history['val_mae'])
-    elif param=='loss':
-        y1 = np.array(history.history['loss'])
-        y2 = np.array(history.history['val_loss'])
-    
+    x  = np.array(history)
 
     plt.rcParams['font.size'] = 12 # 12 is the default size
     plt.rcParams['xtick.minor.size'] = 2
     plt.rcParams['ytick.minor.size'] = 2
-    fig = plt.figure(figsize=(6.0,6.0))
+    fig, ax = plt.subplots(figsize=(6.0,6.0), dpi=200)
     
     # axis labels
-    plt.xlabel('Epoch')
-    if param=='mae':
-        plt.ylabel('MAE')
-    elif param=='loss':
-        plt.ylabel('Loss')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
     
-    plt.plot(x, y1, color='green', lw=1.0, label='train')
-    plt.plot(x, y2, color='red'  , lw=1.0, label='test')
+    ax.plot(x, y1, color='green', lw=1.0, label='train_error')
     
     # set both x_min and y_min as zero
-    ax = plt.gca()
-    x_min, x_max = ax.get_xlim()
-    y_min, y_max = ax.get_ylim()
+    _, x_max = ax.get_xlim()
+    _, y_max = ax.get_ylim()
     ax.set_xlim(0, x_max)
     ax.set_ylim(0, y_max)
     
@@ -194,14 +181,14 @@ def save_history_graph(history, out_dir, param='mae'):
     ax.minorticks_on()
     
     plt.legend()
-    plt.grid()
+    ax.grid()
     plt.tight_layout()
     
     # save the figure
-    if param=='mae':
-        file_name = 'history_graph_mae.png'
-    elif param=='loss':
-        file_name = 'history_graph_loss.png'
+    # if param=='mae':
+    #     file_name = 'history_graph_mae.png'
+    # elif param=='loss':
+    file_name = 'history_graph_loss.png'
     file_path = out_dir / file_name
     fig.savefig(file_path)
 
@@ -257,7 +244,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
         ax[i].set_title(titles[i])
     
     fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
-     
+
     plt.show()
     if data_dir is not None:
         fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
