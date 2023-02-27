@@ -169,18 +169,27 @@ def save_metadata(out_dir: Path):
 
 if __name__ == '__main__':
     # --------------- Model hyperparameters -----------------
-    name = input('Enter model name: ') or 'test'
+    # name = input('Enter model name: ') or 'test'
+    name = 'test'
 
     root = Path.cwd() 
     data_fldr_path = root/'data'/'avg_data'
 
     # training inputs
-    batch_size = int(input('Batch size (default 128): ') or '128')
-    learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
-    validation_split = float(input('Validation split (default 0.1): ') or '0.1')
-    epochs = int(input('Epochs (default 5): ') or '5')
-    xy = data.yn(input('Include xy augmentation? [y/n]: ')) 
-    vp = data.yn(input('Include vp augmentation? [y/n]: '))
+    # batch_size = int(input('Batch size (default 128): ') or '128')
+    # learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
+    # validation_split = float(input('Validation split (default 0.1): ') or '0.1')
+    # epochs = int(input('Epochs (default 5): ') or '5')
+    # xy = data.yn(input('Include xy augmentation? [y/n]: ')) 
+    # vp = data.yn(input('Include vp augmentation? [y/n]: '))
+
+    # testing
+    batch_size = 128
+    learning_rate = 0.001
+    validation_split = 0.1
+    epochs = 3
+    xy = False
+    vp = False
     minmax_y = True  # apply minmax scaling to targets 
     lin = True  # scale the targets linearly
 
