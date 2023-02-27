@@ -102,7 +102,7 @@ def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, k=3):
     Returns:
         Total MSE: torch.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
     """
-    c = 0.3  # parameter for the neighbor loss
+    global c
 
     # neighbor_mean returns a tensor of neighbor means for each point in the batch
     model.eval()
@@ -127,6 +127,28 @@ def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, k=3):
         return mse_neighbor
 
     return neighbor_loss_core(y_pred, y_batch)
+
+
+def c_e(epoch, c=0.5, r=25, which='exp'):
+    """Get regularization coefficient.
+
+    c is generated following an exponential function
+
+    Args:
+        epoch (int): Current epoch.
+        c (float, optional): Regularization coefficient to be approached. Defaults to 0.5.
+        r (int, optional): Rate of increase. Coefficient increases by {} over r epochs. Defaults to 25.
+
+    Returns:
+        c: Coefficient at each epoch.
+    """
+
+    if which=='exp':
+        return c - c*np.exp(-epoch/r)
+    elif which=='sigmoid':
+        k = 0.085
+        x_0 = 100
+        return c/(1 + np.exp(-k*(x-x_0)))
 
 
 def save_history_vals(history, out_dir):
@@ -277,6 +299,7 @@ if __name__ == '__main__':
         for i, batch_data in enumerate(loop):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = batch_data
+            c = c_e(epoch)
 
             # zero the parameter gradients
             optimizer.zero_grad()
