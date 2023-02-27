@@ -69,22 +69,20 @@ def neighbor_mean(point, k):
     global tree, model
     model.eval()
 
-    # get a point's neighbors and get a vector of the means for each variable (shape: (k,5))
+    # get a point's neighbors
     x, y, v, p = point.numpy() # -> np.ndarray
     v = np.atleast_1d(v)
     p = np.atleast_1d(p)
-
     _, ii = tree.query([x, y], k)  # get indices of k neighbors of the point
     
     # get pair of x, y of point's neighbors:
     # 1. combine with v, p as input to the model
-    # 2. convert to tensor (add a new dim cause the model expects a batch size)
-    # 3. get mean of neighbor predictions for 5 variables
+    # 2. create a tensor for model input (add a new dim cause the model expects a batch size)
+    # 3. get mean of neighbor predictions for each variable (5 vars)
 
     neighbor_xy = [nodes_df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
     neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
     neighbors = [torch.FloatTensor(neighbor).expand(1, -1) for neighbor in neighbors]
-
 
     # stack to get the mean for each variable
     mean_tensors = torch.concat([model(neighbor) for neighbor in neighbors], dim=0)
