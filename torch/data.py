@@ -16,6 +16,7 @@ from sklearn.preprocessing import MinMaxScaler
 # original data functions
 def read_all_data(fldr_path, voltages, pressures):
     file_count = 0
+    data_table = None
     for voltage in voltages:
         for pressure in pressures:
             file_name = '{0:d}Vpp_{1:03d}Pa_node.dat'.format(voltage,pressure)
@@ -61,7 +62,7 @@ def create_output_dir(root):
     if not os.path.exists(rslt_dir):
         os.mkdir(rslt_dir)
     
-    date_str = datetime.datetime.today().strftime('%Y-%m-%d_%H%M')
+    date_str = datetime.today().strftime('%Y-%m-%d_%H%M')
     out_dir = rslt_dir / date_str
     if not os.path.exists(out_dir):
         os.mkdir(out_dir)
