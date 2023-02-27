@@ -63,49 +63,53 @@ class MLP(nn.Module):
         return output
 
 
-# neighbor regularization
+####### neighbor regularization #######
 def neighbor_mean(point, k):
+    global tree, model
+    model.eval()
+
     # get a point's neighbors and get a vector of the means for each variable (shape: (k,5))
-    x, y, v, p = point  # unpack point, returns tensors
-    v = np.array([v.numpy()])  # convert tensor to 1D vector (numpy)
-    p = np.array([p.numpy()])
+    x, y, v, p = point.numpy() # -> np.ndarray
+    v = v.expand_dims(axis=0)
+    p = v.expand_dims(axis=0)
 
-    _, ii = tree.query([x, y], k)  # get nearest k neighbors of the point
+    _, ii = tree.query([x, y], k)  # get indices of k neighbors of the point
     
-    # get pair of x, y of point's neighbors
-    neighbor_xy = [features[['x', 'y']].iloc[i].to_numpy() for i in ii]
+    # get pair of x, y of point's neighbors:
+    # 1. combine with v, p as input to the model
+    # 2. convert to tensor (add a new dim cause the model expects a batch size)
+    # 3. get mean of neighbor predictions for 5 variables
 
-    # combine (x,y) with v and p, as input to the model
+    neighbor_xy = [features[['x', 'y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
     neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
+    neighbors = [torch.tensor(neighbor).expand(1, -1, -1) for neighbor in neighbors]
 
-    # convert to tensor (expand dims cause it expects a batch size)
-    neighbors = [tf.expand_dims(tf.convert_to_tensor(neighbor), axis=0) for neighbor in neighbors]
-    
-    # get mean of neighbor predictions for 5 variables
-    return tf.reduce_mean([model(neighbor) for neighbor in neighbors], axis=0)
+    # dim 0 gets the mean betw rows
+    return torch.mean([model(neighbor) for neighbor in neighbors], dim=0)
 
 
-def neighbor_loss(x_batch, y_batch, training=False, k=3):
+def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, training=False, k=3):
     """Calculate neighbor difference for each training point in a batch.
 
     This loss is added as a regularizer to improve smoothness.
     Args:
-        x_batch (tf.Tensor): Batched features of the specified batch size.
-        y_batch (tf.Tensor): Batched labels of the specified batch size.
+        x_batch (torch.Tensor): Batched features of the specified batch size.
+        y_batch (torch.Tensor): Batched labels of the specified batch size.
         training (bool, optional): Make model weights trainable. Defaults to False.
         k (int, optional): Number of neighbors to query. Defaults to 4.
 
     Returns:
-        Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
+        Total MSE: torch.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
     """
-    global c
+    c = 0.3  # parameter for the neighbor loss
+
+    # neighbor_mean returns a tensor of neighbor means for each point in the batch
     y_pred = model(x_batch, training=training)
-    
     neighbor_means = [neighbor_mean(point, k) for point in x_batch]    
-    batch_mean = tf.concat(neighbor_means, axis=0)
+    batch_mean = torch.cat(neighbor_means, dim=0)
 
     def neighbor_loss_core(y_true, y_pred):
-        """Calculate the combined MSE.
+        """Actual loss function.
 
         Args:
             y_true (tf.Tensor): Tensor of shape (batch_size, num_labels).
@@ -114,10 +118,10 @@ def neighbor_loss(x_batch, y_batch, training=False, k=3):
         Returns:
             Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
         """
-        mse_train = tf.cast(tf.losses.mean_squared_error(y_pred, y_true), 'float64')
-        mse_neighbor = tf.cast(c*tf.losses.mean_squared_error(batch_mean, y_pred), 'float64')
+        mse_train = nn.MSELoss(y_pred, y_true)
+        mse_neighbor = c*nn.MSELoss(batch_mean, y_pred)
 
-        return tf.math.add(mse_train, mse_neighbor)
+        return torch.add(mse_train, mse_neighbor)
 
     return neighbor_loss_core(y_pred, y_batch)
 
@@ -162,9 +166,9 @@ def save_metadata(out_dir: Path):
             f.write(f'VP augmentation: {vp}\n')
             f.write('\n*** end of file ***\n')
 
+
 if __name__ == '__main__':
     # --------------- Model hyperparameters -----------------
-    # model name
     name = input('Enter model name: ') or 'test'
 
     root = Path.cwd() 
@@ -226,22 +230,20 @@ if __name__ == '__main__':
     if minmax_y:  # if applying minmax to target data
         labels = data.scale_all(labels, 'y', scaler_dir)
 
-    alldf = pd.concat([features, labels], axis=1)  # what is this used for??
+    alldf = pd.concat([features, labels], axis=1)  # TODO: think about removing this
     dataset_size = len(alldf)
+
+    # kD tree for neighbor regularization
+    nodes_df = scale_all(data_excluded[['X', 'Y']], 'x') 
+    tree = cKDTree(np.c_[nodes_df['X'].to_numpy(), nodes_df['Y'].to_numpy()])
 
     # create dataset object and shuffle it()  # TODO: train/val split
     features = torch.FloatTensor(features.to_numpy())
     labels = torch.FloatTensor(labels.to_numpy())
     dataset = TensorDataset(features, labels)
 
-    # determine validation split
-    # trainset, valset = torch.utils.data.random_split(dataset, 
-    #                                                  lengths=[validation_split, (1-validation_split)],
-    #                                                  generator=torch.Generator().manual_seed(64))
-
     trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    # create validation split and batch the data
     model = MLP(name, len(feature_names), len(label_names)) 
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
