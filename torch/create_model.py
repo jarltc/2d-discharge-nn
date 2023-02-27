@@ -63,6 +63,65 @@ class MLP(nn.Module):
         return output
 
 
+# neighbor regularization
+def neighbor_mean(point, k):
+    # get a point's neighbors and get a vector of the means for each variable (shape: (k,5))
+    x, y, v, p = point  # unpack point, returns tensors
+    v = np.array([v.numpy()])  # convert tensor to 1D vector (numpy)
+    p = np.array([p.numpy()])
+
+    _, ii = tree.query([x, y], k)  # get nearest k neighbors of the point
+    
+    # get pair of x, y of point's neighbors
+    neighbor_xy = [features[['x', 'y']].iloc[i].to_numpy() for i in ii]
+
+    # combine (x,y) with v and p, as input to the model
+    neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
+
+    # convert to tensor (expand dims cause it expects a batch size)
+    neighbors = [tf.expand_dims(tf.convert_to_tensor(neighbor), axis=0) for neighbor in neighbors]
+    
+    # get mean of neighbor predictions for 5 variables
+    return tf.reduce_mean([model(neighbor) for neighbor in neighbors], axis=0)
+
+
+def neighbor_loss(x_batch, y_batch, training=False, k=3):
+    """Calculate neighbor difference for each training point in a batch.
+
+    This loss is added as a regularizer to improve smoothness.
+    Args:
+        x_batch (tf.Tensor): Batched features of the specified batch size.
+        y_batch (tf.Tensor): Batched labels of the specified batch size.
+        training (bool, optional): Make model weights trainable. Defaults to False.
+        k (int, optional): Number of neighbors to query. Defaults to 4.
+
+    Returns:
+        Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
+    """
+    global c
+    y_pred = model(x_batch, training=training)
+    
+    neighbor_means = [neighbor_mean(point, k) for point in x_batch]    
+    batch_mean = tf.concat(neighbor_means, axis=0)
+
+    def neighbor_loss_core(y_true, y_pred):
+        """Calculate the combined MSE.
+
+        Args:
+            y_true (tf.Tensor): Tensor of shape (batch_size, num_labels).
+            y_pred (tf.Tensor): Output of model(x_batch), with a shape of (batch_size, num_labels)
+
+        Returns:
+            Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
+        """
+        mse_train = tf.cast(tf.losses.mean_squared_error(y_pred, y_true), 'float64')
+        mse_neighbor = tf.cast(c*tf.losses.mean_squared_error(batch_mean, y_pred), 'float64')
+
+        return tf.math.add(mse_train, mse_neighbor)
+
+    return neighbor_loss_core(y_pred, y_batch)
+
+
 def save_history_vals(history, out_dir):
     """Save history values
 
