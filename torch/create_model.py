@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy.spatial import cKDTree
 # import xarray as xr
 # import matplotlib
 # import matplotlib.pyplot as plt
@@ -70,8 +71,8 @@ def neighbor_mean(point, k):
 
     # get a point's neighbors and get a vector of the means for each variable (shape: (k,5))
     x, y, v, p = point.numpy() # -> np.ndarray
-    v = v.expand_dims(axis=0)
-    p = v.expand_dims(axis=0)
+    v = np.atleast_1d(v)
+    p = np.atleast_1d(p)
 
     _, ii = tree.query([x, y], k)  # get indices of k neighbors of the point
     
@@ -80,22 +81,24 @@ def neighbor_mean(point, k):
     # 2. convert to tensor (add a new dim cause the model expects a batch size)
     # 3. get mean of neighbor predictions for 5 variables
 
-    neighbor_xy = [features[['x', 'y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
+    neighbor_xy = [nodes_df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
     neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
-    neighbors = [torch.tensor(neighbor).expand(1, -1, -1) for neighbor in neighbors]
-
-    # dim 0 gets the mean betw rows
-    return torch.mean([model(neighbor) for neighbor in neighbors], dim=0)
+    neighbors = [torch.FloatTensor(neighbor).expand(1, -1) for neighbor in neighbors]
 
 
-def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, training=False, k=3):
+    # stack to get the mean for each variable
+    mean_tensors = torch.concat([model(neighbor) for neighbor in neighbors], dim=0)
+    return torch.mean(mean_tensors, dim=0)
+    # return [torch.mean(, dim=0) for neighbor in neighbors], dim=0)
+
+
+def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, k=3):
     """Calculate neighbor difference for each training point in a batch.
 
     This loss is added as a regularizer to improve smoothness.
     Args:
         x_batch (torch.Tensor): Batched features of the specified batch size.
         y_batch (torch.Tensor): Batched labels of the specified batch size.
-        training (bool, optional): Make model weights trainable. Defaults to False.
         k (int, optional): Number of neighbors to query. Defaults to 4.
 
     Returns:
@@ -104,9 +107,11 @@ def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, training=False, 
     c = 0.3  # parameter for the neighbor loss
 
     # neighbor_mean returns a tensor of neighbor means for each point in the batch
-    y_pred = model(x_batch, training=training)
+    model.eval()
+    y_pred = model(x_batch)
     neighbor_means = [neighbor_mean(point, k) for point in x_batch]    
-    batch_mean = torch.cat(neighbor_means, dim=0)
+    batch_mean = torch.stack(neighbor_means, dim=0)
+    model.train()
 
     def neighbor_loss_core(y_true, y_pred):
         """Actual loss function.
@@ -118,10 +123,10 @@ def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, training=False, 
         Returns:
             Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
         """
-        mse_train = nn.MSELoss(y_pred, y_true)
-        mse_neighbor = c*nn.MSELoss(batch_mean, y_pred)
+        # mse_train = torch.nn.functional.mse_loss(y_pred, y_true)
+        mse_neighbor = c*torch.nn.functional.mse_loss(y_pred, batch_mean)
 
-        return torch.add(mse_train, mse_neighbor)
+        return mse_neighbor
 
     return neighbor_loss_core(y_pred, y_batch)
 
@@ -243,7 +248,7 @@ if __name__ == '__main__':
     dataset_size = len(alldf)
 
     # kD tree for neighbor regularization
-    nodes_df = scale_all(data_excluded[['X', 'Y']], 'x') 
+    nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
     tree = cKDTree(np.c_[nodes_df['X'].to_numpy(), nodes_df['Y'].to_numpy()])
 
     # create dataset object and shuffle it()  # TODO: train/val split
@@ -279,7 +284,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             outputs = model(inputs)  # forward pass
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels) + neighbor_loss(inputs, labels)
             loss.backward()  # compute gradients
             optimizer.step()  # apply changes to network
 
