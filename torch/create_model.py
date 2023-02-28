@@ -154,7 +154,7 @@ def c_e(epoch, c=0.5, r=25, which='exp'):
         k = 0.085
         x_0 = 100
         return c/(1 + np.exp(-k*(epoch-x_0)))
-
+#######################################
 
 def save_history_vals(history, out_dir):
     """Save history values
