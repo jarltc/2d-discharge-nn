@@ -266,7 +266,7 @@ if __name__ == '__main__':
     if minmax_y:  # if applying minmax to target data
         labels = data.scale_all(labels, 'y', scaler_dir)
 
-    alldf = pd.concat([features, labels], axis=1)  # TODO: think about removing this
+    alldf = pd.concat([features, labels], axis=1)  # TODO: consider removing this
     dataset_size = len(alldf)
 
     # kD tree for neighbor regularization
