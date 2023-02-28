@@ -17,9 +17,6 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 from scipy.spatial import cKDTree
-# import xarray as xr
-# import matplotlib
-# import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
@@ -148,7 +145,7 @@ def c_e(epoch, c=0.5, r=25, which='exp'):
     elif which=='sigmoid':
         k = 0.085
         x_0 = 100
-        return c/(1 + np.exp(-k*(x-x_0)))
+        return c/(1 + np.exp(-k*(epoch-x_0)))
 
 
 def save_history_vals(history, out_dir):
