@@ -202,7 +202,7 @@ if __name__ == '__main__':
 
     root = Path.cwd() 
     data_fldr_path = root/'data'/'avg_data'
-    inputFile = sys.argv[1] # root/'torch'/'M501.txt'
+    inputFile = root/'torch'/sys.argv[1] # root/'torch'/'M501.txt'
 
     # read input file
     with open(inputFile, 'r') as i:
