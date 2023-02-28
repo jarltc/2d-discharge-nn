@@ -62,7 +62,16 @@ class MLP(nn.Module):
 
 
 ####### neighbor regularization #######
-def neighbor_mean(point, k):
+def neighbor_mean(point: torch.Tensor, k: int):
+    """Get a mean tensor for a point's k neighbors.
+
+    Args:
+        point (torch.Tensor): Tensor of a single input.
+        k (int): Number of neighbors to query.
+
+    Returns:
+        torch.Tensor: Tensor (k, 5) of neighbor means for each variable.
+    """
     global tree, model
     model.eval()
 
@@ -84,7 +93,6 @@ def neighbor_mean(point, k):
     # stack to get the mean for each variable
     mean_tensors = torch.concat([model(neighbor) for neighbor in neighbors], dim=0)
     return torch.mean(mean_tensors, dim=0)
-    # return [torch.mean(, dim=0) for neighbor in neighbors], dim=0)
 
 
 def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, k=3):
