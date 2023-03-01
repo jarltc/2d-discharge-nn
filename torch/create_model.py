@@ -305,7 +305,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             outputs = model(inputs)  # forward pass
-            loss = criterion(outputs, labels) + criterion(outputs, neighbor_means)
+            loss = criterion(outputs, labels) + c*criterion(outputs, neighbor_means)
             loss.backward()  # compute gradients
             optimizer.step()  # apply changes to network
 
