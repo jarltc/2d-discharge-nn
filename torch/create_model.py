@@ -135,7 +135,7 @@ class MLP(nn.Module):
 #     return neighbor_loss_core(y_pred, y_batch)
 
 
-def process_batch(batch: torch.Tensor, model: MLP, tree: cKDTree, df: pd.DataFrame) -> torch.Tensor: 
+def process_batch(batch: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Tensor: 
 
     def neighbor_mean(point: torch.Tensor, k: int):
         # get a point's neighbors
@@ -152,6 +152,8 @@ def process_batch(batch: torch.Tensor, model: MLP, tree: cKDTree, df: pd.DataFra
         mean_tensors = torch.cat([model(neighbor) for neighbor in neighbors], dim=0)
         return torch.mean(mean_tensors, dim=0)
     
+    tree = cKDTree(np.c_[df['X'].to_numpy(), df['Y'].to_numpy()])
+
     with torch.no_grad():
         x_batch = batch
         results = [neighbor_mean(x, 4) for x in x_batch]
@@ -159,15 +161,15 @@ def process_batch(batch: torch.Tensor, model: MLP, tree: cKDTree, df: pd.DataFra
     return results
 
 
-def worker(queue, model, tree, df):
+def worker(queue, results, model, df):
     # function to be executed by each process
     # runs in an infinite loop until a batch is added to the queue
     while True:
         chunk = queue.get()  # retrieve data if a batch is added
         if chunk is None:  # infinite loop continues until a None is added to the queue
             break
-        output = process_batch(chunk, model, tree, df)
-        queue.put(output)  # add output to the queue
+        output = process_batch(chunk, model, df)
+        results.put(output)  # add output to the results queue
 
 
 def c_e(epoch, c=0.5, r=25, which='exp'):
@@ -307,7 +309,6 @@ if __name__ == '__main__':
 
     # kD tree for neighbor regularization
     nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
-    tree = cKDTree(np.c_[nodes_df['X'].to_numpy(), nodes_df['Y'].to_numpy()])
 
     # create dataset object and shuffle it()  # TODO: train/val split
     features = torch.FloatTensor(features.to_numpy())
@@ -345,19 +346,31 @@ if __name__ == '__main__':
             
             model.eval()
             queue = mp.Queue()
-            processes = [mp.Process(target=worker, args=(queue, model, tree, nodes_df)) for _ in range(num_processes)]
+            results = mp.Queue()
+            processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df)) for _ in range(num_processes)]
+
+            # load data into queue
+            for chunk in doubleLoader:
+                queue.put(chunk)
+            
+            # signal each worker to start
             for p in processes:
                 p.start()
 
-            for chunk in doubleLoader:
-                queue.put(chunk)
-
+            # when finished, add a sentinel value to the queue
             for _ in range(num_processes):
                 queue.put(None)
 
+            # wait for the worker processes to finish
+            for process in processes:
+                process.join()
+
             outputs = []
-            for _ in range(batch_size):
-                outputs.append(queue.get())
+            # retrieve processed data from the results queue
+            while not results.empty():
+                output = results.get()
+                outputs.append(output)
+
             neighbor_means = torch.cat(outputs, dim=0)
 
             model.train()
