@@ -135,7 +135,7 @@ class MLP(nn.Module):
 #     return neighbor_loss_core(y_pred, y_batch)
 
 
-def process_batch(batch: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Tensor: 
+def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Tensor: 
 
     def neighbor_mean(point: torch.Tensor, k: int):
         # get a point's neighbors
@@ -155,9 +155,8 @@ def process_batch(batch: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Te
     tree = cKDTree(np.c_[df['X'].to_numpy(), df['Y'].to_numpy()])
 
     with torch.no_grad():
-        x_batch = batch
-        results = [neighbor_mean(x, 4) for x in x_batch]
-    results = torch.cat(results, dim=0)
+        results = [neighbor_mean(x, 4) for x in chunk]
+    results = torch.stack(results, dim=0)
     return results
 
 
@@ -168,7 +167,7 @@ def worker(queue, results, model, df):
         chunk = queue.get()  # retrieve data if a batch is added
         if chunk is None:  # infinite loop continues until a None is added to the queue
             break
-        output = process_batch(chunk, model, df)
+        output = process_chunk(chunk, model, df)
         results.put(output)  # add output to the results queue
 
 
@@ -321,6 +320,20 @@ if __name__ == '__main__':
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
+    # initialize multiprocessing for neighbor mean
+    num_processes = mp.cpu_count()
+    chunk_size = int(batch_size/num_processes)
+    queue = mp.Queue()
+    results = mp.Queue()
+    processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df)) for _ in range(num_processes)]
+    # signal each worker to start if not already started
+    print(f'Multicore neighbor mean processing ({num_processes} cores):')
+    for i, p in enumerate(processes):
+        if not p.is_alive():
+            p.start()
+            print(f'spawned process {i+1}/{num_processes}')
+
+
     # train the model
     print('begin model training...')
     train_start = time.time()  # record start time
@@ -328,11 +341,10 @@ if __name__ == '__main__':
     epoch_times = []
     epoch_loss = []
 
-    num_processes = 4  # mp.cpu_count()
-    chunk_size = int(batch_size/num_processes)
-    
-    for epoch in tqdm(range(epochs)):  # TODO: validation data
-        epoch_start = time.time()  # record time per epoch
+    # model training loop
+    for epoch in tqdm(range(epochs)):
+        # record time per epoch
+        epoch_start = time.time()
         loop = tqdm(trainloader)
 
         # record losses
@@ -345,33 +357,27 @@ if __name__ == '__main__':
             c = c_e(epoch)
             
             model.eval()
-            queue = mp.Queue()
-            results = mp.Queue()
-            processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df)) for _ in range(num_processes)]
+            # create processes
 
             # load data into queue
             for chunk in doubleLoader:
                 queue.put(chunk)
-            
-            # signal each worker to start
-            for p in processes:
-                p.start()
 
             # when finished, add a sentinel value to the queue
-            for _ in range(num_processes):
-                queue.put(None)
+            # for _ in range(num_processes):
+            #     queue.put(None)
 
-            # wait for the worker processes to finish
-            for process in processes:
-                process.join()
+            # # wait for the worker processes to finish
+            # for process in processes:
+            #     process.join()
 
-            outputs = []
+            worker_outputs = []
             # retrieve processed data from the results queue
-            while not results.empty():
+            for _ in range(num_processes):
                 output = results.get()
-                outputs.append(output)
+                worker_outputs.append(output)
 
-            neighbor_means = torch.cat(outputs, dim=0)
+            neighbor_means = torch.cat(worker_outputs, dim=0)
 
             model.train()
             
@@ -379,19 +385,27 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             outputs = model(inputs)  # forward pass
-            loss = criterion(outputs, labels)
+            loss = criterion(outputs, labels) + criterion(outputs, neighbor_means)
             loss.backward()  # compute gradients
             optimizer.step()  # apply changes to network
 
             # print statistics
             running_loss += loss.item()
             loop.set_description(f"Epoch {epoch}/{epochs}")
-            # loop.set_postfix(loss=running_loss, epoch_loss=epoch_loss)
+            loop.set_postfix(loss=running_loss)
             running_loss = 0.0
 
         epoch_end = time.time()
         epoch_times.append(epoch_end - epoch_start)
         epoch_loss.append(loss.item())
+
+    # when finished, add a sentinel value to the queue
+    for _ in range(num_processes):
+        queue.put(None)
+
+    # wait for all processes to terminate
+    for p in processes:
+        p.join()
 
     print('Finished training')
     train_end = time.time()  # record end time
