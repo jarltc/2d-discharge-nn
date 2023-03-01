@@ -64,6 +64,18 @@ class MLP(nn.Module):
 
 ####### neighbor regularization #######
 def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Tensor: 
+    """Per-chunk processing of the input tensor.
+
+    Takes a chunk of a batch as an input, along with the current model, and a DataFrame of 
+    grid coordinates. The cKDTree is also created from this df.
+    Args:
+        chunk (torch.Tensor): _description_
+        model (MLP): _description_
+        df (pd.DataFrame): _description_
+
+    Returns:
+        torch.Tensor: Tensor of size (chunk_size, 5) containing neighbor means of the input chunk.
+    """
 
     def neighbor_mean(point: torch.Tensor, k: int):
         # get a point's neighbors
@@ -93,8 +105,8 @@ def worker(queue, results, model, df):
     # runs in an infinite loop until a batch is added to the queue
     while True:
         chunk = queue.get()  # retrieve data if a batch is added
-        if chunk is None:  # infinite loop continues until a None is added to the queue
-            break
+        if chunk is None:  # worker is active until a None is added to the queue
+            break  # terminate the process
         output = process_chunk(chunk, model, df)
         results.put(output)  # add output to the results queue
 
@@ -254,13 +266,13 @@ if __name__ == '__main__':
     queue = mp.Queue()
     results = mp.Queue()
     processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df)) for _ in range(num_processes)]
+    
     # signal each worker to start if not already started
     print(f'Multicore neighbor mean processing ({num_processes} cores):')
     for i, p in enumerate(processes):
         if not p.is_alive():
             p.start()
             print(f'spawned process {i+1}/{num_processes}')
-
 
     # train the model
     print('begin model training...')
@@ -284,8 +296,7 @@ if __name__ == '__main__':
             doubleLoader = DataLoader(inputs, batch_size=chunk_size)
             c = c_e(epoch)
             
-            model.eval()
-            # create processes
+            model.eval()  # switch model to eval mode
 
             # load data into queue
             for chunk in doubleLoader:
