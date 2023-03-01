@@ -63,78 +63,6 @@ class MLP(nn.Module):
 
 
 ####### neighbor regularization #######
-# def neighbor_mean(point: torch.Tensor, k: int):
-#     """Get a mean tensor for a point's k neighbors.
-
-#     Args:
-#         point (torch.Tensor): Tensor of a single input.
-#         k (int): Number of neighbors to query.
-
-#     Returns:
-#         torch.Tensor: Tensor (k, 5) of neighbor means for each variable.
-#     """
-#     global tree, model
-#     model.eval()
-
-#     # get a point's neighbors
-#     x, y, v, p = point.numpy() # -> np.ndarray
-#     v = np.atleast_1d(v)
-#     p = np.atleast_1d(p)
-#     _, ii = tree.query([x, y], k)  # get indices of k neighbors of the point
-    
-#     # get pair of x, y of point's neighbors:
-#     # 1. combine with v, p as input to the model
-#     # 2. create a tensor for model input (add a new dim cause the model expects a batch size)
-#     # 3. get mean of neighbor predictions for each variable (5 vars)
-
-#     neighbor_xy = [nodes_df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
-#     neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
-#     neighbors = [torch.FloatTensor(neighbor).expand(1, -1) for neighbor in neighbors]
-
-#     # stack to get the mean for each variable
-#     mean_tensors = torch.concat([model(neighbor) for neighbor in neighbors], dim=0)
-#     return torch.mean(mean_tensors, dim=0)
-
-
-# def neighbor_loss(x_batch: torch.Tensor, y_batch: torch.Tensor, k=3):
-#     """Calculate neighbor difference for each training point in a batch.
-
-#     This loss is added as a regularizer to improve smoothness.
-#     Args:
-#         x_batch (torch.Tensor): Batched features of the specified batch size.
-#         y_batch (torch.Tensor): Batched labels of the specified batch size.
-#         k (int, optional): Number of neighbors to query. Defaults to 4.
-
-#     Returns:
-#         Total MSE: torch.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
-#     """
-#     global c
-
-#     # neighbor_mean returns a tensor of neighbor means for each point in the batch
-#     model.eval()
-#     y_pred = model(x_batch)
-#     neighbor_means = [neighbor_mean(point, k) for point in x_batch]    
-#     batch_mean = torch.stack(neighbor_means, dim=0)
-#     model.train()
-
-#     def neighbor_loss_core(y_true, y_pred):
-#         """Actual loss function.
-
-#         Args:
-#             y_true (tf.Tensor): Tensor of shape (batch_size, num_labels).
-#             y_pred (tf.Tensor): Output of model(x_batch), with a shape of (batch_size, num_labels)
-
-#         Returns:
-#             Total MSE: tf.Tensor of shape(batch_size, ) specifying the MSE for each item in the batch.
-#         """
-#         # mse_train = torch.nn.functional.mse_loss(y_pred, y_true)
-#         mse_neighbor = c*torch.nn.functional.mse_loss(y_pred, batch_mean)
-
-#         return mse_neighbor
-
-#     return neighbor_loss_core(y_pred, y_batch)
-
-
 def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Tensor: 
 
     def neighbor_mean(point: torch.Tensor, k: int):
@@ -363,23 +291,15 @@ if __name__ == '__main__':
             for chunk in doubleLoader:
                 queue.put(chunk)
 
-            # when finished, add a sentinel value to the queue
-            # for _ in range(num_processes):
-            #     queue.put(None)
-
-            # # wait for the worker processes to finish
-            # for process in processes:
-            #     process.join()
-
-            worker_outputs = []
             # retrieve processed data from the results queue
+            worker_outputs = []
             for _ in range(num_processes):
                 output = results.get()
                 worker_outputs.append(output)
 
             neighbor_means = torch.cat(worker_outputs, dim=0)
 
-            model.train()
+            model.train()  # put model back in train mode (not sure if still necessary)
             
             # zero the parameter gradients
             optimizer.zero_grad()
