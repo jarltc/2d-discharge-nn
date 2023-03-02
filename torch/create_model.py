@@ -79,7 +79,7 @@ class MLP(nn.Module):
 
 
 ####### neighbor regularization #######
-def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Tensor: 
+def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> torch.Tensor: 
     """Per-chunk processing of the input tensor.
 
     Takes a chunk of a batch as an input, along with the current model, and a DataFrame of 
@@ -93,7 +93,7 @@ def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Te
         torch.Tensor: Tensor of size (chunk_size, 5) containing neighbor means of the input chunk.
     """
 
-    def neighbor_mean(point: torch.Tensor, k: int):
+    def neighbor_mean(point: torch.Tensor, k):
         # get a point's neighbors
         x, y, v, p = point.numpy() # -> np.ndarray
         v = np.atleast_1d(v)
@@ -116,14 +116,14 @@ def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame) -> torch.Te
     return results
 
 
-def worker(queue, results, model, df):
+def worker(queue, results, model, df, k):
     # function to be executed by each process
     # runs in an infinite loop until a batch is added to the queue
     while True:
         chunk = queue.get()  # retrieve data if a batch is added
         if chunk is None:  # worker is active until a None is added to the queue
             break  # terminate the process
-        output = process_chunk(chunk, model, df)
+        output = process_chunk(chunk, model, df, k)
         results.put(output)  # add output to the results queue
 
 
@@ -187,6 +187,7 @@ def save_metadata(out_dir: Path):
             f.write(f'Epochs: {epochs}\n')
             f.write(f'Grid augmentation: {xy}\n')
             f.write(f'VP augmentation: {vp}\n')
+            f.write(f'Neighbor regularization k: {k}\n')
             f.write('\n*** end of file ***\n')
 
 
@@ -210,6 +211,7 @@ if __name__ == '__main__':
     epochs = eval(lines[4])
     xy = eval(lines[5])
     vp = eval(lines[6])
+    k = eval(lines[7])
     minmax_y = True  # apply minmax scaling to targets 
     lin = True  # scale the targets linearly
 
@@ -281,7 +283,7 @@ if __name__ == '__main__':
     chunk_size = int(batch_size/num_processes)
     queue = mp.Queue()
     results = mp.Queue()
-    processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df)) for _ in range(num_processes)]
+    processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df, k)) for _ in range(num_processes)]
     
     # signal each worker to start if not already started
     print(f'Multicore neighbor mean processing ({num_processes} cores):')
