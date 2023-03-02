@@ -309,7 +309,8 @@ if __name__ == '__main__':
             doubleLoader = DataLoader(inputs, batch_size=chunk_size)
             c = c_e(epoch)
             
-            model.eval()  # switch model to eval mode
+            # switch model to eval mode
+            model.eval()
 
             # load data into queue
             for chunk in doubleLoader:
@@ -346,7 +347,7 @@ if __name__ == '__main__':
         epoch_times.append(epoch_end - epoch_start)
         epoch_loss.append(loss.item())
 
-    # when finished, add a sentinel value to the queue
+    # when finished, add a sentinel value to the queue to signal termination
     for _ in range(num_processes):
         queue.put(None)
 
@@ -355,12 +356,11 @@ if __name__ == '__main__':
         p.join()
 
     print('Finished training')
-    train_end = time.time()  # record end time
+    train_end = time.time()
 
-    # save the model
+    # save the model and loss
     torch.save(model.state_dict(), out_dir/f'{name}')
     print('NN model has been saved.\n')
-    
     plot.save_history_graph(epoch_loss, out_dir)
     print('NN training history has been saved.\n')
 
