@@ -30,6 +30,13 @@ import plot
 
 
 class MLP(nn.Module):
+    """Neural network momdel for grid-wise prediction of 2D-profiles.
+
+    Args:
+        name (string): Model name
+        input_size (int): Size of input vector.
+        output_size (int): Size of output vector. Should be 5 for the usual variables.
+    """
     def __init__(self, name, input_size, output_size) -> None:
         super(MLP, self).__init__()
         self.name = name
@@ -44,6 +51,14 @@ class MLP(nn.Module):
         self.fc7 = nn.Linear(106, output_size)
         
     def forward(self, x):
+        """Execute the forward pass.
+
+        Args:
+            x (torch.Tensor): Input tensor of size (batch_size, input_size)
+
+        Returns:
+            torch.Tensor: Predicted values given an input x.
+        """
         x = self.fc1(x)
         x = F.relu(x)
         x = self.fc2(x)
