@@ -318,9 +318,6 @@ if __name__ == '__main__':
 
             # retrieve processed data from the results queue
             worker_outputs = [results.get() for _ in range(num_processes)]
-            # for _ in range(num_processes):
-            #     output = results.get()
-            #     worker_outputs.append(output)
 
             neighbor_means = torch.cat(worker_outputs, dim=0)
 
