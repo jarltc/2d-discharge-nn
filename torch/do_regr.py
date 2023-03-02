@@ -83,7 +83,7 @@ def scale_features(df: pd.DataFrame, model_dir: Path):
 def scale_targets(data_table: pd.DataFrame, label_names: list, scale_exp=[1.0, 14.0, 14.0, 16.0, 0.0]):
     """Scale target data (from simulation results).
 
-    Target data is in original scaling, which are scaled down to match
+    Target data is in original scaling, and will be scaled down to match
     the prediction data. Exponents used to scale the data down for 
     training (n) are stored as a pickle file in the model folder. 
     The pickle file is a list of powers which are used to reverse the scaling.
