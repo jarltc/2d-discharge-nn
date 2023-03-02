@@ -83,10 +83,10 @@ def scale_features(df: pd.DataFrame, model_dir: Path):
 def scale_targets(data_table: pd.DataFrame, label_names: list, scale_exp=[1.0, 14.0, 14.0, 16.0, 0.0]):
     """Scale target data (from simulation results).
 
-    Target data is in original scaling, whereas the training predictions are
-    scaled down by 10^n. Exponents used to scale the data down for 
+    Target data is in original scaling, which are scaled down to match
+    the prediction data. Exponents used to scale the data down for 
     training (n) are stored as a pickle file in the model folder. 
-    The pickle file is a list of powers, which are used to reverse the scaling.
+    The pickle file is a list of powers which are used to reverse the scaling.
 
     Args:
         data_table (pd.DataFrame): DataFrame of target data.
@@ -100,9 +100,9 @@ def scale_targets(data_table: pd.DataFrame, label_names: list, scale_exp=[1.0, 1
 
     # label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     for i, column in enumerate(label_names):
-        data_table.update(data_table.iloc[:, i]/(10**scale_exp[i]))
+        unscaled_df = data_table.iloc[:, i]/(10**scale_exp[i])
 
-    return data_table
+    return unscaled_df
 
 
 def reverse_minmax(df: pd.DataFrame, model_dir: Path):
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
     root = Path.cwd()
-    model_dir = Path(input('Model directory: '))
+    model_dir = Path(input('Model directory: ') or './created_models/test_dir_torch')
     regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
         .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
     regr_df['V'] = 300
