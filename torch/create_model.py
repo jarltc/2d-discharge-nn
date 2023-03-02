@@ -1,7 +1,7 @@
 """
-Load data and train a model. (PyTorch)
+Load data and train a model. (PyTorch version)
 
-6 Dec 13:30
+15 Feb 17:25
 author @jarl
 """
 
