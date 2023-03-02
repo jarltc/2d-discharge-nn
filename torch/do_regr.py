@@ -51,6 +51,60 @@ class MLP(nn.Module):
         return output
 
 
+class PredictionDataset:
+    def __init__(self, reference_df, model, metadata) -> None:
+        self.original_df = reference_df
+        self.model = model
+        self.v_excluded = 300  # [V]
+        self.p_excluded = 60  # [Pa]
+        self.df, self.features, self.labels = \
+            process_data(reference_df, (self.v_excluded, self.p_excluded))
+        self.targets = scale_targets(self.labels, self.scale_exp)
+        self.minmax_y = metadata['is_target_scaled']
+        self.lin = metadata['scaling']
+        self.scale_exp = metadata['parameter_exponents']
+
+    def make_prediction(self):
+         features_tensor = scale_features(self.df, model_dir)
+
+         model.eval()
+         prediction = pd.DataFrame(model(features_tensor)\
+                                          .detach().numpy(), 
+                                          columns=list(self.labels.columns))
+         
+         prediction = reverse_minmax(prediction, model_dir)
+         return prediction
+    
+    def print_scores(self, prediction):
+        r2, mae, rmse, ratio = get_scores(prediction)
+        data = np.vstack([r2, mae, rmse, ratio])
+        scores_df = pd.DataFrame(data, columns=list(self.labels.columns))
+        
+        # TODO: print to stdout and save to txt file
+        for column in scores_df.columns:
+            print(f'**** {column} ****')
+            print(f'MAE = {scores_df[column,1]}')
+            print(f'RMSE = {scores_df[column,2]}')
+            print(f'RMSE/MAE = {scores_df[column,3]}\n')
+            print(f'R2 = {scores_df[column,0]}')
+
+        with open('') as file:
+            file.write
+        
+
+def process_data(df: pd.DataFrame, data_excluded: tuple):
+    v_excluded, p_excluded = data_excluded
+    df['V'] = v_excluded
+    df['P'] = p_excluded
+    df = df[feature_names + label_names]
+    df.rename(columns={'X':'x', 'Y':'y'}, inplace=True)
+
+    features = df.drop(columns=label_names)
+    labels = df[label_names]
+
+    return df, features, labels
+
+
 def scale_features(df: pd.DataFrame, model_dir: Path):
     """Scale table's features for regression.
 
@@ -80,7 +134,7 @@ def scale_features(df: pd.DataFrame, model_dir: Path):
     return torch.FloatTensor(scaled_df.to_numpy())
 
 
-def scale_targets(data_table: pd.DataFrame, label_names: list, scale_exp=[1.0, 14.0, 14.0, 16.0, 0.0]):
+def scale_targets(data_table: pd.DataFrame, scale_exp=[1.0, 14.0, 14.0, 16.0, 0.0]):
     """Scale target data (from simulation results).
 
     Target data is in original scaling, and will be scaled down to match
@@ -97,9 +151,9 @@ def scale_targets(data_table: pd.DataFrame, label_names: list, scale_exp=[1.0, 1
     Returns:
         pd.DataFrame: DataFrame of scaled target data.
     """
-
+    label_names = list(data_table.columns)
     # label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
-    for i, column in enumerate(label_names):
+    for i, _ in enumerate(label_names):
         unscaled_df = data_table.iloc[:, i]/(10**scale_exp[i])
 
     return unscaled_df
@@ -134,12 +188,12 @@ def reverse_minmax(df: pd.DataFrame, model_dir: Path):
 
 
 def get_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
-    y_true = reference_df.values()
-    y_pred = prediction_df.values()
+    y_true = reference_df.values
+    y_pred = prediction_df.values
 
     # compute regression scores
-    r2 = (np.abs(y_true - y_pred)**2).mean(axis=0)  # TODO: verify axis
-    mae = np.abs(y_true - y_pred).mean(axis=0)  # TODO: verify axis
+    r2 = (np.abs(y_true - y_pred)**2).mean(axis=0)  
+    mae = np.abs(y_true - y_pred).mean(axis=0)  
     rmse = np.sqrt(r2)
 
     return r2, mae, rmse, rmse/mae
@@ -152,44 +206,23 @@ if __name__ == '__main__':
     model_dir = Path(input('Model directory: ') or './created_models/test_dir_torch')
     regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
         .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
-    regr_df['V'] = 300
-    regr_df['P'] = 60
-    regr_df.rename(columns={'X':'x', 'Y':'y'}, inplace=True)
-    regr_df = regr_df[feature_names + label_names]  # fix arrangement
+    regr_df = PredictionDataset(regr_df)
 
-    features = regr_df.drop(columns=label_names)
-    labels = regr_df[label_names]
-
-    # infer regression details from model metadata
+    # infer regression details from model metadata, else assume defaults
     if os.path.exists(model_dir / 'train_metadata.pkl'):
         with open(model_dir / 'train_metadata.pkl', 'rb') as f:
             metadata = pickle.load(f)
-        
-        minmax_y = metadata['is_target_scaled']
-        lin = metadata['scaling']
-        name = metadata['name']
-        scale_exp = metadata['parameter_exponents']
+            name = metadata['name']
     else:
         print('Metadata unavailable: using defaults lin=True, minmax_y=True\n')
-        lin = True
-        minmax_y = True
-        name = model_dir.name
-    
-        print('\nLoaded model ' + name)
-
-    features_tensor = scale_features(features, model_dir)
-    targets = scale_targets(labels, label_names, scale_exp)
+        metadata = {'scaling': True, 'is_target_scaled':True, 'name':model_dir.name}
 
     model = MLP(len(feature_names), len(label_names))
     model.load_state_dict(torch.load(model_dir/f'{name}'))
-    
-    model.eval()  # set model to eval mode
-    model(features_tensor)
-    scaled_prediction = pd.DataFrame(model(features_tensor).detach().numpy(), columns=label_names)  # get the prediction
-    prediction = reverse_minmax(scaled_prediction, model_dir)
-    # pred_df = pd.concat([features[['x', 'y']], scaled_prediction])
+    print('\nLoaded model ' + name)
 
-    # plot the predictions
-    triangles = plot.triangulate(features[['x', 'y']])
+    prediction = regr_df.make_prediction()
+
+    triangles = plot.triangulate(regr_df.features[['x', 'y']])
     plot.quickplot(prediction, model_dir, triangles=triangles)
     
