@@ -5,6 +5,7 @@ __pycache__/data.cpython-39.pyc
 
 # except
 !/torch/
+!/tensorflow/
 !*.py
 !*.ipynb
 !*.md
