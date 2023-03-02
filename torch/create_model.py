@@ -319,7 +319,13 @@ if __name__ == '__main__':
                 queue.put(chunk)
 
             # retrieve processed data from the results queue
-            worker_outputs = [results.get() for _ in range(num_processes)]
+            worker_outputs = []
+            for _ in range(num_processes):
+                try:
+                    output = results.get(timeout=1)
+                    worker_outputs.append(output)
+                except:
+                    pass
 
             neighbor_means = torch.cat(worker_outputs, dim=0)
 
