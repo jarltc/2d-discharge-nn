@@ -303,9 +303,6 @@ if __name__ == '__main__':
         epoch_start = time.time()
         loop = tqdm(trainloader)
 
-        # record losses
-        running_loss = 0.0
-
         for i, batch_data in enumerate(loop):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = batch_data
@@ -319,17 +316,20 @@ if __name__ == '__main__':
                 queue.put(chunk)
 
             # retrieve processed data from the results queue
-            worker_outputs = []
-            for _ in range(num_processes):
-                output = results.get()
-                worker_outputs.append(output)
+            worker_outputs = [results.get() for _ in range(num_processes)]
+            # for _ in range(num_processes):
+            #     output = results.get()
+            #     worker_outputs.append(output)
 
             neighbor_means = torch.cat(worker_outputs, dim=0)
 
-            model.train()  # put model back in train mode (not sure if still necessary)
+            model.train()  # put model back in train mode (?)
             
             # zero the parameter gradients
             optimizer.zero_grad()
+
+            # record losses
+            running_loss = 0.0
 
             outputs = model(inputs)  # forward pass
             loss = criterion(outputs, labels) + c*criterion(outputs, neighbor_means)
