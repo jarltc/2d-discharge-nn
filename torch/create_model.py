@@ -32,6 +32,7 @@ import plot
 class MLP(nn.Module):
     """Neural network momdel for grid-wise prediction of 2D-profiles.
 
+    Model architecture optimized using OpTuna.
     Args:
         name (string): Model name
         input_size (int): Size of input vector.
