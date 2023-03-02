@@ -104,7 +104,7 @@ def scale_all(data_table, x_or_y, out_dir=None):
 
 def create_model_old(num_descriptors, num_obj_vars):
     '''
-    Create the model and compile it
+    Create the model and compile it (not optimized)
 
     Parameters
     ----------
@@ -143,15 +143,18 @@ def create_model_old(num_descriptors, num_obj_vars):
     return model
 
 def create_model(num_descriptors, num_obj_vars):
-    """Create a model.
+    """Create a model and compile it. 
+
     Model layers, activation,
+
     Args:
         num_descriptors (_type_): _description_
         num_obj_vars (_type_): _description_
+
     Returns:
-        model: Keras model
+        _type_: _description_
     """
-    weight_decay = 7.480215373453682e-10  # TODO: optimize value for (loss - val_loss)
+    
     def hidden_layer(neurons):
       return keras.layers.Dense(neurons, activation=tf.nn.relu)
 
@@ -262,6 +265,90 @@ def read_aug_data(file):
     return interp_df
 
 
+##### data processing ######
+def get_augmentation_data(data_used, xy: bool, vp: bool):
+    """Get augmentation data for training.
+
+    Args:
+        xy (bool): Include xy grid augmented data
+        vp (bool): Inclde vp augmentation data
+    """
+    if xy:  # xy augmentation
+        xyfile = Path(root/'data'/'interpolation_datasets'/'rec-interpolation2.nc')
+        xydf = xr.open_dataset(xyfile).to_dataframe().reset_index().dropna()
+    else: xydf = None
+
+    if vp:  # vp augmentation
+        vpfolder = Path(root/'data'/'interpolation_feather'/'20221209')
+        # read all files and combine into a single df
+        vpdf = [read_aug_data(file) for file in vpfolder.glob('*.feather')]
+        vpdf = pd.concat(vpdf).rename(columns={'Vpp [V]' : 'V', 
+                                               'P [Pa]'  : 'P',
+                                               'X'       : 'x',
+                                               'Y'       : 'y'}, inplace=True)
+    else: vpdf = None
+
+    # make sure that the data follows the correct format before returning
+    assert list(data_used.columns) == ['V', 'P', 'x', 'y'] + label_names
+    return pd.concat([data_used, xydf, vpdf], ignore_index=True)
+    
+
+def get_data(xy=False, vp=False):
+    """Get dataset
+
+    Assumes the DataFrame has previously been saved as a .feather file. If not,
+    a new .feather file is created in the root/data folder.
+
+    Args:
+        xy (bool, optional): Include xy augmentation. Defaults to False.
+        vp (bool, optional): Include vp augmentation. Defaults to False.
+
+    Raises:
+        Exception: Raises an error if no data is available in avg_data.
+
+    Returns:
+        data_used: DataFrame of data to be used, with specified augmentation data.
+        data_excluded: DataFrame of excluded data.
+    """
+    avg_data_file = root/'data'/'avg_data.feather'
+
+    # check if feather file exists and load avg_data
+    if avg_data_file.is_file():
+        print('reading data feather file...')
+        avg_data = pd.read_feather(avg_data_file)
+    
+    else:
+        print('data feather file not found, building file...')
+        start_time = time.time()
+        avg_data = data.read_all_data(data_fldr_path, voltages, pressures).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
+        elapsed_time = time.time() - start_time
+        print(f' done ({elapsed_time:0.1f} sec).\n')
+
+        if len(avg_data)==0:
+            raise Exception('No data available.')
+
+        avg_data.to_feather(avg_data_file)
+
+    # separate data to be excluded (to later check the model)
+    data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded))].copy()
+    data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ].copy()
+
+    # rename columns
+    data_used.rename(columns={'Vpp [V]' : 'V',
+                              'P [Pa]'  : 'P',
+                              'X'       : 'x', 
+                              'Y'       : 'y'}, inplace=True)
+
+    if (xy or vp):
+        data_used = get_augmentation_data(data_used, xy, vp)
+
+    # create new column of x^2 and y^2
+    data_used['x**2'] = data_used['x']**2
+    data_used['y**2'] = data_used['y']**2
+    
+    return data_used, data_excluded
+
+
 # --------------- Model hyperparameters -----------------
 # model name
 if args['name'] == None:
@@ -303,52 +390,13 @@ os.mkdir(scaler_dir)
 shutil.copyfile(__file__, out_dir / 'create_model.py')
 shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
-# get dataset
-print('start getting dataset...', end='', flush=True)
-start_time = time.time()
-avg_data = data.read_all_data(data_fldr_path, voltages, pressures).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
-if len(avg_data)==0:
-    print('error: no data available.')
-    raise Exception
-elapsed_time = time.time() - start_time
-print(f' done ({elapsed_time:0.1f} sec).\n')
-
-# separate data to be excluded (to later check the model)
-data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded))].copy()
-data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ].copy()
-
-# add synthetic data
-data_augmentation_folder = Path(root/'data'/'interpolation_feather'/'20221209')
-
-# V, P interpolation
-aug_dataVP = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
-aug_dataVP = pd.concat(aug_dataVP)
-
-# X, Y interpolation
-data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolation2.nc')
-aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().dropna()
-
-# combine datasets
-data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
-
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-# create descriptor table from features
-data_used.rename(columns={'Vpp [V]' : 'V',
-                          'P [Pa]'  : 'P',
-                          'X'       : 'x', 
-                          'Y'       : 'y'}, inplace=True)
+data_used, data_excluded = get_data(xy=False, vp=True)
 
 # set threshold to make very small values zero
 pd.set_option('display.chop_threshold', 1e-10)
-
-# aug_dataXY already has the correct format, so merge it after
-data_used = pd.concat([data_used, aug_dataXY], ignore_index=True)
-
-# create new column of x^2 and y^2
-data_used['x**2'] = data_used['x']**2
-data_used['y**2'] = data_used['y']**2
 
 # scale features and labels
 scale_exp = []
@@ -376,6 +424,7 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
+model = create_model(len(feature_names), len(label_names))  # creates the model
 model = create_model(len(feature_names), len(label_names))  # creates the model
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
 class TimeHistory(keras.callbacks.Callback):

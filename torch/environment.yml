@@ -1,0 +1,14 @@
+name: torch
+channels:
+  - defaults
+dependencies:
+  - pytorch
+  - torchvision
+  - matplotlib
+  - pandas
+  - xarray
+  - pyarrow
+  - scikit-learn
+  - jupyter
+  - tqdm
+prefix: /Users/jarl/miniconda3/envs/torch

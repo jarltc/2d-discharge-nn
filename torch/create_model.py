@@ -10,187 +10,152 @@ import sys
 import time
 import datetime
 import shutil
-from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
-from pathlib import Path
 import pickle
+from tqdm import tqdm
+from pathlib import Path
+import torch.multiprocessing as mp
 
 import numpy as np
 import pandas as pd
-import xarray as xr
-import matplotlib
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import MinMaxScaler
+from scipy.spatial import cKDTree
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.utils.data import TensorDataset, DataLoader
 
 import data
-
-# arguments
-parser = ArgumentParser(formatter_class=ArgumentDefaultsHelpFormatter)
-parser.add_argument('-n', '--name', default=None, help='Model name.')
-parser.add_argument('-l', '--log', action='store_true', help='Scale data logarithmically.')
-parser.add_argument('-u', '--unscaleY', action='store_true', help='Leave target variables unscaled.')
-parser.add_argument('-y', '--layers', default=10, help='Specify layer count.')
-parser.add_argument('-o', '--nodes', default=64, help='Specify nodes per layer.')
-args = vars(parser.parse_args())
-
-def create_output_dir():
-    rslt_dir = root / 'created_models'
-    if not os.path.exists(rslt_dir):
-        os.mkdir(rslt_dir)
-    
-    date_str = datetime.datetime.today().strftime('%Y-%m-%d_%H%M')
-    out_dir = rslt_dir / date_str
-    if not os.path.exists(out_dir):
-        os.mkdir(out_dir)
-    print('directory', out_dir, 'has been created.\n')
-    
-    return out_dir
+import plot
 
 
-def data_preproc(data_table, lin=True):
-    global scale_exp
-    trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
+class MLP(nn.Module):
+    """Neural network momdel for grid-wise prediction of 2D-profiles.
 
-    def get_param_exp(col_vals):
-        ''' get exponent of the parameter's mean value for scaling. '''
-        mean_exp = round(np.log10(col_vals.mean()), 0) - 1.0
-        # return 0 if mean_exp is less than zero to avoid blowing up small values
-        if mean_exp >=  0.0:
-            return mean_exp
-        else:
-            return 0.0
-
-
-    for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
-        if col_name in trgt_params:
-            if lin:
-                # get exponent for scaling
-                exponent = get_param_exp(col_vals)
-                scale_exp.append(exponent)            
-                tmp_col = col_vals.values.reshape(-1,1)/(10**exponent)  # scale by dividing
-            else:
-                tmp_col = np.log10(col_vals.values.reshape(-1,1))
-        else:
-            tmp_col = col_vals.values.reshape(-1,1)
-        proced_table = tmp_col if col_n==1 else np.hstack([proced_table,tmp_col])
-    
-    proced_table = pd.DataFrame(proced_table, columns=data_table.columns)
-    proced_table = proced_table.replace([np.inf,-np.inf], np.nan)
-    proced_table = proced_table.dropna(how='any')
-    
-    return proced_table
-
-
-def scale_all(data_table, x_or_y, out_dir=None):
-    data_table = data_table.copy()
-    for n,column in enumerate(data_table.columns, start=1):
-        scaler = MinMaxScaler()
-        data_col = data_table[column].values.reshape(-1,1)
-        scaler.fit(data_col)
-        scaled_data = scaler.transform(data_col)
-        scaled_data_table = scaled_data if n==1 else np.hstack([scaled_data_table,scaled_data])
-        
-        if out_dir is not None:
-            pickle_file = out_dir / f'{x_or_y}scaler_{n:02d}.pkl'
-            with open(pickle_file, mode='wb') as pf:
-                pickle.dump(scaler, pf, protocol=4)
-    
-    scaled_data_table = pd.DataFrame(scaled_data_table, columns=data_table.columns)
-    
-    return scaled_data_table
-
-
-def create_model(num_descriptors, num_obj_vars):
-    """Create a model.
-    Model layers, activation,
+    Model architecture optimized using OpTuna.
     Args:
-        num_descriptors (_type_): _description_
-        num_obj_vars (_type_): _description_
-    Returns:
-        model: Keras model
+        name (string): Model name
+        input_size (int): Size of input vector.
+        output_size (int): Size of output vector. Should be 5 for the usual variables.
     """
-    weight_decay = 7.480215373453682e-10  # TODO: optimize value for (loss - val_loss)
-    def hidden_layer(neurons):
-      return keras.layers.Dense(neurons, activation=tf.nn.relu)
+    def __init__(self, name, input_size, output_size) -> None:
+        super(MLP, self).__init__()
+        self.name = name
+        self.input_size = input_size
+        self.output_size = output_size
+        self.fc1 = nn.Linear(input_size, 115)  # linear: y = Ax + b
+        self.fc2 = nn.Linear(115, 78)
+        self.fc3 = nn.Linear(78, 26)
+        self.fc4 = nn.Linear(26, 46)
+        self.fc5 = nn.Linear(46, 82)
+        self.fc6 = nn.Linear(82, 106)
+        self.fc7 = nn.Linear(106, output_size)
+        
+    def forward(self, x):
+        """Execute the forward pass.
 
-    weight_decay = 7.480215373453682e-10
+        Args:
+            x (torch.Tensor): Input tensor of size (batch_size, input_size)
 
-    inputs = keras.Input(shape=(num_descriptors,))
+        Returns:
+            torch.Tensor: Predicted values given an input x.
+        """
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        x = self.fc3(x)
+        x = F.relu(x)
+        x = self.fc4(x)
+        x = F.relu(x)
+        x = self.fc5(x)
+        x = F.relu(x)
+        x = self.fc6(x)
+        x = F.relu(x)
+        x = self.fc7(x)
+        
+        output = x = F.relu(x)
+        return output
 
-    # hidden layers
-    x = keras.layers.Dense(116, activation=tf.nn.relu, 
-                           input_shape=(num_descriptors,))(inputs)
-    x = hidden_layer(115)(x)
-    x = hidden_layer(78)(x)
-    x = hidden_layer(26)(x)
-    x = hidden_layer(46)(x)
-    x = hidden_layer(82)(x)
-    x = hidden_layer(106)(x)
 
-    outputs = keras.layers.Dense(num_obj_vars)(x)
+####### neighbor regularization #######
+def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> torch.Tensor: 
+    """Per-chunk processing of the input tensor.
 
-    model = keras.Model(inputs=inputs, outputs=outputs, name=name)
-    optimizer = tf.keras.optimizers.Adam(learning_rate=0.001)
-    
-    model.compile(loss='mse', optimizer=optimizer, metrics=['mae'])
-    
-    return model
+    Takes a chunk of a batch as an input, along with the current model, and a DataFrame of 
+    grid coordinates. The cKDTree is also created from this df.
+    Args:
+        chunk (torch.Tensor): _description_
+        model (MLP): _description_
+        df (pd.DataFrame): _description_
 
-def save_history_graph(history, out_dir, param='mae'):
-    matplotlib.rcParams['font.family'] = 'Arial'
-    x  = np.array(history.epoch)
-    if param=='mae':
-        y1 = np.array(history.history['mae'])
-        y2 = np.array(history.history['val_mae'])
-    elif param=='loss':
-        y1 = np.array(history.history['loss'])
-        y2 = np.array(history.history['val_loss'])
-    
+    Returns:
+        torch.Tensor: Tensor of size (chunk_size, 5) containing neighbor means of the input chunk.
+    """
 
-    plt.rcParams['font.size'] = 12 # 12 is the default size
-    plt.rcParams['xtick.minor.size'] = 2
-    plt.rcParams['ytick.minor.size'] = 2
-    fig = plt.figure(figsize=(6.0,6.0))
-    
-    # axis labels
-    plt.xlabel('Epoch')
-    if param=='mae':
-        plt.ylabel('MAE')
-    elif param=='loss':
-        plt.ylabel('Loss')
-    
-    plt.plot(x, y1, color='green', lw=1.0, label='train')
-    plt.plot(x, y2, color='red'  , lw=1.0, label='test')
-    
-    # set both x_min and y_min as zero
-    ax = plt.gca()
-    x_min, x_max = ax.get_xlim()
-    y_min, y_max = ax.get_ylim()
-    ax.set_xlim(0, x_max)
-    ax.set_ylim(0, y_max)
-    
-    ax.xaxis.get_ticklocs(minor=True)
-    ax.yaxis.get_ticklocs(minor=True)
-    ax.minorticks_on()
-    
-    plt.legend()
-    plt.grid()
-    plt.tight_layout()
-    
-    # save the figure
-    if param=='mae':
-        file_name = 'history_graph_mae.png'
-    elif param=='loss':
-        file_name = 'history_graph_loss.png'
-    file_path = out_dir / file_name
-    fig.savefig(file_path)
+    def neighbor_mean(point: torch.Tensor, k):
+        # get a point's neighbors
+        x, y, v, p = point.numpy() # -> np.ndarray
+        v = np.atleast_1d(v)
+        p = np.atleast_1d(p)
+        _, ii = tree.query([x, y], k)  # get indices of k neighbors of the point
+        
+        neighbor_xy = [df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
+        neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
+        neighbors = [torch.FloatTensor(neighbor).expand(1, -1) for neighbor in neighbors]
 
+        # concat neighbors and get the mean for each variable
+        mean_tensors = torch.cat([model(neighbor) for neighbor in neighbors], dim=0)
+        return torch.mean(mean_tensors, dim=0)
+    
+    tree = cKDTree(np.c_[df['X'].to_numpy(), df['Y'].to_numpy()])
+
+    with torch.no_grad():
+        results = [neighbor_mean(x, 4) for x in chunk]
+    results = torch.stack(results, dim=0)
+    return results
+
+
+def worker(queue, results, model, df, k):
+    # function to be executed by each process
+    # runs in an infinite loop until a batch is added to the queue
+    while True:
+        chunk = queue.get()  # retrieve data if a batch is added
+        if chunk is None:  # worker is active until a None is added to the queue
+            break  # terminate the process
+        output = process_chunk(chunk, model, df, k)
+        results.put(output)  # add output to the results queue
+
+
+def c_e(epoch, c=0.5, r=25, which='exp'):
+    """Get regularization coefficient.
+
+    c is generated following an exponential function
+
+    Args:
+        epoch (int): Current epoch.
+        c (float, optional): Regularization coefficient to be approached. Defaults to 0.5.
+        r (int, optional): Rate of increase. Coefficient increases by {} over r epochs. Defaults to 25.
+
+    Returns:
+        c: Coefficient at each epoch.
+    """
+
+    if which=='exp':
+        return c - c*np.exp(-epoch/r)
+    elif which=='sigmoid':
+        k = 0.085
+        x_0 = 100
+        return c/(1 + np.exp(-k*(epoch-x_0)))
+#######################################
 
 def save_history_vals(history, out_dir):
+    """Save history values
+
+    Args:
+        history (_type_): _description_
+        out_dir (_type_): _description_
+    """
     history_path = out_dir / 'history.csv'
     history_table = np.hstack([np.array(history.epoch              ).reshape(-1,1),
                                np.array(history.history['mae']     ).reshape(-1,1),
@@ -201,209 +166,226 @@ def save_history_vals(history, out_dir):
     history_df.to_csv(history_path, index=False)
 
 
-def yn(str):
-    if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
-                       'sure', 'hai', 'aye', 'ayt', 'fosho']:
-        return True
-    elif str.lower() in ['n', 'no', 'nope', 'nah', 'hold this l']:
-        return False
-    else:
-        raise Exception(str + 'not recognized: use y - yes, n - no')
-
-
-def read_aug_data(file):
-    """Read data file and return a DataFrame.
+def save_metadata(out_dir: Path):
+    """Save readable metadata.
 
     Args:
-        file (PosixPath): Path to .feather file.
-
-    Returns:
-        interp_df: DataFrame of interpolated data.
+        out_dir (Path): Path to where the model is saved.
     """
-    interp_df = pd.read_feather(file).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
-    return interp_df
+    with open(out_dir / 'train_metadata.txt', 'w') as f:
+            f.write(f'Model name: {name}\n')
+            f.write(f'Lin scaling: {lin}\n')
+            f.write(f'Number of points: {len(data_used)}\n')
+            f.write(f'Target scaling: {minmax_y}\n')
+            f.write(f'Parameter exponents: {scale_exp}\n')
+            f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
+            f.write(f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
+            f.write(f'\nUser-specified hyperparameters\n')
+            f.write(f'Batch size: {batch_size}\n')
+            f.write(f'Learning rate: {learning_rate}\n')
+            f.write(f'Validation split: {validation_split}\n')
+            f.write(f'Epochs: {epochs}\n')
+            f.write(f'Grid augmentation: {xy}\n')
+            f.write(f'VP augmentation: {vp}\n')
+            f.write(f'Neighbor regularization k: {k}\n')
+            f.write('\n*** end of file ***\n')
 
 
-# --------------- Model hyperparameters -----------------
-# model name
-if args['name'] == None:
-    name = input('Enter model name: ')
-else:
-    name = args['name']
+if __name__ == '__main__':
+    # --------------- Model hyperparameters -----------------
 
-root = Path(os.getcwd())
-data_fldr_path = root/'data'/'avg_data'
+    root = Path.cwd() 
+    data_fldr_path = root/'data'/'avg_data'
+    inputFile = root/'torch'/sys.argv[1] # root/'torch'/'M501.txt'
 
-# training inputs
-batch_size = int(input('Batch size (default 32): ') or '32')
-learning_rate = float(input('Learning rate (default 0.001): ') or '0.001')
-validation_split = float(input('Validation split (default 0.1): ') or '0.1')
-epochs = int(input('Epochs (default 100): ') or '100')
-minmax_y = not args['unscaleY']  # opposite of args[unscaleY], i.e.: False if unscaleY flag is raised
-lin = not args['log']  # opposite of args[log], i.e.: False if log flag is raised
+    # read input file
+    with open(inputFile, 'r') as i:
+        lines = i.readlines()
+    
+    lines = [line.split()[-1] for line in lines]
 
-# architecture
-neurons = args['nodes']
-layers = args['layers']
+    name = lines[0]
+    batch_size = eval(lines[1])
+    learning_rate = eval(lines[2])
+    validation_split = eval(lines[3])
+    epochs = eval(lines[4])
+    xy = eval(lines[5])
+    vp = eval(lines[6])
+    k = eval(lines[7])
+    minmax_y = True  # apply minmax scaling to targets 
+    lin = True  # scale the targets linearly
 
-# -------------------------------------------------------
+    # -------------------------------------------------------
 
-voltages  = [200, 300, 400, 500] # V
-pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
+    voltages  = [200, 300, 400, 500] # V
+    pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
 
 
-voltage_excluded = 300 # V
-pressure_excluded = 60 # Pa
+    voltage_excluded = 300 # V
+    pressure_excluded = 60 # Pa
 
-# -------------------------------------------------------
+    # -------------------------------------------------------
 
-out_dir = create_output_dir()
-scaler_dir = out_dir / 'scalers'
-os.mkdir(scaler_dir)
+    if ((name=='test') & (root/'created_models'/'test_dir_torch').exists()):
+        out_dir = root/'created_models'/'test_dir_torch'  
+    elif ((name=='test') & (not (root/'created_models'/'test_dir_torch').exists())): 
+        os.mkdir(root/'created_models'/'test_dir_torch')
+    else:
+        out_dir = data.create_output_dir(root) 
 
-# copy some files for backup (probably made redundant by metadata)
-shutil.copyfile(__file__, out_dir / 'create_model.py')
-shutil.copyfile(root / 'data.py', out_dir / 'data.py')
+    scaler_dir = out_dir / 'scalers'
+    if (not scaler_dir.exists()):
+        os.mkdir(scaler_dir) 
 
-# get dataset
-print('start getting dataset...', end='', flush=True)
-start_time = time.time()
-avg_data = data.read_all_data(data_fldr_path, voltages, pressures).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
-if len(avg_data)==0:
-    print('error: no data available.')
-    raise Exception
-elapsed_time = time.time() - start_time
-print(f' done ({elapsed_time:0.1f} sec).\n')
+    # copy some files for backup (probably made redundant by metadata)
+    shutil.copyfile(__file__, out_dir / 'create_model.py')
+    shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
-# separate data to be excluded (to later check the model)
-data_used     = avg_data[~((avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded))].copy()
-data_excluded = avg_data[  (avg_data['Vpp [V]']==voltage_excluded) & (avg_data['P [Pa]']==pressure_excluded) ].copy()
+    feature_names = ['V', 'P', 'x', 'y']
+    label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-# add synthetic data
-data_augmentation_folder = Path(root/'data'/'interpolation_feather'/'20221209')
+    data_used, data_excluded = data.get_data(root, voltages, pressures, 
+                                            (voltage_excluded, pressure_excluded),
+                                            xy=xy, vp=vp)
+    # sanity check
+    assert list(data_used.columns) == feature_names + label_names
 
-# V, P interpolation
-aug_dataVP = [read_aug_data(file) for file in data_augmentation_folder.glob('*.feather')]
-aug_dataVP = pd.concat(aug_dataVP)
+    # set threshold to make very small values zero
+    pd.set_option('display.chop_threshold', 1e-10)
 
-# X, Y interpolation
-data_augmentationXY = Path(root/'data'/'interpolation_datasets'/'rec-interpolation2.nc')
-aug_dataXY = xr.open_dataset(data_augmentationXY).to_dataframe().reset_index().dropna()
+    # scale features and labels
+    scale_exp = []
+    features = data.scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
+    labels = data.data_preproc(data_used[label_names], scale_exp).astype('float64')
 
-# combine datasets
-data_used = pd.concat([data_used, aug_dataVP], ignore_index=True)
+    if minmax_y:  # if applying minmax to target data
+        labels = data.scale_all(labels, 'y', scaler_dir)
 
-feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
-label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    alldf = pd.concat([features, labels], axis=1)  # TODO: consider removing this
+    dataset_size = len(alldf)
 
-# create descriptor table from features
-data_used.rename(columns={'Vpp [V]' : 'V',
-                          'P [Pa]'  : 'P',
-                          'X'       : 'x', 
-                          'Y'       : 'y'}, inplace=True)
+    # kD tree for neighbor regularization
+    nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
 
-# set threshold to make very small values zero
-pd.set_option('display.chop_threshold', 1e-10)
+    # create dataset object and shuffle it()  # TODO: train/val split
+    features = torch.FloatTensor(features.to_numpy())
+    labels = torch.FloatTensor(labels.to_numpy())
+    dataset = TensorDataset(features, labels)
 
-# aug_dataXY already has the correct format, so merge it after
-data_used = pd.concat([data_used, aug_dataXY], ignore_index=True)
+    trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-# create new column of x^2 and y^2
-data_used['x**2'] = data_used['x']**2
-data_used['y**2'] = data_used['y']**2
+    model = MLP(name, len(feature_names), len(label_names)) 
+    criterion = nn.MSELoss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-# scale features and labels
-scale_exp = []
-features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
-labels = data_preproc(data_used[label_names]).astype('float64')
+    # initialize multiprocessing for neighbor mean
+    num_processes = mp.cpu_count()
+    chunk_size = int(batch_size/num_processes)
+    queue = mp.Queue()
+    results = mp.Queue()
+    processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df, k)) for _ in range(num_processes)]
+    
+    # signal each worker to start if not already started
+    print(f'Multicore neighbor mean processing ({num_processes} cores):')
+    for i, p in enumerate(processes):
+        if not p.is_alive():
+            p.start()
+            print(f'spawned process {i+1}/{num_processes}')
 
-if minmax_y:  # if applying minmax to target data
-    labels = scale_all(labels, 'y', scaler_dir)
+    # train the model
+    print('begin model training...')
+    train_start = time.time()  # record start time
 
-alldf = pd.concat([features, labels], axis=1)
-dataset_size = len(alldf)
+    epoch_times = []
+    epoch_loss = []
 
-# save the data
-# alldf.to_feather(out_dir / 'data_used.feather') 
-# data_excluded.reset_index().to_feather(out_dir / 'data_excluded.feather')
+    # model training loop
+    for epoch in tqdm(range(epochs)):
+        # record time per epoch
+        epoch_start = time.time()
+        loop = tqdm(trainloader)
 
-# create tf dataset object and shuffle it
-dataset = tf.data.Dataset.from_tensor_slices((features, labels)).shuffle(dataset_size)
+        for i, batch_data in enumerate(loop):
+            # get the inputs; data is a list of [inputs, labels]
+            inputs, labels = batch_data
+            doubleLoader = DataLoader(inputs, batch_size=chunk_size)
+            c = c_e(epoch)
+            
+            # switch model to eval mode
+            model.eval()
 
-# determine validation split
-train_size = int((1-validation_split) * dataset_size)
-val_size = int(validation_split * dataset_size)
+            # load data into queue
+            for chunk in doubleLoader:
+                queue.put(chunk)
 
-# create validation split and batch the data
-train_ds = dataset.take(train_size).batch(batch_size)
-val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
+            # retrieve processed data from the results queue
+            worker_outputs = []
+            for _ in range(num_processes):
+                try:
+                    output = results.get(timeout=1)
+                    worker_outputs.append(output)
+                except:
+                    pass
 
-model = create_model(len(feature_names), len(label_names))  # creates the model
-early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
-class TimeHistory(keras.callbacks.Callback):
-    def on_train_begin(self, logs={}):
-        self.times = []
+            neighbor_means = torch.cat(worker_outputs, dim=0)
 
-    def on_epoch_begin(self, batch, logs={}):
-        self.epoch_time_start = time.time()
+            model.train()  # put model back in train mode (?)
+            
+            # zero the parameter gradients
+            optimizer.zero_grad()
 
-    def on_epoch_end(self, batch, logs={}):
-        self.times.append(time.time() - self.epoch_time_start)
+            # record losses
+            running_loss = 0.0
 
-time_callback = TimeHistory()  # record time of each epoch
+            outputs = model(inputs)  # forward pass
+            loss = criterion(outputs, labels) + c*criterion(outputs, neighbor_means)
+            loss.backward()  # compute gradients
+            optimizer.step()  # apply changes to network
 
-# use tensorboard to monitor training
-tensorboard_callback = tf.keras.callbacks.TensorBoard(
-    log_dir=out_dir, histogram_freq=1)
+            # print statistics
+            running_loss += loss.item()
+            loop.set_description(f"Epoch {epoch}/{epochs}")
+            loop.set_postfix(loss=running_loss)
+            running_loss = 0.0
 
-# train the model
-print('begin model training...')
-train_start = time.time()  # record start time
-history = model.fit(train_ds, epochs=epochs, validation_data=val_ds, callbacks=[tensorboard_callback, time_callback])  # trains the model
-print('\ndone.\n', flush=True)
-train_end = time.time()  # record end time
+        epoch_end = time.time()
+        epoch_times.append(epoch_end - epoch_start)
+        epoch_loss.append(loss.item())
 
-# save the model
-model.save(out_dir / 'model')
-print('NN model has been saved.\n')
+    # when finished, add a sentinel value to the queue to signal termination
+    for _ in range(num_processes):
+        queue.put(None)
 
-save_history_vals(history, out_dir)
-save_history_graph(history, out_dir, 'mae')
-save_history_graph(history, out_dir, 'loss')
-print('NN training history has been saved.\n')
+    # wait for all processes to terminate
+    for p in processes:
+        p.join()
 
-# save metadata
-metadata = {'name' : name,  # str
-            'scaling' : lin,  # bool
-            'is_target_scaled': minmax_y,  # bool
-            'parameter_exponents': scale_exp}  # list of float
+    print('Finished training')
+    train_end = time.time()
 
-with open(out_dir / 'train_metadata.pkl', 'wb') as f:
-    pickle.dump(metadata, f)
+    # save the model and loss
+    torch.save(model.state_dict(), out_dir/f'{name}')
+    print('NN model has been saved.\n')
+    plot.save_history_graph(epoch_loss, out_dir)
+    print('NN training history has been saved.\n')
 
-# record time per epoch
-times = time_callback.times
-with open(out_dir / 'times.txt', 'w') as f:
-    f.write('Train times per epoch\n')
-    for i, time in enumerate(times):
-        time = round(time, 2)
-        f.write(f'Epoch {i+1}: {time} s\n')
+    # save metadata
+    metadata = {'name' : name,  # str
+                'scaling' : lin,  # bool
+                'is_target_scaled': minmax_y,  # bool
+                'parameter_exponents': scale_exp}  # list of float
 
-d = datetime.datetime.today()
-print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
+    with open(out_dir / 'train_metadata.pkl', 'wb') as f:
+        pickle.dump(metadata, f)
 
-# human-readable metadata
-with open(out_dir / 'train_metadata.txt', 'w') as f:
-    f.write(f'Model name: {name}\n')
-    f.write(f'Lin scaling: {lin}\n')
-    f.write(f'Number of points: {len(data_used)}\n')
-    f.write(f'Target scaling: {minmax_y}\n')
-    f.write(f'Parameter exponents: {scale_exp}\n')
-    f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
-    f.write(f'Average time per epoch: {np.array(times).mean():.2f} s\n')
-    f.write(f'\nUser-specified hyperparameters\n')
-    f.write(f'Batch size: {batch_size}\n')
-    f.write(f'Learning rate: {learning_rate}\n')
-    f.write(f'Validation split: {validation_split}\n')
-    f.write(f'Epochs: {epochs}\n')
-    f.write('\n*** end of file ***\n')
+    # record time per epoch
+    with open(out_dir / 'times.txt', 'w') as f:
+        f.write('Train times per epoch\n')
+        for i, time in enumerate(epoch_times):
+            time = round(time, 2)
+            f.write(f'Epoch {i+1}: {time} s\n')
+
+    d = datetime.datetime.today()
+    print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
+
+    save_metadata(out_dir)
