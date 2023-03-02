@@ -133,8 +133,15 @@ def reverse_minmax(df: pd.DataFrame, model_dir: Path):
     return scaled_df
 
 
-def get_scores():
+def get_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
+    y_true = reference_df.values()
+    y_pred = prediction_df.values()
+
     # compute regression scores
+    r2 = (np.abs(y_true - y_pred)**2).mean(axis=0)  # TODO: verify axis
+    mae = np.abs(y_true - y_pred).mean(axis=0)  # TODO: verify axis
+    rmse = np.sqrt(r2)
+
     return r2, mae, rmse, rmse/mae
 
 if __name__ == '__main__':
