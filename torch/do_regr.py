@@ -56,29 +56,34 @@ class PredictionDataset:
     def __init__(self, reference_df, model, metadata) -> None:
         self.original_df = reference_df
         self.model = model
+        self.model_name = metadata['name']
         self.v_excluded = 300  # [V]
         self.p_excluded = 60  # [Pa]
-        self.df, self.features, self.labels = \
-            process_data(reference_df, (self.v_excluded, self.p_excluded))
-        self.targets = scale_targets(self.labels, self.scale_exp)
         self.minmax_y = metadata['is_target_scaled']
         self.lin = metadata['scaling']
         self.scale_exp = metadata['parameter_exponents']
+        self.df, self.features, self.labels = \
+            process_data(reference_df, (self.v_excluded, self.p_excluded))
+        self.targets = scale_targets(self.labels, self.scale_exp)
+        self.prediction_result = None
 
     @property
-    def predict(self):
-         features_tensor = scale_features(self.df, model_dir)
+    def prediction(self):
+         print(f"\nGetting {self.model_name} prediction...\r", end="")
+         features_tensor = scale_features(self.features, model_dir)
 
          model.eval()
          result = pd.DataFrame(model(features_tensor)\
                                           .detach().numpy(), 
                                           columns=list(self.labels.columns))
          
-         result = reverse_minmax(prediction, model_dir)
+         result = reverse_minmax(result, model_dir)
+         print("\33[2KPrediction complete!")
+         self.prediction_result = result
          return result
     
-    def get_scores(self, result):
-        r2, mae, rmse, ratio = get_scores(result)
+    def get_scores(self):
+        r2, mae, rmse, ratio = calculate_scores(self.labels, self.prediction_result)
         data = np.vstack([r2, mae, rmse, ratio])
         scores_df = pd.DataFrame(data, columns=list(self.labels.columns))
         
@@ -101,8 +106,8 @@ def process_data(df: pd.DataFrame, data_excluded: tuple):
     v_excluded, p_excluded = data_excluded
     df['V'] = v_excluded
     df['P'] = p_excluded
-    df = df[feature_names + label_names]
     df.rename(columns={'X':'x', 'Y':'y'}, inplace=True)
+    df = df[feature_names + label_names]
 
     features = df.drop(columns=label_names)
     labels = df[label_names]
@@ -192,16 +197,17 @@ def reverse_minmax(df: pd.DataFrame, model_dir: Path):
     return scaled_df
 
 
-def get_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
+def calculate_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
     y_true = reference_df.values
     y_pred = prediction_df.values
 
     # compute regression scores
-    r2 = (np.abs(y_true - y_pred)**2).mean(axis=0)  
+    mse = (np.abs(y_true - y_pred)**2).mean(axis=0)  
     mae = np.abs(y_true - y_pred).mean(axis=0)  
-    rmse = np.sqrt(r2)
+    rmse = np.sqrt(mse)
+    r2 = None  # TODO: compute r2 value
 
-    return r2, mae, rmse, rmse/mae
+    return mse, mae, rmse, rmse/mae
 
 if __name__ == '__main__':
     feature_names = ['V', 'P', 'x', 'y']
@@ -212,11 +218,6 @@ if __name__ == '__main__':
     model_dir = Path(input('Model directory: ') or './created_models/test_dir_torch')
     regr_dir = model_dir / 'prediction'
 
-    # load dataset
-    regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
-        .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
-    regr_df = PredictionDataset(regr_df)
-
     # infer regression details from model metadata, else assume defaults
     if os.path.exists(model_dir / 'train_metadata.pkl'):
         with open(model_dir / 'train_metadata.pkl', 'rb') as f:
@@ -226,11 +227,17 @@ if __name__ == '__main__':
         print('Metadata unavailable: using defaults lin=True, minmax_y=True\n')
         metadata = {'scaling': True, 'is_target_scaled':True, 'name':model_dir.name}
 
+    # import model
     model = MLP(4, 5)
     model.load_state_dict(torch.load(model_dir/f'{name}'))
     print('\nLoaded model ' + name)
 
-    prediction = regr_df.predict()
+    # load dataset
+    regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
+        .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
+    regr_df = PredictionDataset(regr_df, model, metadata)
+
+    prediction = regr_df.prediction
     regr_df.get_scores()
 
     triangles = plot.triangulate(regr_df.features[['x', 'y']])
