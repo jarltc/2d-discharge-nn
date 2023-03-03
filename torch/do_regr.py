@@ -12,6 +12,7 @@ import numpy as np
 import pandas as pd
 
 import os
+import sys
 import pickle
 from pathlib import Path
 
@@ -64,32 +65,36 @@ class PredictionDataset:
         self.lin = metadata['scaling']
         self.scale_exp = metadata['parameter_exponents']
 
-    def make_prediction(self):
+    @property
+    def predict(self):
          features_tensor = scale_features(self.df, model_dir)
 
          model.eval()
-         prediction = pd.DataFrame(model(features_tensor)\
+         result = pd.DataFrame(model(features_tensor)\
                                           .detach().numpy(), 
                                           columns=list(self.labels.columns))
          
-         prediction = reverse_minmax(prediction, model_dir)
-         return prediction
+         result = reverse_minmax(prediction, model_dir)
+         return result
     
-    def print_scores(self, prediction):
-        r2, mae, rmse, ratio = get_scores(prediction)
+    def get_scores(self, result):
+        r2, mae, rmse, ratio = get_scores(result)
         data = np.vstack([r2, mae, rmse, ratio])
         scores_df = pd.DataFrame(data, columns=list(self.labels.columns))
         
-        # TODO: print to stdout and save to txt file
-        for column in scores_df.columns:
-            print(f'**** {column} ****')
-            print(f'MAE = {scores_df[column,1]}')
-            print(f'RMSE = {scores_df[column,2]}')
-            print(f'RMSE/MAE = {scores_df[column,3]}\n')
-            print(f'R2 = {scores_df[column,0]}')
+        def print_scores_core(out):
+            for column in scores_df.columns:
+                print(f'**** {column} ****', file=out)
+                print(f'MAE\t\t= {scores_df[column,1]}', file=out)
+                print(f'RMSE\t\t= {scores_df[column,2]}', file=out)
+                print(f'RMSE/MAE\t\t= {scores_df[column,3]}\n', file=out)
+                print(f'R2\t\t= {scores_df[column,0]}', file=out)
 
-        with open('') as file:
-            file.write
+        print_scores_core(sys.stdout)
+        scores_file = regr_dir/'scores.txt'
+        with open(scores_file, 'w') as f:
+            print_scores_core(f)
+        return scores_df
         
 
 def process_data(df: pd.DataFrame, data_excluded: tuple):
@@ -202,8 +207,12 @@ if __name__ == '__main__':
     feature_names = ['V', 'P', 'x', 'y']
     label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
+    # define directories
     root = Path.cwd()
     model_dir = Path(input('Model directory: ') or './created_models/test_dir_torch')
+    regr_dir = model_dir / 'prediction'
+
+    # load dataset
     regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
         .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
     regr_df = PredictionDataset(regr_df)
@@ -217,11 +226,12 @@ if __name__ == '__main__':
         print('Metadata unavailable: using defaults lin=True, minmax_y=True\n')
         metadata = {'scaling': True, 'is_target_scaled':True, 'name':model_dir.name}
 
-    model = MLP(len(feature_names), len(label_names))
+    model = MLP(4, 5)
     model.load_state_dict(torch.load(model_dir/f'{name}'))
     print('\nLoaded model ' + name)
 
-    prediction = regr_df.make_prediction()
+    prediction = regr_df.predict()
+    regr_df.get_scores()
 
     triangles = plot.triangulate(regr_df.features[['x', 'y']])
     plot.quickplot(prediction, model_dir, triangles=triangles)
