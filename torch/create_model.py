@@ -238,8 +238,8 @@ if __name__ == '__main__':
         os.mkdir(scaler_dir) 
 
     # copy some files for backup (probably made redundant by metadata)
-    shutil.copyfile(__file__, out_dir / 'create_model.py')
-    shutil.copyfile(root / 'data.py', out_dir / 'data.py')
+    # shutil.copyfile(__file__, out_dir / 'create_model.py')
+    # shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
     feature_names = ['V', 'P', 'x', 'y']
     label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
