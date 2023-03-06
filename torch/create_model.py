@@ -312,9 +312,6 @@ if __name__ == '__main__':
             inputs, labels = batch_data
             doubleLoader = DataLoader(inputs, batch_size=chunk_size)
             c = c_e(epoch)
-            
-            # switch model to eval mode
-            # model.eval()
 
             # load data into queue
             for chunk in doubleLoader:
@@ -330,8 +327,6 @@ if __name__ == '__main__':
                     pass
 
             neighbor_means = torch.cat(worker_outputs, dim=0)
-
-            # model.train()  # put model back in train mode (?)
             
             # zero the parameter gradients
             optimizer.zero_grad()
