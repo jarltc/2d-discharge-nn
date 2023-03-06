@@ -28,7 +28,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import data
 import plot
 
-
+torch.set_default_dtype(torch.float64)
 class MLP(nn.Module):
     """Neural network momdel for grid-wise prediction of 2D-profiles.
 
@@ -102,7 +102,7 @@ def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> tor
         
         neighbor_xy = [df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
         neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
-        neighbors = [torch.FloatTensor(neighbor).expand(1, -1) for neighbor in neighbors]
+        neighbors = [torch.tensor(neighbor).expand(1, -1) for neighbor in neighbors]
 
         # concat neighbors and get the mean for each variable
         mean_tensors = torch.cat([model(neighbor) for neighbor in neighbors], dim=0)
@@ -268,13 +268,14 @@ if __name__ == '__main__':
     nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
 
     # create dataset object and shuffle it()  # TODO: train/val split
-    features = torch.FloatTensor(features.to_numpy())
-    labels = torch.FloatTensor(labels.to_numpy())
+    features = torch.tensor(features.to_numpy())
+    labels = torch.tensor(labels.to_numpy())
     dataset = TensorDataset(features, labels)
 
     trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = MLP(name, len(feature_names), len(label_names)) 
+    model.share_memory()
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -299,6 +300,7 @@ if __name__ == '__main__':
     epoch_times = []
     epoch_loss = []
 
+    model.train()
     # model training loop
     for epoch in tqdm(range(epochs)):
         # record time per epoch
@@ -312,7 +314,7 @@ if __name__ == '__main__':
             c = c_e(epoch)
             
             # switch model to eval mode
-            model.eval()
+            # model.eval()
 
             # load data into queue
             for chunk in doubleLoader:
@@ -322,14 +324,14 @@ if __name__ == '__main__':
             worker_outputs = []
             for _ in range(num_processes):
                 try:
-                    output = results.get(timeout=1)
+                    output = results.get(timeout=2)
                     worker_outputs.append(output)
                 except:
                     pass
 
             neighbor_means = torch.cat(worker_outputs, dim=0)
 
-            model.train()  # put model back in train mode (?)
+            # model.train()  # put model back in train mode (?)
             
             # zero the parameter gradients
             optimizer.zero_grad()
