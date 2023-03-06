@@ -341,7 +341,7 @@ if __name__ == '__main__':
 
             # print statistics
             running_loss += loss.item()
-            loop.set_description(f"Epoch {epoch}/{epochs}")
+            loop.set_description(f"Epoch {epoch+1}/{epochs}")
             loop.set_postfix(loss=running_loss)
             running_loss = 0.0
 
