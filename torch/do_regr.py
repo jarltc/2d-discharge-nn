@@ -205,8 +205,6 @@ def scale_targets(data_table: pd.DataFrame, scale_exp=[1.0, 14.0, 14.0, 16.0, 0.
     Returns:
         pd.DataFrame: DataFrame of scaled target data.
     """
-    # label_names = list(data_table.columns)
-    # label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     scaled_df = data_table.copy()
     for i, column in enumerate(data_table.columns):
         scaled_df[column].update(data_table.iloc[:, i]/(10**scale_exp[i]))
@@ -243,7 +241,15 @@ def reverse_minmax(df: pd.DataFrame, model_dir: Path):
 
 
 def calculate_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
-    
+    """Calculate prediction scores.
+
+    Args:
+        reference_df (pd.DataFrame): Reference DataFrame, scaled to match prediction.
+        prediction_df (pd.DataFrame): Prediction DataFrame.
+
+    Returns:
+        pd.DataFrame: DataFrame of scores. Rows are MAE, RMSE, RMSE/MAE, and R2.
+    """
     scores = []
     for column in reference_df.columns:
         y_true = reference_df[column].values
