@@ -54,6 +54,45 @@ class MLP(nn.Module):
 
 
 class PredictionDataset:
+    """
+    A dataset for making predictions.
+
+    Attributes
+    ----------
+    original_df : pd.DataFrame
+        The original reference DataFrame.
+    model : torch.nn.Module
+    model_name : str
+    v_excluded : float
+        Voltage excluded during training.
+    p_excluded :
+        Pressure excluded during training.
+    minmax_y : bool
+        Whether targets were scaled for training.
+    lin : bool
+        Whether targets were linearly scaled before minmax.
+    scale_exp : list of float
+        Parameter exponents for linear scaling.
+    df : pd.DataFrame
+        DataFrame after adding new V, P columns renaming and reordering.
+    features : pd.DataFrame
+        DataFrame of dataset features.
+    labels : pd.DataFrame
+        DataFrame of dataset labels.
+    targets : pd.DataFrame
+        DataFrame of labels after scaling. Used for computing scores.
+    prediction_result : pd.DataFrame
+        DataFrame of model prediction on self.features.
+    scores : pd.DataFrame
+        DataFrame of scores computed in calculate_scores().
+    
+    Methods
+    -------
+    prediction():
+        Makes a prediction on a model's features.
+    get_scores():
+        Computes scores, outputs to sys.stdout and saves to a txt file.
+    """
     def __init__(self, reference_df, model, metadata) -> None:
         self.original_df = reference_df
         self.model = model
@@ -89,7 +128,8 @@ class PredictionDataset:
             return self.prediction_result
 
     def get_scores(self):
-        scores_df = calculate_scores(self.labels, self.prediction_result)
+        scores_df = calculate_scores(self.targets, self.prediction_result)
+        self.scores = scores_df
         
         def print_scores_core(out):
             for column in scores_df.columns:
@@ -104,8 +144,6 @@ class PredictionDataset:
         scores_file = regr_dir/'scores.txt'
         with open(scores_file, 'w') as f:
             print_scores_core(f)
-        self.scores = scores_df
-        return scores_df
         
 
 def process_data(df: pd.DataFrame, data_excluded: tuple):
