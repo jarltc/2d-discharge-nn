@@ -10,6 +10,7 @@ import torch.nn.functional as F
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 
 import os
 import sys
@@ -66,6 +67,7 @@ class PredictionDataset:
             process_data(reference_df, (self.v_excluded, self.p_excluded))
         self.targets = scale_targets(self.labels, self.scale_exp)
         self.prediction_result = None
+        self.scores = None
 
     @property
     def prediction(self):
@@ -87,22 +89,22 @@ class PredictionDataset:
             return self.prediction_result
 
     def get_scores(self):
-        r2, mae, rmse, ratio = calculate_scores(self.labels, self.prediction_result)
-        data = np.vstack([r2, mae, rmse, ratio])
-        scores_df = pd.DataFrame(data, columns=list(self.labels.columns))
+        scores_df = calculate_scores(self.labels, self.prediction_result)
         
         def print_scores_core(out):
             for column in scores_df.columns:
                 print(f'**** {column} ****', file=out)
-                print(f'MAE\t\t= {scores_df[column,1]}', file=out)
-                print(f'RMSE\t\t= {scores_df[column,2]}', file=out)
-                print(f'RMSE/MAE\t\t= {scores_df[column,3]}\n', file=out)
-                print(f'R2\t\t= {scores_df[column,0]}', file=out)
+                print(f'MAE\t\t= {scores_df[column].iloc[0]}', file=out)
+                print(f'RMSE\t\t= {scores_df[column].iloc[1]}', file=out)
+                print(f'RMSE/MAE\t\t= {scores_df[column].iloc[2]}\n', file=out)
+                print(f'R2\t\t= {scores_df[column].iloc[3]}', file=out)
+                print(file=out)
 
         print_scores_core(sys.stdout)
         scores_file = regr_dir/'scores.txt'
         with open(scores_file, 'w') as f:
             print_scores_core(f)
+        self.scores = scores_df
         return scores_df
         
 
@@ -202,16 +204,22 @@ def reverse_minmax(df: pd.DataFrame, model_dir: Path):
 
 
 def calculate_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
-    y_true = reference_df.values
-    y_pred = prediction_df.values
 
-    # compute regression scores
-    mse = (np.abs(y_true - y_pred)**2).mean(axis=0)  
-    mae = np.abs(y_true - y_pred).mean(axis=0)  
-    rmse = np.sqrt(mse)
-    r2 = None  # TODO: compute r2 value
+    scores = []
+    for column in reference_df.columns:
+        y_true = reference_df[column].values
+        y_pred = prediction_df[column].values
 
-    return mse, mae, rmse, rmse/mae
+        mae = mean_absolute_error(y_true, y_pred)
+        rmse = np.sqrt(mean_squared_error(y_true, y_pred))
+        r2 = r2_score(y_true, y_pred)
+        ratio = rmse/mae
+        scores.append(np.array([[mae], [rmse], [ratio], [r2]]))
+    
+    scores = np.hstack(scores)
+    scores_df = pd.DataFrame(scores, columns=list(reference_df.columns))
+
+    return scores_df
 
 if __name__ == '__main__':
     feature_names = ['V', 'P', 'x', 'y']
@@ -221,6 +229,8 @@ if __name__ == '__main__':
     root = Path.cwd()
     model_dir = Path(input('Model directory: ') or './created_models/test_dir_torch')
     regr_dir = model_dir / 'prediction'
+    if not regr_dir.exists():
+        os.mkdir(regr_dir)
 
     # infer regression details from training metadata, else assume defaults
     if os.path.exists(model_dir / 'train_metadata.pkl'):
