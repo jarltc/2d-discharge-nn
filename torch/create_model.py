@@ -127,7 +127,7 @@ def worker(queue, results, model, df, k):
         results.put(output)  # add output to the results queue
 
 
-def c_e(epoch, c=0.5, r=25, which='exp'):
+def c_e(epoch, c=0.5, r=25, which='sigmoid'):
     """Get regularization coefficient.
 
     c is generated following an exponential function
@@ -135,7 +135,7 @@ def c_e(epoch, c=0.5, r=25, which='exp'):
     Args:
         epoch (int): Current epoch.
         c (float, optional): Regularization coefficient to be approached. Defaults to 0.5.
-        r (int, optional): Rate of increase. Coefficient increases by {} over r epochs. Defaults to 25.
+        r (int, optional): Rate of increase. Coefficient increases to c/2 over r epochs. Defaults to 25.
 
     Returns:
         c: Coefficient at each epoch.
@@ -144,9 +144,8 @@ def c_e(epoch, c=0.5, r=25, which='exp'):
     if which=='exp':
         return c - c*np.exp(-epoch/r)
     elif which=='sigmoid':
-        k = 0.085
-        x_0 = 100
-        return c/(1 + np.exp(-k*(epoch-x_0)))
+        k = c*2  # defines steepness of middle section
+        return c/(1 + np.exp(-k*(epoch-r)))
 #######################################
 
 def save_history_vals(history, out_dir):
