@@ -127,7 +127,7 @@ def worker(queue, results, model, df, k):
         results.put(output)  # add output to the results queue
 
 
-def c_e(epoch, c=0.5, r=25, which='sigmoid'):
+def c_e(epoch, c=0.2, r=25, which='sigmoid'):
     """Get regularization coefficient.
 
     c is generated following an exponential function
