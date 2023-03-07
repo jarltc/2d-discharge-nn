@@ -69,19 +69,23 @@ class PredictionDataset:
 
     @property
     def prediction(self):
-         print(f"\nGetting {self.model_name} prediction...\r", end="")
-         features_tensor = scale_features(self.features, model_dir)
+        self.model.eval()
+        if self.prediction_result is None:
+            print(f"\nGetting {self.model_name} prediction...\r", end="")
+            features_tensor = scale_features(self.features, model_dir)
 
-         model.eval()
-         result = pd.DataFrame(model(features_tensor)\
-                                          .detach().numpy(), 
-                                          columns=list(self.labels.columns))
-         
-         result = reverse_minmax(result, model_dir)
-         print("\33[2KPrediction complete!")
-         self.prediction_result = result
-         return result
-    
+            result = pd.DataFrame(self.model(features_tensor)\
+                                            .detach().numpy(), 
+                                            columns=list(self.labels.columns))
+            
+            result = reverse_minmax(result, model_dir)
+            print("\33[2KPrediction complete!")
+            self.prediction_result = result
+            return result
+        else:
+            print("Prediction result already calculated.")
+            return self.prediction_result
+
     def get_scores(self):
         r2, mae, rmse, ratio = calculate_scores(self.labels, self.prediction_result)
         data = np.vstack([r2, mae, rmse, ratio])
@@ -218,7 +222,7 @@ if __name__ == '__main__':
     model_dir = Path(input('Model directory: ') or './created_models/test_dir_torch')
     regr_dir = model_dir / 'prediction'
 
-    # infer regression details from model metadata, else assume defaults
+    # infer regression details from training metadata, else assume defaults
     if os.path.exists(model_dir / 'train_metadata.pkl'):
         with open(model_dir / 'train_metadata.pkl', 'rb') as f:
             metadata = pickle.load(f)
