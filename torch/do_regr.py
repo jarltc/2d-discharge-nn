@@ -136,7 +136,7 @@ class PredictionDataset:
                 print(f'**** {column} ****', file=out)
                 print(f'MAE\t\t= {scores_df[column].iloc[0]}', file=out)
                 print(f'RMSE\t\t= {scores_df[column].iloc[1]}', file=out)
-                print(f'RMSE/MAE\t\t= {scores_df[column].iloc[2]}\n', file=out)
+                print(f'RMSE/MAE\t= {scores_df[column].iloc[2]}', file=out)
                 print(f'R2\t\t= {scores_df[column].iloc[3]}', file=out)
                 print(file=out)
 
@@ -205,12 +205,13 @@ def scale_targets(data_table: pd.DataFrame, scale_exp=[1.0, 14.0, 14.0, 16.0, 0.
     Returns:
         pd.DataFrame: DataFrame of scaled target data.
     """
-    label_names = list(data_table.columns)
+    # label_names = list(data_table.columns)
     # label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
-    for i, _ in enumerate(label_names):
-        unscaled_df = data_table.iloc[:, i]/(10**scale_exp[i])
+    scaled_df = data_table.copy()
+    for i, column in enumerate(data_table.columns):
+        scaled_df[column].update(data_table.iloc[:, i]/(10**scale_exp[i]))
 
-    return unscaled_df
+    return scaled_df
 
 
 def reverse_minmax(df: pd.DataFrame, model_dir: Path):
@@ -242,7 +243,7 @@ def reverse_minmax(df: pd.DataFrame, model_dir: Path):
 
 
 def calculate_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
-
+    
     scores = []
     for column in reference_df.columns:
         y_true = reference_df[column].values
@@ -289,9 +290,9 @@ if __name__ == '__main__':
         .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
     regr_df = PredictionDataset(regr_df, model, metadata)
 
-    prediction = regr_df.prediction
-    regr_df.get_scores()
+    prediction = regr_df.prediction  # make a prediction
+    regr_df.get_scores()  # get scores
 
     triangles = plot.triangulate(regr_df.features[['x', 'y']])
-    plot.quickplot(prediction, model_dir, triangles=triangles)
+    plot.quickplot(prediction, regr_dir, triangles=triangles)
     
