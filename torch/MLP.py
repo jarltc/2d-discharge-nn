@@ -28,7 +28,7 @@ from torch.utils.data import TensorDataset, DataLoader
 import data
 import plot
 
-
+torch.set_default_dtype(torch.float64)
 class MLP(nn.Module):
     """Neural network momdel for grid-wise prediction of 2D-profiles.
 
@@ -102,7 +102,7 @@ def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> tor
         
         neighbor_xy = [df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
         neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
-        neighbors = [torch.FloatTensor(neighbor).expand(1, -1) for neighbor in neighbors]
+        neighbors = [torch.tensor(neighbor).expand(1, -1) for neighbor in neighbors]
 
         # concat neighbors and get the mean for each variable
         mean_tensors = torch.cat([model(neighbor) for neighbor in neighbors], dim=0)
@@ -127,7 +127,7 @@ def worker(queue, results, model, df, k):
         results.put(output)  # add output to the results queue
 
 
-def c_e(epoch, c=0.5, r=25, which='exp'):
+def c_e(epoch, c=0.2, r=25, which='sigmoid'):
     """Get regularization coefficient.
 
     c is generated following an exponential function
@@ -135,7 +135,7 @@ def c_e(epoch, c=0.5, r=25, which='exp'):
     Args:
         epoch (int): Current epoch.
         c (float, optional): Regularization coefficient to be approached. Defaults to 0.5.
-        r (int, optional): Rate of increase. Coefficient increases by {} over r epochs. Defaults to 25.
+        r (int, optional): Rate of increase. Coefficient increases to c/2 over r epochs. Defaults to 25.
 
     Returns:
         c: Coefficient at each epoch.
@@ -144,9 +144,8 @@ def c_e(epoch, c=0.5, r=25, which='exp'):
     if which=='exp':
         return c - c*np.exp(-epoch/r)
     elif which=='sigmoid':
-        k = 0.085
-        x_0 = 100
-        return c/(1 + np.exp(-k*(epoch-x_0)))
+        k = c*2  # defines steepness of middle section
+        return c/(1 + np.exp(-k*(epoch-r)))
 #######################################
 
 def save_history_vals(history, out_dir):
@@ -238,8 +237,8 @@ if __name__ == '__main__':
         os.mkdir(scaler_dir) 
 
     # copy some files for backup (probably made redundant by metadata)
-    shutil.copyfile(__file__, out_dir / 'create_model.py')
-    shutil.copyfile(root / 'data.py', out_dir / 'data.py')
+    # shutil.copyfile(__file__, out_dir / 'create_model.py')
+    # shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
     feature_names = ['V', 'P', 'x', 'y']
     label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
@@ -268,13 +267,14 @@ if __name__ == '__main__':
     nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
 
     # create dataset object and shuffle it()  # TODO: train/val split
-    features = torch.FloatTensor(features.to_numpy())
-    labels = torch.FloatTensor(labels.to_numpy())
+    features = torch.tensor(features.to_numpy())
+    labels = torch.tensor(labels.to_numpy())
     dataset = TensorDataset(features, labels)
 
     trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     model = MLP(name, len(feature_names), len(label_names)) 
+    model.share_memory()
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -299,6 +299,7 @@ if __name__ == '__main__':
     epoch_times = []
     epoch_loss = []
 
+    model.train()
     # model training loop
     for epoch in tqdm(range(epochs)):
         # record time per epoch
@@ -310,9 +311,6 @@ if __name__ == '__main__':
             inputs, labels = batch_data
             doubleLoader = DataLoader(inputs, batch_size=chunk_size)
             c = c_e(epoch)
-            
-            # switch model to eval mode
-            model.eval()
 
             # load data into queue
             for chunk in doubleLoader:
@@ -322,14 +320,12 @@ if __name__ == '__main__':
             worker_outputs = []
             for _ in range(num_processes):
                 try:
-                    output = results.get(timeout=1)
+                    output = results.get(timeout=2)
                     worker_outputs.append(output)
                 except:
                     pass
 
             neighbor_means = torch.cat(worker_outputs, dim=0)
-
-            model.train()  # put model back in train mode (?)
             
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -344,7 +340,7 @@ if __name__ == '__main__':
 
             # print statistics
             running_loss += loss.item()
-            loop.set_description(f"Epoch {epoch}/{epochs}")
+            loop.set_description(f"Epoch {epoch+1}/{epochs}")
             loop.set_postfix(loss=running_loss)
             running_loss = 0.0
 
