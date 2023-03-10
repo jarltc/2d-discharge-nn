@@ -52,30 +52,70 @@ class Autoencoder(nn.Module):
     return decoded
 
 
-def nc_to_tensor(ds):
-   vars = list(ds.data_vars)
-   
-   data = np.float32(np.nan_to_num(np.stack([scale_np(ds[var].values, var, scaler_dict) for var in vars])))
-   
-   # shuffle dimensions and combine v, p
-   data = np.moveaxis(data, 0, 4)
-   data = data.reshape(32,707,200,5)
-   data = np.moveaxis(data, 3, 1)
-   assert data.shape == (32, 5, 707, 200)  # samples, channels, height, width
-   
-   # create train/test split
-   train, test = train_test_split(data, test_size = 1/32, shuffle=True)
+class Trial(): # TODO: add plotting
+  def __init__(self, epochs, learning_rate, kernel1, kernel2) -> None:
+    self.epochs = epochs
+    self.learning_rate = learning_rate
+    self.kernel1 = kernel1
+    self.kernel2 = kernel2
+    self.model = Autoencoder()
+    self.optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
+    self.criterion = nn.MSELoss()
+    self.epoch_loss = []
+    
+    
+  def train(self):
+    for epoch in self.epochs:
+      for i, batch_data in enumerate(trainloader):
+        inputs = batch_data[0]
+        self.optimizer.zero_grad()
 
-   return train, test
+        # record loss
+        running_loss = 0.0
+
+        outputs = self.model(inputs)
+        loss = self.criterion(outputs, inputs)
+        loss.backward()
+        self.optimizer.step()
+
+        running_loss += loss.item()
+      self.epoch_loss.append(running_loss)
+
+
+def nc_to_tensor(ds):
+  variables = list(ds.data_vars)
+  v_excluded = 300  # TODO: move somewhere else
+  p_excluded = 60
+
+  data_list = []
+  excluded_list = []
+  for v in ds.V.values:
+    for p in ds.P.values:
+        vp_data = np.nan_to_num(np.stack([scale_np(ds[var].sel(V=v, P=p).values, var, scaler_dict) for var in variables]))
+        if (v == v_excluded) & (p == p_excluded):
+          excluded_list.append(vp_data)
+        else:
+          data_list.append(vp_data)
+
+  train = np.float32(np.stack(data_list))  # consider saving as .pt file after conversion
+  test = np.float32(np.stack(excluded_list))
+   
+  # # shuffle dimensions and combine v, p
+  # data = np.moveaxis(data, 0, 4)
+  # data = data.reshape(32,707,200,5)
+  # data = np.moveaxis(data, 3, 1)
+  assert train.shape == (31, 5, 707, 200)  # samples, channels, height, width
+
+  return train, test
 
 
 def scale_np(array, var, scaler_dict):
-    max = np.nanmax(array)
-    min = np.nanmin(array) 
+  max = np.nanmax(array)
+  min = np.nanmin(array) 
 
-    scaler_dict[var] = (min, max)
+  scaler_dict[var] = (min, max)
 
-    return (array - min) / (max - min)
+  return (array - min) / (max - min)
 
 
 def plot_comparison(reference: np.ndarray, name=None, out_dir=None):
@@ -117,6 +157,16 @@ def plot_train_loss(losses):
 
     fig.savefig(out_dir/'train_loss.png')
 
+
+def write_metadata(out_dir):
+   # save model structure
+    file = out_dir/'train_log.txt'
+    with open(file, 'w') as f:
+       f.write(f'Model {name}\n')
+       print(model, file=f)
+       f.write(f'\nEpochs: {epochs}\n')
+       f.write(f'Learning rate: {learning_rate}\n')
+       f.write('***** end of file *****')
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
@@ -173,13 +223,5 @@ if __name__ == '__main__':
         epoch_loss.append(running_loss)
     
     plot_comparison(test, out_dir=out_dir)
-
     plot_train_loss(epoch_loss)
-    # save model structure
-    file = out_dir/'train_log.txt'
-    with open(file, 'w') as f:
-       f.write(f'Model {name}\n')
-       print(model, file=f)
-       f.write(f'\nEpochs: {epochs}\n')
-       f.write(f'Learning rate: {learning_rate}\n')
-       f.write('***** end of file *****')
+    write_metadata(out_dir)
