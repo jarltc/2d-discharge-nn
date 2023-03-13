@@ -40,15 +40,15 @@ class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(5, 16, kernel_size=5, stride=2, padding=1),
+            nn.Conv2d(5, 15, kernel_size=5, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(16, 8, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(15, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU()
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(8, 16, 3, 2),
-            nn.ConvTranspose2d(16, 8, 3, 2),
+            nn.ConvTranspose2d(10, 15, kernel_size=3, stride=2),
+            nn.ConvTranspose2d(15, 8, kernel_size=3, stride=2),
             nn.Conv2d(8, 5, 3, padding=1)
         )
 
