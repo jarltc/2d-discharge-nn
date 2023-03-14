@@ -6,6 +6,8 @@ import re
 import time
 import pickle
 import xarray as xr
+import torch
+from torchvision.transforms.functional import crop
 import posixpath
 from pathlib import Path
 import pandas as pd
@@ -229,3 +231,121 @@ def yn(str):
         return False
     else:
         raise Exception(str + 'not recognized: use y - yes, n - no')
+    
+
+##### image datasets (autoencoder, gan, etc) #####
+class ImageDataset:
+    def __init__(self, data_dir: Path, square=False):
+        self.data_dir = data_dir
+        self.square = square
+        self.v_excluded = 300  # ideally inferred from the nc's metadata
+        self.p_excluded = 60
+        self.scaler_dict = {}  # FIXME: this gets overwritten when creating both train and test
+        self._train = None
+        self._test = None
+        
+    @property
+    def train(self):
+        if self._train is not None:
+            return self._train
+        else:
+            train_data = self.data_dir/'train_set.pt'
+
+            if train_data.exists():  # consider using a try-except
+                train = torch.load(train_data)
+            else:
+                train_ds = self.data_dir/'rec-interpolation2.nc'
+                train = self._nc_to_np(train_ds, 'train')
+            
+            if self.square:
+                train = crop(train, 350, 0, 200, 200)
+
+            self._train = train
+            return self._train
+
+
+    @property
+    def test(self):
+        if self._test is not None:
+            return self._test
+        else:
+            test_data = self.data_dir/'test_set.pt'
+            
+            if test_data.exists():
+                test = torch.load(test_data)
+            else:
+                test_ds = self.data_dir/'test_set.nc'
+                test = self._nc_to_np(test_ds, 'test')
+            
+            if self.square:
+                test = crop(test, 350, 0, 200, 200)
+
+            self._test = test
+            return self._test
+
+
+    def _scale_np(self, array: np.ndarray, var: str, scaler_dict: dict):
+        max = np.nanmax(array)
+        min = np.nanmin(array)
+
+        scaler_dict[var] = (min, max)
+
+        return (array - min) / (max - min)
+
+
+    def _nc_to_np(self, ds: xr.Dataset, which='train'):
+        """Create NumPy arrays from NetCDF dataset
+
+        Creates arrays from the .nc files if the .pt files don't yet exist.
+
+        Args:
+            ds (xr.Dataset): Dataset of
+            which (str, optional): _description_. Defaults to 'train'.
+
+        Returns:
+            _type_: _description_
+        """
+        variables = list(self.ds.data_vars)
+
+        if which == 'test':
+            
+            for v in ds.V.values:
+                for p in ds.P.values:
+                    # extract the values from the dataset for all 5 variables
+                    vp_data = np.nan_to_num(np.stack(
+                        [self._scale_np(ds[var].sel(V=v, P=p).values, var, self.scaler_dict) for var in variables]))
+                    features = np.array([v, p])  # not yet used
+
+            # consider saving as .pt file after conversion
+            labels = np.expand_dims(np.float32(vp_data), axis=0)
+            assert labels.shape == (1, 5, 707, 200)  # samples, channels, height, width
+
+            torch.save(labels, self.data_dir/'test_labels.pt')
+            torch.save(features, self.data_dir/'test_features.pt')
+
+            return [features, labels]
+        
+        elif which == 'train':
+            data_list = []
+            feature_list = []
+            for v in ds.V.values:
+                for p in ds.P.values:
+                    # extract the values from the dataset for all 5 variables
+                    vp_data = np.nan_to_num(np.stack(
+                        [self._scale_np(ds[var].sel(V=v, P=p).values, var, self.scaler_dict) for var in variables]))
+                    feature = np.array([v, p])
+                    if (v == self.v_excluded) & (p == self.p_excluded):
+                        pass  # this is a hole in the data set that contains only nans
+                    else:
+                        data_list.append(vp_data)
+                        feature_list.append(feature)
+
+            labels = np.float32(np.stack(data_list))
+            features = np.float32(np.stack(data_list))  # not yet used
+            # samples, channels, height, width
+            assert labels.shape == (31, 5, 707, 200)
+
+            torch.save(labels, self.data_dir/'train_labels.pt')
+            torch.save(features, self.data_dir/'train_features.pt')
+
+            return [features, labels]
