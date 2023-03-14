@@ -243,7 +243,7 @@ class ImageDataset:
         self.scaler_dict = {}  # FIXME: this gets overwritten when creating both train and test
         self._train = None
         self._test = None
-        
+
     @property
     def train(self):
         if self._train is not None:
@@ -349,3 +349,4 @@ class ImageDataset:
             torch.save(features, self.data_dir/'train_features.pt')
 
             return [features, labels]
+        
