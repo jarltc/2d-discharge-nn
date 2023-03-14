@@ -44,12 +44,15 @@ class Autoencoder(nn.Module):
             nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
             nn.ReLU(),
             nn.Conv2d(10, 20, kernel_size=5, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(20, 40, kernel_size=5, stride=2, padding=1),
             nn.ReLU()
         )
 
         self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2),
             nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(10, 5, kernel_size=3, stride=2),
+            nn.ConvTranspose2d(10, 5, kernel_size=3, stride=2)
         )
 
     def forward(self, x):
@@ -59,26 +62,6 @@ class Autoencoder(nn.Module):
             decoded, 0, 0, 707, 200)
         return decoded
 
-
-class EncodeGuesser(nn.Module):
-    """ Recreate encodings using pairs of V, P.
-
-    Encoded size is (1, 10, 177, 50). How do I create this with a single network??
-    """
-    def __init__(self) -> None:
-        super(EncodeGuesser, self).__init__()
-        self.net = nn.Sequential(
-            nn.Linear(2, 2),
-            nn.ReLU(),
-            nn.Linear(2, 2),
-            nn.ReLU(),
-            nn.Linear(2, 2),
-            nn.ReLU(),
-            nn.Linear(2, 2),
-        )
-    def forward(self, x):
-        output = self.net(x)
-        return output
 
 class Trial():  # TODO: add plotting
     def __init__(self, epochs, learning_rate, kernel1, kernel2) -> None:
@@ -228,7 +211,7 @@ def write_metadata(out_dir):
         f.write(
             f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
         f.write(f'Evaluation time: {(eval_time):.2f} s\n')
-        f.write('***** end of file *****')
+        f.write('\n***** end of file *****')
 
 
 if __name__ == '__main__':
