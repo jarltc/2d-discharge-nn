@@ -28,6 +28,7 @@ from torchinfo import summary
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
+from data_helpers import ImageDataset
 from plot import draw_apparatus
 
 # define model TODO: construct following input file/specification list
@@ -85,64 +86,6 @@ class Trial():  # TODO: add plotting
 
                 running_loss += loss.item()
             self.epoch_loss.append(running_loss)
-
-
-def nc_to_train(ds):
-    variables = list(ds.data_vars)
-    v_excluded = 300  # TODO: move somewhere else
-    p_excluded = 60
-
-    data_list = []
-    feature_list = []
-    for v in ds.V.values:
-        for p in ds.P.values:
-            # extract the values from the dataset for all 5 variables
-            vp_data = np.nan_to_num(np.stack(
-                [scale_np(ds[var].sel(V=v, P=p).values, var, scaler_dict) for var in variables]))
-            feature = np.array([v, p])
-            if (v == v_excluded) & (p == p_excluded):
-                # this is a hole in the data set that contains only nans
-                pass
-            else:
-                data_list.append(vp_data)
-                feature_list.append(feature)
-
-    labels = np.float32(np.stack(data_list))
-    features = np.float32(np.stack(data_list))  # not yet used
-    # samples, channels, height, width
-    assert labels.shape == (31, 5, 707, 200)
-
-    torch.save(labels, train_data.parent/'train_set.pt')
-
-    return train
-
-
-def nc_to_test(ds):
-    variables = list(ds.data_vars)
-
-    for v in ds.V.values:
-        for p in ds.P.values:
-            # extract the values from the dataset for all 5 variables
-            vp_data = np.nan_to_num(np.stack(
-                [scale_np(ds[var].sel(V=v, P=p).values, var, scaler_dict) for var in variables]))
-            features = np.array([v, p])  # not yet used
-
-    # consider saving as .pt file after conversion
-    labels = np.expand_dims(np.float32(vp_data), axis=0)
-    assert labels.shape == (1, 5, 707, 200)  # samples, channels, height, width
-
-    torch.save(labels, train_data.parent/'test_set.pt')
-
-    return labels
-
-
-def scale_np(array, var, scaler_dict):
-    max = np.nanmax(array)
-    min = np.nanmin(array)
-
-    scaler_dict[var] = (min, max)
-
-    return (array - min) / (max - min)
 
 
 def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None):  # TODO: move to plot module
@@ -219,40 +162,6 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write('\n***** end of file *****')
 
 
-def load_image_data(root: Path, square=False):  # TODO: move to data module, convert to ImageDataset class
-    """Load image data for image-based networks.
-
-    Args:
-        root (Path): Path to root 2d-discharge-nn folder.
-        square (bool, optional): Crop the images to a square.
-    """
-    
-    scaler_dict = {}  # TODO: use as class attribute
-
-    train_data = root/'data'/'interpolation_datasets'/'train_set.pt'
-    test_data = root/'data'/'interpolation_datasets'/'test_set.pt'
-
-    if not train_data.exists():  # consider using a try-except
-        train_data = root/'data'/'interpolation_datasets'/'rec-interpolation2.nc'
-        train_ds = xr.open_dataset(train_data)
-        train = nc_to_train(train_ds)
-    else:
-        train = torch.load(train_data)
-
-    if not test_data.exists():
-        test_data = root/'data'/'interpolation_datasets'/'test_set.nc'
-        test_ds = xr.open_dataset(test_data)
-        test = nc_to_test(test_ds)
-    else:
-        test = torch.load(test_data)
-
-    if square:
-        test = crop(test, 350, 0, 200, 200)  # (array, top, left, height, width)
-        train = crop(test, 350, 0, 200, 200)  # (array, top, left, height, width)
-
-    return train, test
-
-
 if __name__ == '__main__':
     # set metal backend (apple socs)
     device = torch.device(
@@ -261,7 +170,8 @@ if __name__ == '__main__':
     name = input("Enter model name: ")
     root = Path.cwd()
 
-    train, test = load_image_data(root)
+    image_ds = ImageDataset(root/'data'/'interpolation_datasets')
+    train = image_ds.train[1]  # import only features (2d profiles)
 
     out_dir = root/'created_models'/'autoencoder'/name
     if not out_dir.exists():
