@@ -21,6 +21,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
 from torch.utils.data import TensorDataset, DataLoader
+from torchinfo import summary
 
 # from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
@@ -40,16 +41,15 @@ class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(5, 15, kernel_size=5, stride=2, padding=1),
+            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(15, 10, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(10, 20, kernel_size=5, stride=2, padding=1),
             nn.ReLU()
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(10, 15, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(15, 8, kernel_size=3, stride=2),
-            nn.Conv2d(8, 5, 3, padding=1)
+            nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2),
+            nn.ConvTranspose2d(10, 5, kernel_size=3, stride=2),
         )
 
     def forward(self, x):
@@ -59,6 +59,26 @@ class Autoencoder(nn.Module):
             decoded, 0, 0, 707, 200)
         return decoded
 
+
+class EncodeGuesser(nn.Module):
+    """ Recreate encodings using pairs of V, P.
+
+    Encoded size is (1, 10, 177, 50). How do I create this with a single network??
+    """
+    def __init__(self) -> None:
+        super(EncodeGuesser, self).__init__()
+        self.net = nn.Sequential(
+            nn.Linear(2, 2),
+            nn.ReLU(),
+            nn.Linear(2, 2),
+            nn.ReLU(),
+            nn.Linear(2, 2),
+            nn.ReLU(),
+            nn.Linear(2, 2),
+        )
+    def forward(self, x):
+        output = self.net(x)
+        return output
 
 class Trial():  # TODO: add plotting
     def __init__(self, epochs, learning_rate, kernel1, kernel2) -> None:
@@ -201,7 +221,7 @@ def write_metadata(out_dir):
     file = out_dir/'train_log.txt'
     with open(file, 'w') as f:
         f.write(f'Model {name}\n')
-        print(model, file=f)
+        print(summary(model, input_size=(1, 5, 707, 200)), file=f)
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
         f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
@@ -246,7 +266,7 @@ if __name__ == '__main__':
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # hyperparameters (class property?)
-    epochs = 300
+    epochs = 200
     learning_rate = 1e-3
 
     model = Autoencoder()
