@@ -20,6 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
+from torchvision.transforms.functional import crop
 from torch.utils.data import TensorDataset, DataLoader
 from torchinfo import summary
 
@@ -29,13 +30,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from plot import draw_apparatus
 
-
-def n_function(x):
-    blah = x
-    return blah
-
 # define model TODO: construct following input file/specification list
-
 
 class Autoencoder(nn.Module):
     def __init__(self):
@@ -150,7 +145,17 @@ def scale_np(array, var, scaler_dict):
     return (array - min) / (max - min)
 
 
-def plot_comparison(reference: np.ndarray, name=None, out_dir=None):
+def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None):  # TODO: move to plot module
+    """Create plot comparing the reference data with its autoencoder reconstruction.
+
+    Args:
+        reference (np.ndarray): Reference dataset.
+        name (str, optional): Model name. Defaults to None.
+        out_dir (Path, optional): Output directory. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
     fig = plt.figure(figsize=(12, 7), dpi=200)
     subfigs = fig.subfigures(nrows=2)
 
@@ -187,7 +192,7 @@ def plot_comparison(reference: np.ndarray, name=None, out_dir=None):
     return end-start
 
 
-def plot_train_loss(losses):
+def plot_train_loss(losses):  # TODO: move to plot module
     losses = np.array(losses)
     fig, ax = plt.subplots()
     ax.set_yscale('log')
@@ -199,7 +204,7 @@ def plot_train_loss(losses):
     fig.savefig(out_dir/'train_loss.png')
 
 
-def write_metadata(out_dir):
+def write_metadata(out_dir):  # TODO: move to data module
     # save model structure
     file = out_dir/'train_log.txt'
     with open(file, 'w') as f:
@@ -214,20 +219,20 @@ def write_metadata(out_dir):
         f.write('\n***** end of file *****')
 
 
-if __name__ == '__main__':
-    # set metal backend (apple socs)
-    device = torch.device(
-        'mps' if torch.backends.mps.is_available() else 'cpu')
+def load_image_data(root: Path, square=False):  # TODO: move to data module, convert to ImageDataset class
+    """Load image data for image-based networks.
 
-    name = input("Enter model name: ")
-    root = Path.cwd()
+    Args:
+        root (Path): Path to root 2d-discharge-nn folder.
+        square (bool, optional): Crop the images to a square.
+    """
+    
+    scaler_dict = {}  # TODO: use as class attribute
+
     train_data = root/'data'/'interpolation_datasets'/'train_set.pt'
     test_data = root/'data'/'interpolation_datasets'/'test_set.pt'
 
-    scaler_dict = {}
-
-    # there has to be a better way to do this
-    if not train_data.exists():
+    if not train_data.exists():  # consider using a try-except
         train_data = root/'data'/'interpolation_datasets'/'rec-interpolation2.nc'
         train_ds = xr.open_dataset(train_data)
         train = nc_to_train(train_ds)
@@ -240,6 +245,23 @@ if __name__ == '__main__':
         test = nc_to_test(test_ds)
     else:
         test = torch.load(test_data)
+
+    if square:
+        test = crop(test, 350, 0, 200, 200)  # (array, top, left, height, width)
+        train = crop(test, 350, 0, 200, 200)  # (array, top, left, height, width)
+
+    return train, test
+
+
+if __name__ == '__main__':
+    # set metal backend (apple socs)
+    device = torch.device(
+        'mps' if torch.backends.mps.is_available() else 'cpu')
+
+    name = input("Enter model name: ")
+    root = Path.cwd()
+
+    train, test = load_image_data(root)
 
     out_dir = root/'created_models'/'autoencoder'/name
     if not out_dir.exists():
@@ -293,7 +315,7 @@ if __name__ == '__main__':
 
     train_end = time.time()
 
-    eval_time = plot_comparison(test, out_dir=out_dir)
+    eval_time = plot_comparison_ae(test, out_dir=out_dir)
     plot_train_loss(epoch_loss)
     write_metadata(out_dir)
     torch.save(model.state_dict(), out_dir/f'{name}')
