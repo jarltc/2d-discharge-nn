@@ -240,60 +240,74 @@ class ImageDataset:
         self.square = square
         self.v_excluded = 300  # ideally inferred from the nc's metadata
         self.p_excluded = 60
-        self.scaler_dict = {}  # FIXME: this gets overwritten when creating both train and test
-        self._train = None
-        self._test = None
+        self._train = None  # list of [features, labels]
+        self._test = None  # list of [features, labels]
+
+        if (data_dir/'scaler_dict.pkl').exists():
+            with open(data_dir/'scaler_dict.pkl', 'rb') as f:
+                self.scaler_dict = pickle.load(f)
+        else:
+            self.scaler_dict = {}
 
     @property
-    def train(self):
+    def train(self) -> list[np.ndarray]:
         if self._train is not None:
             return self._train
         else:
-            train_data = self.data_dir/'train_set.pt'
+            train_features = self.data_dir/'train_features.pt'
+            train_labels = self.data_dir/'train_labels.pt'
 
-            if train_data.exists():  # consider using a try-except
-                train = torch.load(train_data)
+            if train_features.exists() & train_labels.exists():  # consider using a try-except
+                train = [torch.load(train_features), torch.load(train_labels)]
             else:
-                train_ds = self.data_dir/'rec-interpolation2.nc'
+                train_ds = xr.open_dataset(self.data_dir/'rec-interpolation2.nc')
                 train = self._nc_to_np(train_ds, 'train')
             
             if self.square:
-                train = crop(train, 350, 0, 200, 200)
+                train[0] = crop(train[0], 350, 0, 200, 200) # crop features only
 
             self._train = train
             return self._train
 
 
     @property
-    def test(self):
+    def test(self) -> list[np.ndarray]:
         if self._test is not None:
             return self._test
         else:
-            test_data = self.data_dir/'test_set.pt'
+            test_features = self.data_dir/'test_features.pt'
+            test_labels = self.data_dir/'test_labels.pt'
             
-            if test_data.exists():
-                test = torch.load(test_data)
+            if test_features.exists() & test_labels.exists():
+                test = [torch.load(test_features), torch.load(test_labels)]
             else:
-                test_ds = self.data_dir/'test_set.nc'
+                test_ds = xr.open_dataset(self.data_dir/'test_set.nc')
                 test = self._nc_to_np(test_ds, 'test')
             
             if self.square:
-                test = crop(test, 350, 0, 200, 200)
+                test[0] = crop(test[0], 350, 0, 200, 200)  # crop features only
 
             self._test = test
             return self._test
 
 
     def _scale_np(self, array: np.ndarray, var: str, scaler_dict: dict):
-        max = np.nanmax(array)
-        min = np.nanmin(array)
-
-        scaler_dict[var] = (min, max)
-
+        if scaler_dict == {}:
+            max = np.nanmax(array)
+            min = np.nanmin(array)
+            scaler_dict[var] = (min, max)
+        else:
+            try:  # hmm
+               min, max = scaler_dict[var]
+            except:
+               max = np.nanmax(array)
+               min = np.nanmin(array)
+               scaler_dict[var] = (min, max)
+           
         return (array - min) / (max - min)
 
 
-    def _nc_to_np(self, ds: xr.Dataset, which='train'):
+    def _nc_to_np(self, ds: xr.Dataset, which='train') -> list[np.ndarray]:
         """Create NumPy arrays from NetCDF dataset
 
         Creates arrays from the .nc files if the .pt files don't yet exist.
@@ -305,7 +319,7 @@ class ImageDataset:
         Returns:
             _type_: _description_
         """
-        variables = list(self.ds.data_vars)
+        variables = list(ds.data_vars)
 
         if which == 'test':
             
@@ -314,11 +328,14 @@ class ImageDataset:
                     # extract the values from the dataset for all 5 variables
                     vp_data = np.nan_to_num(np.stack(
                         [self._scale_np(ds[var].sel(V=v, P=p).values, var, self.scaler_dict) for var in variables]))
-                    features = np.array([v, p])  # not yet used
+                    labels = np.array([v, p])  # not yet used
 
             # consider saving as .pt file after conversion
-            labels = np.expand_dims(np.float32(vp_data), axis=0)
-            assert labels.shape == (1, 5, 707, 200)  # samples, channels, height, width
+            features = np.expand_dims(np.float32(vp_data), axis=0)
+            assert features.shape == (1, 5, 707, 200)  # samples, channels, height, width
+
+            with open(self.data_dir/'scaler_dict.pkl', 'wb') as f:
+                pickle.dump(self.scaler_dict, f)
 
             torch.save(labels, self.data_dir/'test_labels.pt')
             torch.save(features, self.data_dir/'test_features.pt')
@@ -327,23 +344,26 @@ class ImageDataset:
         
         elif which == 'train':
             data_list = []
-            feature_list = []
+            label_list = []
             for v in ds.V.values:
                 for p in ds.P.values:
                     # extract the values from the dataset for all 5 variables
                     vp_data = np.nan_to_num(np.stack(
                         [self._scale_np(ds[var].sel(V=v, P=p).values, var, self.scaler_dict) for var in variables]))
-                    feature = np.array([v, p])
+                    label = np.array([v, p])
                     if (v == self.v_excluded) & (p == self.p_excluded):
                         pass  # this is a hole in the data set that contains only nans
                     else:
                         data_list.append(vp_data)
-                        feature_list.append(feature)
+                        label_list.append(label)
 
-            labels = np.float32(np.stack(data_list))
-            features = np.float32(np.stack(data_list))  # not yet used
+            features = np.float32(np.stack(data_list))
+            labels = np.float32(np.stack(label_list))  # not yet used
             # samples, channels, height, width
-            assert labels.shape == (31, 5, 707, 200)
+            assert features.shape == (31, 5, 707, 200)
+
+            with open(self.data_dir/'scaler_dict.pkl', 'wb') as f:
+                pickle.dump(self.scaler_dict, f)
 
             torch.save(labels, self.data_dir/'train_labels.pt')
             torch.save(features, self.data_dir/'train_features.pt')
