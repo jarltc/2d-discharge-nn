@@ -39,9 +39,9 @@ class Autoencoder(nn.Module):
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(10, 20, kernel_size=5, stride=2, padding=1),
+            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
-            nn.Conv2d(20, 40, kernel_size=5, stride=2, padding=1),
+            nn.Conv2d(20, 40, kernel_size=3, stride=2, padding=1),
             nn.ReLU()
         )
 
@@ -171,7 +171,8 @@ if __name__ == '__main__':
     root = Path.cwd()
 
     image_ds = ImageDataset(root/'data'/'interpolation_datasets')
-    train = image_ds.train[1]  # import only features (2d profiles)
+    train = image_ds.train[0]  # import only features (2d profiles)
+    test = image_ds.test[0]  # import only features (2d profiles)
 
     out_dir = root/'created_models'/'autoencoder'/name
     if not out_dir.exists():
@@ -225,7 +226,7 @@ if __name__ == '__main__':
 
     train_end = time.time()
 
+    torch.save(model.state_dict(), out_dir/f'{name}')
     eval_time = plot_comparison_ae(test, out_dir=out_dir)
     plot_train_loss(epoch_loss)
     write_metadata(out_dir)
-    torch.save(model.state_dict(), out_dir/f'{name}')
