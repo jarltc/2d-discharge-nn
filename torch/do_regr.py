@@ -17,7 +17,7 @@ import sys
 import pickle
 from pathlib import Path
 
-import data
+import data_helpers
 import plot
 
 
@@ -292,7 +292,7 @@ if __name__ == '__main__':
     print('\nLoaded model ' + name)
 
     # load dataset
-    regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
+    regr_df = data_helpers.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
         .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
     regr_df = PredictionDataset(regr_df, model, metadata)
 
