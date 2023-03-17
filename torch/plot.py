@@ -231,7 +231,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
     matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
-    fig, ax = plt.subplots(1, len(df.columns), figsize=(20, 4), dpi=200)
+    fig, ax = plt.subplots(1, len(df.columns), figsize=(10, 4), dpi=200)
 
     titles = [column.split()[0] for column in df.columns]
 
@@ -272,6 +272,8 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.Data
     fig, ax = plt.subplots(dpi=200)
     
     # customize axes
+    ax.set_xlim(-0.05, 1.05)
+    ax.set_ylim(-0.05, 1.05)
     ax.set_aspect('equal')
     ax.set_ylabel('Predicted')
     ax.set_xlabel('True')
