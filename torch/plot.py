@@ -6,6 +6,7 @@ import matplotlib
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from sklearn.preprocessing import MinMaxScaler
 
 def triangulate(df: pd.DataFrame):   
     """
@@ -250,4 +251,55 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
         fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
 
     return fig
+
+
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.DataFrame, out_dir=None):
+    """Plot correlation between true values and predictions.
+
+    Args:
+        prediction (pd.DataFrame): DataFrame of predicted values.
+        targets (pd.DataFrame): DataFrame of true values.
+        scores (pd.DataFrame): Scores containing the r2.
+        out_dir (Path, optional): Path to save file. Defaults to None.
+    """
+    assert list(prediction.columns) == list(targets.columns)
+
+    prediction = prediction.copy()
+    targets = targets.copy()
+
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+
+    fig, ax = plt.subplots(dpi=200)
+    
+    # customize axes
+    ax.set_aspect('equal')
+    ax.set_ylabel('Predicted')
+    ax.set_xlabel('True')
+
+    # plot 1:1 line
+    x = np.linspace(0, 1, 1000)
+    ax.plot(x, x, ls='--', c='k')
+
+    for i, column in enumerate(prediction.columns):
+        # transform with minmax to normalize between (0, 1)
+        scaler = MinMaxScaler()
+        scaler.fit(targets[column].values.reshape(-1, 1))
+        scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
+        scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+
+        # get correlation score
+        r2 = round(scores[column].iloc[3], 2)
+
+        # set label
+        label = f'{column.split()[0]}: {r2}'
+
+        ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
+                   color=colors[i], alpha=0.15, label=label)
+
+    legend = ax.legend(markerscale=4, fontsize='small')
+    for lh in legend.legendHandles: 
+        lh.set_alpha(1)
+    
+    if out_dir is not None:
+        fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
 

@@ -141,9 +141,12 @@ class PredictionDataset:
                 print(file=out)
 
         print_scores_core(sys.stdout)
+        plot.correlation(self.targets, self.prediction_result, self.scores, regr_dir)
+
         scores_file = regr_dir/'scores.txt'
         with open(scores_file, 'w') as f:
             print_scores_core(f)
+
         
 
 def process_data(df: pd.DataFrame, data_excluded: tuple):
