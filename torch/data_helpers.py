@@ -270,8 +270,8 @@ class ImageDataset:
                 train_ds = xr.open_dataset(self.data_dir/'rec-interpolation2.nc')
                 train = self._nc_to_np(train_ds, 'train')
             
-            if self.square:
-                train[0] = crop(train[0], 350, 0, 200, 200) # crop features only
+            if self.is_square:
+                train[0] = crop(torch.tensor(train[0]), 350, 0, 200, 200).numpy() # crop features only
 
             self._train = train
             return self._train
@@ -298,8 +298,8 @@ class ImageDataset:
                 test_ds = xr.open_dataset(self.data_dir/'test_set.nc')
                 test = self._nc_to_np(test_ds, 'test')
             
-            if self.square:
-                test[0] = crop(test[0], 350, 0, 200, 200)  # crop features only
+            if self.is_square:
+                test[0] = crop(torch.tensor(test[0]), 350, 0, 200, 200).numpy()  # crop features only
 
             self._test = test
             return self._test
