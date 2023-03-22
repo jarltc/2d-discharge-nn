@@ -33,6 +33,34 @@ from plot import draw_apparatus
 
 # define model TODO: construct following input file/specification list
 
+class SquareAE(nn.Module):
+    """Autoencoder using square images as inputs.
+    
+    Input sizes are (5, 200, 200).
+    """
+    def __init__(self) -> None:
+        super(SquareAE, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+            nn.Conv2d(20, 40, kernel_size=3, stride=2, padding=1),
+            nn.ReLU()
+        )
+
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2),
+            nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2),
+            nn.ConvTranspose2d(10, 5, kernel_size=5, stride=2)
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        return decoded
+
+
 class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
@@ -48,7 +76,7 @@ class Autoencoder(nn.Module):
         self.decoder = nn.Sequential(
             nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2),
             nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(10, 5, kernel_size=3, stride=2)
+            nn.ConvTranspose2d(10, 5, kernel_size=5, stride=2)
         )
 
     def forward(self, x):
@@ -111,10 +139,9 @@ def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None):  # TODO:
     cbar_ranges = [(reference[0, i, :, :].min(),
                     reference[0, i, :, :].max()) for i in range(5)]
 
-    start = time.time()
-
     with torch.no_grad():
         encoded = model.encoder(torch.tensor(reference, device=device))
+        start = time.time()
         reconstruction = model.decoder(encoded).cpu().numpy()
 
     end = time.time()
@@ -153,6 +180,8 @@ def write_metadata(out_dir):  # TODO: move to data module
     with open(file, 'w') as f:
         f.write(f'Model {name}\n')
         print(summary(model, input_size=(1, 5, 707, 200)), file=f)
+        print("\n", file=f)
+        print(model, file=f)
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
         f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
@@ -169,8 +198,9 @@ if __name__ == '__main__':
 
     name = input("Enter model name: ")
     root = Path.cwd()
+    is_square=True
 
-    image_ds = ImageDataset(root/'data'/'interpolation_datasets')
+    image_ds = ImageDataset(root/'data'/'interpolation_datasets', is_square)
     train = image_ds.train[0]  # import only features (2d profiles)
     test = image_ds.test[0]  # import only features (2d profiles)
 
@@ -185,7 +215,7 @@ if __name__ == '__main__':
     epochs = 200
     learning_rate = 1e-3
 
-    model = Autoencoder()
+    model = SquareAE() if is_square else Autoencoder()
     model.to(device)  # move model to gpu
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
