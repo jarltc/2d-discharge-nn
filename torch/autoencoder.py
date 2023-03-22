@@ -58,6 +58,8 @@ class SquareAE(nn.Module):
     def forward(self, x):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
+        decoded = torchvision.transforms.functional.crop(
+            decoded, 0, 0, 200, 200)
         return decoded
 
 
