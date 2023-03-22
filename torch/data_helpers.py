@@ -251,7 +251,9 @@ class ImageDataset:
 
     @property
     def train(self) -> list[np.ndarray]:
-        """Return train dataset (features, labels)
+        """Return train dataset (features, labels).
+
+        Loads the dataset as the self._test property if not yet set.
 
         Returns:
             list[np.ndarray]: List containing features, i.e. 2d profiles and labels, i.e. (V, P) 
@@ -277,8 +279,10 @@ class ImageDataset:
 
     @property
     def test(self) -> list[np.ndarray]:
-        """Return test dataset (features, labels)
+        """Return test dataset (features, labels).
 
+        Loads the dataset as the self._test property if not yet set.
+        
         Returns:
             list[np.ndarray]: List containing features, i.e. 2d profiles and labels, i.e. (V, P)
         """
