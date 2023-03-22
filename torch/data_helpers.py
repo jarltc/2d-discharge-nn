@@ -235,9 +235,9 @@ def yn(str):
 
 ##### image datasets (autoencoder, gan, etc) #####
 class ImageDataset:
-    def __init__(self, data_dir: Path, square=False):
+    def __init__(self, data_dir: Path, is_square=False):
         self.data_dir = data_dir
-        self.square = square
+        self.is_square = is_square
         self.v_excluded = 300  # ideally inferred from the nc's metadata
         self.p_excluded = 60
         self._train = None  # list of [features, labels]
@@ -251,6 +251,11 @@ class ImageDataset:
 
     @property
     def train(self) -> list[np.ndarray]:
+        """Return train dataset (features, labels)
+
+        Returns:
+            list[np.ndarray]: List containing features, i.e. 2d profiles and labels, i.e. (V, P) 
+        """
         if self._train is not None:
             return self._train
         else:
@@ -272,6 +277,11 @@ class ImageDataset:
 
     @property
     def test(self) -> list[np.ndarray]:
+        """Return test dataset (features, labels)
+
+        Returns:
+            list[np.ndarray]: List containing features, i.e. 2d profiles and labels, i.e. (V, P)
+        """
         if self._test is not None:
             return self._test
         else:
@@ -292,6 +302,18 @@ class ImageDataset:
 
 
     def _scale_np(self, array: np.ndarray, var: str, scaler_dict: dict):
+        """Apply scaling on np arrays
+
+        Saves the scaler dict containing (min, max) for each variable.
+        Args:
+            array (np.ndarray): NumPy array containing a variable's data.
+            var (str): String of the variable's name. Ex: "potential (V)" 
+                I don't remember if this includes the units.
+            scaler_dict (dict): Dict containing a tuple of (min, max) for each variable.
+
+        Returns:
+            np.ndarray: Array of minmax-scaled values for the variable.
+        """
         if scaler_dict == {}:
             max = np.nanmax(array)
             min = np.nanmin(array)
@@ -310,14 +332,15 @@ class ImageDataset:
     def _nc_to_np(self, ds: xr.Dataset, which='train') -> list[np.ndarray]:
         """Create NumPy arrays from NetCDF dataset
 
-        Creates arrays from the .nc files if the .pt files don't yet exist.
+        Creates arrays from the .nc files if the .pt files don't yet exist, and 
+        applies minmax scaling to return a pair of features and labels.
 
         Args:
-            ds (xr.Dataset): Dataset of
+            ds (xr.Dataset): NetCDF dataset containing images.
             which (str, optional): _description_. Defaults to 'train'.
 
         Returns:
-            _type_: _description_
+            list[np.ndarray]: List containing features, i.e. 2d profiles and labels, i.e. (V, P)
         """
         variables = list(ds.data_vars)
 
