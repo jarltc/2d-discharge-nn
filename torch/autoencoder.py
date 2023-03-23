@@ -8,8 +8,8 @@ import time
 from pathlib import Path
 
 import matplotlib.pyplot as plt
-import matplotlib.patches as pat
 
+import cv2
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -24,9 +24,7 @@ from torchvision.transforms.functional import crop
 from torch.utils.data import TensorDataset, DataLoader
 from torchinfo import summary
 
-# from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
 from plot import draw_apparatus
@@ -41,33 +39,32 @@ class SquareAE(nn.Module):
     def __init__(self) -> None:
         super(SquareAE, self).__init__()
         self.encoder = nn.Sequential(
-            # U-net style
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
 
             nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
 
-            nn.Conv2d(20, 40, kernel_size=3, stride=2, padding=1),
-            nn.ReLU()
+            nn.Conv2d(20, 20, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2, padding=1),
+            nn.ConvTranspose2d(20, 20, kernel_size=2, stride=2),
             nn.ReLU(),
 
-            nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2, padding=1),
+            nn.ConvTranspose2d(20, 10, kernel_size=2, stride=2),
             nn.ReLU(),
 
-            nn.ConvTranspose2d(10, 5, kernel_size=3, stride=2, padding=1),
+            nn.ConvTranspose2d(10, 5, kernel_size=2, stride=2),
             nn.ReLU()
         )
 
     def forward(self, x):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
-        decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 64, 64)
+        # decoded = torchvision.transforms.functional.crop(
+        #     decoded, 0, 0, 64, 64)
         return decoded
 
 
@@ -126,7 +123,7 @@ class Trial():  # TODO: add plotting
             self.epoch_loss.append(running_loss)
 
 
-def resize(data: np.ndarray) -> np.ndarray:
+def resize(data: np.ndarray, scale=64) -> np.ndarray:
     """Resize square images to 64x64 resolution by downscaling.
 
     Args:
@@ -136,12 +133,13 @@ def resize(data: np.ndarray) -> np.ndarray:
         np.ndarray: Downscaled input data.
     """
 
-    data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (64, 64)) for image in data])
+    data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (scale, scale)) for image in data])
     data = np.moveaxis(data, -1, 1)
     return data
 
 
-def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None, is_square=False):  # TODO: move to plot module
+def plot_comparison_ae(reference: np.ndarray, name=None, 
+                       out_dir=None, is_square=False) -> float:  # TODO: move to plot module
     """Create plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
@@ -150,7 +148,7 @@ def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None, is_square
         out_dir (Path, optional): Output directory. Defaults to None.
 
     Returns:
-        _type_: _description_
+        float: Evaluation time.
     """
     if is_square:
         figsize = (10, 5)
@@ -244,9 +242,8 @@ if __name__ == '__main__':
     test = image_ds.test[0]  # import only features (2d profiles)
 
     # downscale train images
-    import cv2
-    train_res = resize(train)
-    test_res = resize(test)
+    train_res = resize(train, 32)
+    test_res = resize(test, 32)
 
     out_dir = root/'created_models'/'autoencoder'/name
     if not out_dir.exists():
