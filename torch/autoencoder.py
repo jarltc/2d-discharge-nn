@@ -227,6 +227,7 @@ def write_metadata(out_dir):  # TODO: move to data module
         print(model, file=f)
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
+        f.write(f'Resolution: {resolution}\n')
         f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
         f.write(
             f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
@@ -248,8 +249,9 @@ if __name__ == '__main__':
     test = image_ds.test[0]  # import only features (2d profiles)
 
     # downscale train images
-    train_res = resize(train, 32)
-    test_res = resize(test, 32)
+    resolution = 32
+    train_res = resize(train, resolution)
+    test_res = resize(test, resolution)
 
     # split validation set
     train_res, val = train_test_split(train_res, test_size=1, train_size=30)
