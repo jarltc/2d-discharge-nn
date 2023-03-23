@@ -36,30 +36,38 @@ from plot import draw_apparatus
 class SquareAE(nn.Module):
     """Autoencoder using square images as inputs.
     
-    Input sizes are (5, 200, 200).
+    Input sizes are (5, 64, 64).
     """
     def __init__(self) -> None:
         super(SquareAE, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
+            # U-net style
+            nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
+
             nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
+
             nn.Conv2d(20, 40, kernel_size=3, stride=2, padding=1),
             nn.ReLU()
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(10, 5, kernel_size=5, stride=2)
+            nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(10, 5, kernel_size=3, stride=2, padding=1),
+            nn.ReLU()
         )
 
     def forward(self, x):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
         decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 200, 200)
+            decoded, 0, 0, 64, 64)
         return decoded
 
 
@@ -118,7 +126,22 @@ class Trial():  # TODO: add plotting
             self.epoch_loss.append(running_loss)
 
 
-def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None):  # TODO: move to plot module
+def resize(data: np.ndarray) -> np.ndarray:
+    """Resize square images to 64x64 resolution by downscaling.
+
+    Args:
+        data (np.ndarray): Input data.
+
+    Returns:
+        np.ndarray: Downscaled input data.
+    """
+
+    data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (64, 64)) for image in data])
+    data = np.moveaxis(data, -1, 1)
+    return data
+
+
+def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None, is_square=False):  # TODO: move to plot module
     """Create plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
@@ -129,7 +152,14 @@ def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None):  # TODO:
     Returns:
         _type_: _description_
     """
-    fig = plt.figure(figsize=(12, 7), dpi=200)
+    if is_square:
+        figsize = (10, 5)
+        extent = [0, 20, 35, 55]
+    else:
+        figsize = (10, 7)
+        extent =[0, 20, 0, 70.7]
+
+    fig = plt.figure(figsize=figsize, dpi=200)
     subfigs = fig.subfigures(nrows=2)
 
     axs1 = subfigs[0].subplots(nrows=1, ncols=5)
@@ -149,11 +179,11 @@ def plot_comparison_ae(reference: np.ndarray, name=None, out_dir=None):  # TODO:
     end = time.time()
 
     for i in range(5):
-        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', extent=[
-                             0, 20, 0, 70.7], cmap='Greys_r')
+        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', 
+                             extent=extent, cmap='Greys_r')
         draw_apparatus(axs1[i])
         plt.colorbar(org)
-        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=[0, 20, 0, 70.7],
+        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent,
                              vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='Greys_r')
         draw_apparatus(axs2[i])
         plt.colorbar(rec)
@@ -177,11 +207,18 @@ def plot_train_loss(losses):  # TODO: move to plot module
 
 
 def write_metadata(out_dir):  # TODO: move to data module
+    # if is_square:
+    #     in_size = (1, 5, 200, 200)
+    # else:
+    #     in_size = (1, 5, 707, 200)
+
+    in_size = batch_data[0].size()  # testing
+
     # save model structure
     file = out_dir/'train_log.txt'
     with open(file, 'w') as f:
         f.write(f'Model {name}\n')
-        print(summary(model, input_size=(1, 5, 707, 200)), file=f)
+        print(summary(model, input_size=in_size), file=f)
         print("\n", file=f)
         print(model, file=f)
         f.write(f'\nEpochs: {epochs}\n')
@@ -206,11 +243,16 @@ if __name__ == '__main__':
     train = image_ds.train[0]  # import only features (2d profiles)
     test = image_ds.test[0]  # import only features (2d profiles)
 
+    # downscale train images
+    import cv2
+    train_res = resize(train)
+    test_res = resize(test)
+
     out_dir = root/'created_models'/'autoencoder'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
-    dataset = TensorDataset(torch.tensor(train, device=device))
+    dataset = TensorDataset(torch.tensor(train_res, device=device))
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # hyperparameters (class property?)
@@ -259,6 +301,6 @@ if __name__ == '__main__':
     train_end = time.time()
 
     torch.save(model.state_dict(), out_dir/f'{name}')
-    eval_time = plot_comparison_ae(test, out_dir=out_dir)
+    eval_time = plot_comparison_ae(test_res, out_dir=out_dir, is_square=is_square)
     plot_train_loss(epoch_loss)
     write_metadata(out_dir)
