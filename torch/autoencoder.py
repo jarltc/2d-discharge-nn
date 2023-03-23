@@ -192,11 +192,17 @@ def plot_comparison_ae(reference: np.ndarray, name=None,
     return end-start
 
 
-def plot_train_loss(losses):  # TODO: move to plot module
+def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
+
     losses = np.array(losses)
     fig, ax = plt.subplots()
     ax.set_yscale('log')
-    ax.plot(losses, c='r')
+    ax.plot(losses, c='r', label='train')
+
+    if validation_losses is not None:
+        ax.plot(validation_losses, c='r', ls=':', label='validation')
+        ax.legend()
+
     ax.set_xlabel('Epoch')
     ax.set_ylabel('Loss')
     ax.grid()
@@ -245,6 +251,10 @@ if __name__ == '__main__':
     train_res = resize(train, 32)
     test_res = resize(test, 32)
 
+    # split validation set
+    train_res, val = train_test_split(train_res, test_size=1, train_size=30)
+    val = torch.tensor(val, device=device)
+
     out_dir = root/'created_models'/'autoencoder'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
@@ -268,6 +278,7 @@ if __name__ == '__main__':
 
     # convert to class method?
     epoch_loss = []
+    epoch_validation = []
     epoch_times = []
     loop = tqdm(range(epochs))
 
@@ -291,6 +302,10 @@ if __name__ == '__main__':
             running_loss += loss.item()
             loop.set_description(f"Epoch {epoch+1}/{epochs}")
 
+        with torch.no_grad():
+            val_loss = criterion(model(val), val).item()
+
+        epoch_validation.append(val_loss)
         epoch_loss.append(running_loss)
         epoch_end = time.time()
         epoch_times.append(time.time()-epoch_start)
@@ -299,5 +314,5 @@ if __name__ == '__main__':
 
     torch.save(model.state_dict(), out_dir/f'{name}')
     eval_time = plot_comparison_ae(test_res, out_dir=out_dir, is_square=is_square)
-    plot_train_loss(epoch_loss)
+    plot_train_loss(epoch_loss, epoch_validation)
     write_metadata(out_dir)
