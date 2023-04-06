@@ -15,6 +15,7 @@ from pathlib import Path
 import re
 import pandas as pd
 import matplotlib.patches as pat
+from matplotlib import colors
 # import data
 import numpy as np
 
@@ -277,6 +278,42 @@ def draw_apparatus(ax):
     edges = [(122,224), (122,234), (185,234), (185,224)]
     patch_float = pat.Polygon(xy=edge_unit_conv(edges), fc=pt_colors['fc'], ec=pt_colors['ec'])
     ax.add_patch(patch_float)
+
+
+def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
+    """Plot the difference between predictions and true values. (py - ty)
+
+    Args:
+        tX (pd.DataFrame): DataFrame of (V, P, X, Y)
+        py (pd.DataFrame): DataFrame of predictions.
+        ty (pd.DataFrame): DataFrame of corresponding true values.
+        out_dir (Path): Directory to save the figure.
+    """
+    assert list(py.columns) == list(ty.columns)
+
+    # TODO: move elsewhere
+    units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
+            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
+            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
+            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
+            'Te (eV)'          :' (eV)'}
+
+    diff = py - ty
+    titles = [column.split()[0] for column in diff.columns]
+
+    fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
+    fig.subplots_adjust(wspace=0.2)
+    
+    for i, column in enumerate(ty.columns):
+        sc = ax[i].scatter(tX['X'], tX['Y'], c=diff[column], cmap='coolwarm', 
+                           norm=colors.CenteredNorm(), s=1)
+        plt.colorbar(sc)
+        ax[i].set_title(titles[i] + ' ' + units[column])
+        ax[i].set_aspect('equal')
+
+    fig.savefig(out_dir/'difference.png', bbox_inches='tight')
+
+    return fig
 
 
 if __name__ == '__main__':
