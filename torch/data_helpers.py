@@ -271,7 +271,7 @@ class ImageDataset:
                 train = self._nc_to_np(train_ds, 'train')
             
             if self.is_square:
-                train[0] = crop(torch.tensor(train[0]), 350, 0, 200, 200).numpy() # crop features only
+                train[0] = crop(torch.tensor(train[0]), 350, 0, 200, 200).numpy()  # TODO: use opencv for cropping
 
             self._train = train
             return self._train
