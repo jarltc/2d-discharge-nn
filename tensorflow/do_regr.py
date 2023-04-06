@@ -193,15 +193,17 @@ def save_pred_vals(tX, py, rslt_dir=None):
 
 
 def print_scores(ty, py, regr_dir=None):
+    global spy
 
-    if on_grid:
-        stX = scale_for_regr(tX, model_dir)
-        spy = model.predict(stX)
+    # if on_grid:
+    #     stX = scale_for_regr(tX, model_dir)
+    #     spy = model.predict(stX)
+
     if minmax_y:
         py = inv_scale(spy, ty.columns, model_dir)
         py = pd.DataFrame(py, columns=ty.columns)
     else:
-        py = py = pd.DataFrame(spy, columns=ty.columns)
+        py = pd.DataFrame(spy, columns=ty.columns)
 
     if not lin:  # if data is logarithmic, add postprocessing step
         py = data_postproc(py)
@@ -388,9 +390,9 @@ if __name__ == '__main__':
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
         if on_grid:
-            filename = 'regr_fig_{0:02d}_mesh.png'.format(n)
-        else:
             filename = 'regr_fig_{0:02d}.png'.format(n)
+        else:
+            filename = 'regr_fig_{0:02d}_mesh.png'.format(n)
         fig_file = regr_dir / filename
         plot_df = pd.concat([avg_data.iloc[:,:4], py], axis='columns')
 
