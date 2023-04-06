@@ -270,7 +270,7 @@ def ty_proc(ty):
 if __name__ == '__main__':
     # -------------------------------------------------------
     root = Path(os.getcwd())  # root folder where everything is saved
-    on_grid = args['mesh']  # raised flag stores false: the prediction is made on a linear grid
+    on_grid = args['mesh']  # raised flag stores false: defaults to True (pixels)
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -387,7 +387,11 @@ if __name__ == '__main__':
         triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
-        fig_file = regr_dir / 'regr_fig_{0:02d}.png'.format(n)
+        if on_grid:
+            filename = 'regr_fig_{0:02d}_mesh.png'.format(n)
+        else:
+            filename = 'regr_fig_{0:02d}.png'.format(n)
+        fig_file = regr_dir / filename
         plot_df = pd.concat([avg_data.iloc[:,:4], py], axis='columns')
 
         data_plot.draw_a_2D_graph(plot_df, p_param, triangles, file_path=fig_file, 
