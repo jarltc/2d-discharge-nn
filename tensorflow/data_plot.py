@@ -113,11 +113,11 @@ def draw_a_2D_graph(avg_data, param_col_label, triangles, file_path=None, set_cb
              'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
              'Te (eV)'          :' (eV)'}
     
-    if not on_grid:
+    if not on_grid:  # if predicting on mesh
         # x = avg_data.X.values.reshape(-1,1)*100
         # y = avg_data.Y.values.reshape(-1,1)*100
         # z = avg_data[param_col_label].values.reshape(-1,1)
-        data = avg_data.set_index(['x', 'y'])
+        data = avg_data.set_index(['X', 'Y'])
 
     else: data = avg_data
     
