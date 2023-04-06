@@ -265,7 +265,7 @@ if __name__ == '__main__':
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # hyperparameters (class property?)
-    epochs = 200
+    epochs = 500
     learning_rate = 1e-3
 
     model = SquareAE() if is_square else Autoencoder()
