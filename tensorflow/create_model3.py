@@ -387,13 +387,13 @@ scaler_dir = out_dir / 'scalers'
 os.mkdir(scaler_dir)
 
 # copy some files for backup (probably made redundant by metadata)
-shutil.copyfile(__file__, out_dir / 'create_model.py')
-shutil.copyfile(root / 'data.py', out_dir / 'data.py')
+# shutil.copyfile(__file__, out_dir / 'create_model.py')
+# shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
 feature_names = ['V', 'P', 'x', 'x**2', 'y', 'y**2']
 label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-data_used, data_excluded = get_data(xy=False, vp=True)
+data_used, data_excluded = get_data(xy=False, vp=False)
 
 # set threshold to make very small values zero
 pd.set_option('display.chop_threshold', 1e-10)
@@ -424,7 +424,6 @@ val_size = int(validation_split * dataset_size)
 train_ds = dataset.take(train_size).batch(batch_size)
 val_ds = dataset.skip(train_size).take(val_size).batch(batch_size)
 
-model = create_model(len(feature_names), len(label_names))  # creates the model
 model = create_model(len(feature_names), len(label_names))  # creates the model
 early_stop = keras.callbacks.EarlyStopping(monitor='val_loss', patience=30)
 class TimeHistory(keras.callbacks.Callback):
