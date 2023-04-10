@@ -15,6 +15,8 @@ from pathlib import Path
 import re
 import pandas as pd
 import matplotlib.patches as pat
+from matplotlib import colors
+from sklearn.preprocessing import MinMaxScaler
 # import data
 import numpy as np
 
@@ -277,6 +279,98 @@ def draw_apparatus(ax):
     edges = [(122,224), (122,234), (185,234), (185,224)]
     patch_float = pat.Polygon(xy=edge_unit_conv(edges), fc=pt_colors['fc'], ec=pt_colors['ec'])
     ax.add_patch(patch_float)
+
+
+def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
+    """Plot the difference between predictions and true values. (py - ty)
+
+    Args:
+        tX (pd.DataFrame): DataFrame of (V, P, X, Y)
+        py (pd.DataFrame): DataFrame of predictions.
+        ty (pd.DataFrame): DataFrame of corresponding true values.
+        out_dir (Path): Directory to save the figure.
+    """
+    assert list(py.columns) == list(ty.columns)
+
+    # TODO: move elsewhere
+    units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
+            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
+            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
+            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
+            'Te (eV)'          :' (eV)'}
+
+    diff = py - ty
+    titles = [column.split()[0] for column in diff.columns]
+
+    fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
+    fig.subplots_adjust(wspace=0.2)
+    
+    for i, column in enumerate(ty.columns):
+        sc = ax[i].scatter(tX['X'], tX['Y'], c=diff[column], cmap='coolwarm', 
+                           norm=colors.CenteredNorm(), s=1)
+        plt.colorbar(sc)
+        ax[i].set_title(titles[i] + ' ' + units[column])
+        ax[i].set_aspect('equal')
+
+    fig.savefig(out_dir/'difference.png', bbox_inches='tight')
+
+    return fig
+
+
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.DataFrame, out_dir=None):
+    """Plot correlation between true values and predictions.
+
+    Stolen from torch's plot.py.
+
+    Args:
+        prediction (pd.DataFrame): DataFrame of predicted values.
+        targets (pd.DataFrame): DataFrame of true values.
+        scores (pd.DataFrame): Scores containing the r2.
+        out_dir (Path, optional): Path to save file. Defaults to None.
+    """
+    assert list(prediction.columns) == list(targets.columns)
+
+    prediction = prediction.copy()
+    targets = targets.copy()
+
+    # catppuccin latte palette
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+
+    fig, ax = plt.subplots(dpi=200)
+    
+    # customize axes
+    ax.set_xlim(-0.05, 1.05)
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_aspect('equal')
+    ax.set_ylabel('Predicted')
+    ax.set_xlabel('True')
+
+    # plot 1:1 line
+    x = np.linspace(0, 1, 1000)
+    ax.plot(x, x, ls='--', c='k')
+
+    for i, column in enumerate(prediction.columns):
+        # transform with minmax to normalize between (0, 1)
+        scaler = MinMaxScaler()
+        scaler.fit(targets[column].values.reshape(-1, 1))
+        scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
+        scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+
+        # get correlation score
+        r2 = round(scores[column].iloc[3], 2)
+
+        # set label
+        label = f'{column.split()[0]}: {r2}'
+
+        ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
+                   color=colors[i], alpha=0.15, label=label)
+
+    legend = ax.legend(markerscale=4, fontsize='small')
+    for lh in legend.legendHandles: 
+        lh.set_alpha(1)
+    
+    if out_dir is not None:
+        fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
 
 
 if __name__ == '__main__':

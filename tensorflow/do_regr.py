@@ -210,6 +210,7 @@ def print_scores(ty, py, regr_dir=None):
 
     def print_scores_core(exp):
         e_params = ('Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)')
+        scores = []
         for col_n,col_label in enumerate(ty.columns, start=1):
             print('**** {0:d}: {1:s} ****'.format(col_n,col_label), file=exp)
             
@@ -220,6 +221,8 @@ def print_scores(ty, py, regr_dir=None):
             rmse  = np.sqrt(mean_squared_error(ty_col,py_col))
             r2    = r2_score(ty_col, py_col)
             ratio = rmse/mae
+
+            scores.append(np.array([[mae], [rmse], [ratio], [r2]]))
             
             if col_label in e_params: ## TODO
                 print('MAE      = {0:.6f}'.format(mae), file=exp)
@@ -230,13 +233,20 @@ def print_scores(ty, py, regr_dir=None):
             print('R2 score = {0:.6f}'.format(r2), file=exp)
             print('RMSE/MAE = {0:.6f}'.format(ratio), file=exp)
             print(file=exp)
+
+        return scores
     
-    print_scores_core(sys.stdout)
+    scores = print_scores_core(sys.stdout)
     
     if regr_dir is not None:
         file_path = regr_dir / 'scores.txt'
         with open(file_path, 'w') as f:
             print_scores_core(f)
+
+    scores = np.hstack(scores)
+    scores_df = pd.DataFrame(scores, columns=list(ty.columns))
+
+    return scores_df
 
 
 def ty_proc(ty):
@@ -386,6 +396,7 @@ if __name__ == '__main__':
     if on_grid:
         triangles = None  # TODO
     else:
+        data_plot.difference_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
         triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
@@ -402,7 +413,10 @@ if __name__ == '__main__':
     # scores if data available
     if ty.isnull().values.sum()==0:
         print()
-        print_scores(ty, py, regr_dir)
+        scores = print_scores(ty, py, regr_dir)
     
+    if not on_grid:
+        data_plot.correlation(prediction=py, targets=ty, scores=scores, out_dir=regr_dir)
+
     d = datetime.datetime.today()
     print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
