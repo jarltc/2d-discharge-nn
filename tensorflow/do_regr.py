@@ -397,6 +397,7 @@ if __name__ == '__main__':
         triangles = None  # TODO
     else:
         data_plot.difference_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
+        data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
         triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
