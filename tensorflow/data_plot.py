@@ -197,7 +197,7 @@ def get_cbar_range_300V_60Pa(param_col_label, lin=False):
     return cmin, cmax
 
 
-def triangulate(df):   
+def triangulate(df: pd.DataFrame):   
     """
     Create triangulation of the mesh grid*, which is passed to tricontourf.
     
@@ -302,6 +302,9 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
     diff = py - ty
     titles = [column.split()[0] for column in diff.columns]
 
+    tX['X'] = tX['X']*100
+    tX['Y'] = tX['Y']*100
+
     fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
     fig.subplots_adjust(wspace=0.2)
     
@@ -311,8 +314,50 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
         plt.colorbar(sc)
         ax[i].set_title(titles[i] + ' ' + units[column])
         ax[i].set_aspect('equal')
+        ax[i].set_xlim(0,20)
+        ax[i].set_ylim(0,70.9)
 
     fig.savefig(out_dir/'difference.png', bbox_inches='tight')
+
+    return fig
+
+
+def all_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
+    """Plot the predictions as five subplots.
+
+    Args:
+        tX (pd.DataFrame): DataFrame of (V, P, X, Y) [m] -> [cm]
+        py (pd.DataFrame): DataFrame of predictions.
+        ty (pd.DataFrame): DataFrame of corresponding true values.
+        out_dir (Path): Directory to save the figure.
+    """
+    assert list(py.columns) == list(ty.columns)
+
+    # TODO: move elsewhere
+    units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
+            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
+            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
+            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
+            'Te (eV)'          :' (eV)'}
+
+    triangles = triangulate(tX[['X', 'Y']])
+    titles = [column.split()[0] for column in ty.columns]
+
+    fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
+    fig.subplots_adjust(wspace=0.2)
+    
+    for i, column in enumerate(ty.columns):
+        cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+        sc = ax[i].tricontourf(triangles, py[column], levels=36, 
+                            cmap='viridis', vmin=cmin, vmax=cmax)
+        plt.colorbar(sc)
+        draw_apparatus(ax[i])
+        ax[i].set_title(titles[i] + ' ' + units[column])
+        ax[i].set_aspect('equal')
+        ax[i].set_xlim(0,20)
+        ax[i].set_ylim(0,70.9)
+
+    fig.savefig(out_dir/'quickplot.png', bbox_inches='tight')
 
     return fig
 
