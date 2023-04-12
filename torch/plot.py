@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
+import matplotlib.colors as colors
 import matplotlib
 import pandas as pd
 import numpy as np
@@ -305,3 +306,43 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.Data
     if out_dir is not None:
         fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
 
+
+def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
+    """Plot the difference between predictions and true values. (py - ty)
+
+    Args:
+        tX (pd.DataFrame): DataFrame of (V, P, X, Y)
+        py (pd.DataFrame): DataFrame of predictions.
+        ty (pd.DataFrame): DataFrame of corresponding true values.
+        out_dir (Path): Directory to save the figure.
+    """
+    assert list(py.columns) == list(ty.columns)
+
+    # TODO: move elsewhere
+    units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
+            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
+            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
+            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
+            'Te (eV)'          :' (eV)'}
+
+    diff = py - ty
+    titles = [column.split()[0] for column in diff.columns]
+
+    tX['x'] = tX['x']*100
+    tX['y'] = tX['y']*100
+
+    fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
+    fig.subplots_adjust(wspace=0.2)
+    
+    for i, column in enumerate(ty.columns):
+        sc = ax[i].scatter(tX['x'], tX['y'], c=diff[column], cmap='coolwarm', 
+                           norm=colors.CenteredNorm(), s=1)
+        plt.colorbar(sc)
+        ax[i].set_title(titles[i] + ' ' + units[column])
+        ax[i].set_aspect('equal')
+        ax[i].set_xlim(0,20)
+        ax[i].set_ylim(0,70.9)
+
+    fig.savefig(out_dir/'difference.png', bbox_inches='tight')
+
+    return fig

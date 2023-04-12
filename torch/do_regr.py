@@ -304,4 +304,5 @@ if __name__ == '__main__':
 
     triangles = plot.triangulate(regr_df.features[['x', 'y']])
     plot.quickplot(prediction, regr_dir, triangles=triangles)
+    plot.difference_plot(regr_df.features, prediction, regr_df.targets, out_dir=regr_dir)
     
