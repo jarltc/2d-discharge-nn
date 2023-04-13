@@ -390,7 +390,7 @@ if __name__ == '__main__':
     shutil.copyfile(__file__, regr_dir / 'do_regr.py')
     
     # save results
-    save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
+    # save_pred_vals(tX, py, rslt_dir=regr_dir) # values (csv)
     
     # create triangulations for tricontourf
     if on_grid:
@@ -398,6 +398,7 @@ if __name__ == '__main__':
     else:
         data_plot.difference_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
         data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
+        data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir, simulation=True)  # plot simulation as reference
         triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
     
     for n,p_param in enumerate(ty.columns, start=1): # figs

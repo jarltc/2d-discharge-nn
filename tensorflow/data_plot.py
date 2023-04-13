@@ -322,7 +322,7 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
     return fig
 
 
-def all_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
+def all_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path, simulation=False):
     """Plot the predictions as five subplots.
 
     Args:
@@ -332,6 +332,8 @@ def all_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path
         out_dir (Path): Directory to save the figure.
     """
     assert list(py.columns) == list(ty.columns)
+    if simulation:
+        py = ty
 
     # TODO: move elsewhere
     units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
@@ -357,7 +359,10 @@ def all_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path
         ax[i].set_xlim(0,20)
         ax[i].set_ylim(0,70.9)
 
-    fig.savefig(out_dir/'quickplot.png', bbox_inches='tight')
+    if simulation:
+        fig.savefig(out_dir/'ref_quickplot.png', bbox_inches='tight')
+    else:
+        fig.savefig(out_dir/'quickplot.png', bbox_inches='tight')
 
     return fig
 
