@@ -307,11 +307,19 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
 
     fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
     fig.subplots_adjust(wspace=0.2)
+
+    ranges = {'potential (V)': (-5, 5), 
+              'Ne (#/m^-3)' : (-8, 8),
+              'Ar+ (#/m^-3)' : (-9, 9),
+              'Nm (#/m^-3)' : (-20, 20),
+              'Te (eV)' : (-3, 3)}
+    
+    cmap = plt.get_cmap('coolwarm')
     
     for i, column in enumerate(ty.columns):
-        sc = ax[i].scatter(tX['X'], tX['Y'], c=diff[column], cmap='coolwarm', 
-                           norm=colors.CenteredNorm(), s=1)
-        plt.colorbar(sc)
+        sc = ax[i].scatter(tX['X'], tX['Y'], c=diff[column], cmap=cmap, 
+                           norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), s=1)
+        plt.colorbar(sc, extend='both')
         ax[i].set_title(titles[i] + ' ' + units[column])
         ax[i].set_aspect('equal')
         ax[i].set_xlim(0,20)
