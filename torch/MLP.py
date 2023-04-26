@@ -278,20 +278,6 @@ if __name__ == '__main__':
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    # initialize multiprocessing for neighbor mean
-    num_processes = mp.cpu_count()
-    chunk_size = int(batch_size/num_processes)
-    queue = mp.Queue()
-    results = mp.Queue()
-    processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df, k)) for _ in range(num_processes)]
-    
-    # signal each worker to start if not already started
-    print(f'Multicore neighbor mean processing ({num_processes} cores):')
-    for i, p in enumerate(processes):
-        if not p.is_alive():
-            p.start()
-            print(f'spawned process {i+1}/{num_processes}')
-
     # train the model
     print('begin model training...')
     train_start = time.time()  # record start time
@@ -309,23 +295,9 @@ if __name__ == '__main__':
         for i, batch_data in enumerate(loop):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = batch_data
-            doubleLoader = DataLoader(inputs, batch_size=chunk_size)
             c = c_e(epoch)
 
-            # load data into queue
-            for chunk in doubleLoader:
-                queue.put(chunk)
-
-            # retrieve processed data from the results queue
-            worker_outputs = []
-            for _ in range(num_processes):
-                try:
-                    output = results.get(timeout=2)
-                    worker_outputs.append(output)
-                except:
-                    pass
-
-            neighbor_means = torch.cat(worker_outputs, dim=0)
+            neighbor_means = process_chunk(inputs, model, nodes_df)
             
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -347,14 +319,6 @@ if __name__ == '__main__':
         epoch_end = time.time()
         epoch_times.append(epoch_end - epoch_start)
         epoch_loss.append(loss.item())
-
-    # when finished, add a sentinel value to the queue to signal termination
-    for _ in range(num_processes):
-        queue.put(None)
-
-    # wait for all processes to terminate
-    for p in processes:
-        p.join()
 
     print('Finished training')
     train_end = time.time()
