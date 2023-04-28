@@ -30,7 +30,7 @@ import plot
 
 torch.set_default_dtype(torch.float64)
 class MLP(nn.Module):
-    """Neural network model for grid-wise prediction of 2D-profiles.
+    """Neural network momdel for grid-wise prediction of 2D-profiles.
 
     Model architecture optimized using OpTuna.
     Args:
@@ -98,9 +98,9 @@ def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> tor
         x, y, v, p = point.numpy() # -> np.ndarray
         v = np.atleast_1d(v)
         p = np.atleast_1d(p)
-        _, ii = tree.query([x, y], k, distance_upper_bound=1e-3)  # get indices of k neighbors of the point (max: 1e-3m)
+        _, ii = tree.query([x, y], k)  # get indices of k neighbors of the point
         
-        neighbor_xy = [df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5 vars)
+        neighbor_xy = [df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5)
         neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
         neighbors = [torch.tensor(neighbor).expand(1, -1) for neighbor in neighbors]
 
@@ -144,7 +144,8 @@ def c_e(epoch, c=0.2, r=25, which='sigmoid'):
     if which=='exp':
         return c - c*np.exp(-epoch/r)
     elif which=='sigmoid':
-        return c/(1 + np.exp(-0.5*(epoch-r)))
+        k = c*2  # defines steepness of middle section
+        return c/(1 + np.exp(-k*(epoch-r)))
 #######################################
 
 def save_history_vals(history, out_dir):
@@ -185,10 +186,7 @@ def save_metadata(out_dir: Path):
             f.write(f'Epochs: {epochs}\n')
             f.write(f'Grid augmentation: {xy}\n')
             f.write(f'VP augmentation: {vp}\n')
-            if neighbor_regularization:
-                f.write(f'Neighbor regularization: k = {k}, lambda = {c}\n')
-            else:
-                f.write(f'Neighbor regularization: none')
+            f.write(f'Neighbor regularization k: {k}\n')
             f.write('\n*** end of file ***\n')
 
 
@@ -205,11 +203,6 @@ if __name__ == '__main__':
     
     lines = [line.split()[-1] for line in lines]
 
-    neighbor_regularization = True
-    minmax_y = True  # apply minmax scaling to targets 
-    lin = True  # scale the targets linearly
-
-    # read metadata from input file
     name = lines[0]
     batch_size = eval(lines[1])
     learning_rate = eval(lines[2])
@@ -217,18 +210,15 @@ if __name__ == '__main__':
     epochs = eval(lines[4])
     xy = eval(lines[5])
     vp = eval(lines[6])
-
-    if neighbor_regularization:
-        k = eval(lines[7])  # number of neighbors
-        c = eval(lines[8])  # neighbor regularization lambda
-    else:
-        k = 0
-        c = 0
+    k = eval(lines[7])
+    minmax_y = True  # apply minmax scaling to targets 
+    lin = True  # scale the targets linearly
 
     # -------------------------------------------------------
 
     voltages  = [200, 300, 400, 500] # V
     pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
+
 
     voltage_excluded = 300 # V
     pressure_excluded = 60 # Pa
@@ -245,6 +235,10 @@ if __name__ == '__main__':
     scaler_dir = out_dir / 'scalers'
     if (not scaler_dir.exists()):
         os.mkdir(scaler_dir) 
+
+    # copy some files for backup (probably made redundant by metadata)
+    # shutil.copyfile(__file__, out_dir / 'create_model.py')
+    # shutil.copyfile(root / 'data.py', out_dir / 'data.py')
 
     feature_names = ['V', 'P', 'x', 'y']
     label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
@@ -284,14 +278,26 @@ if __name__ == '__main__':
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
+    # initialize multiprocessing for neighbor mean
+    num_processes = mp.cpu_count()
+    chunk_size = int(batch_size/num_processes)
+    queue = mp.Queue()
+    results = mp.Queue()
+    processes = [mp.Process(target=worker, args=(queue, results, model, nodes_df, k)) for _ in range(num_processes)]
+    
+    # signal each worker to start if not already started
+    print(f'Multicore neighbor mean processing ({num_processes} cores):')
+    for i, p in enumerate(processes):
+        if not p.is_alive():
+            p.start()
+            print(f'spawned process {i+1}/{num_processes}')
+
     # train the model
     print('begin model training...')
     train_start = time.time()  # record start time
 
     epoch_times = []
     epoch_loss = []
-    train_losses = []
-    neighbor_losses = []
 
     model.train()
     # model training loop
@@ -303,13 +309,23 @@ if __name__ == '__main__':
         for i, batch_data in enumerate(loop):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = batch_data
+            doubleLoader = DataLoader(inputs, batch_size=chunk_size)
+            c = c_e(epoch)
 
-            if neighbor_regularization:
-                # means not calculated if regularization is disabled
-                c = c_e(epoch, c=c)
-                neighbor_means = process_chunk(inputs, model, nodes_df)  # TODO: rename process_chunk to something else
-            else:
-                neighbor_means = 0
+            # load data into queue
+            for chunk in doubleLoader:
+                queue.put(chunk)
+
+            # retrieve processed data from the results queue
+            worker_outputs = []
+            for _ in range(num_processes):
+                try:
+                    output = results.get(timeout=2)
+                    worker_outputs.append(output)
+                except:
+                    pass
+
+            neighbor_means = torch.cat(worker_outputs, dim=0)
             
             # zero the parameter gradients
             optimizer.zero_grad()
@@ -318,9 +334,7 @@ if __name__ == '__main__':
             running_loss = 0.0
 
             outputs = model(inputs)  # forward pass
-            neighbor_loss = criterion(outputs, neighbor_means)
-            train_loss = criterion(outputs, labels)
-            loss = train_loss + c*neighbor_loss  # second term 0 if neighbor_regularization turned off
+            loss = criterion(outputs, labels) + c*criterion(outputs, neighbor_means)
             loss.backward()  # compute gradients
             optimizer.step()  # apply changes to network
 
@@ -333,14 +347,14 @@ if __name__ == '__main__':
         epoch_end = time.time()
         epoch_times.append(epoch_end - epoch_start)
         epoch_loss.append(loss.item())
-        train_losses.append(train_loss.item())
-        neighbor_losses.append(neighbor_loss.item())
 
-        if (epoch+1) % epochs == 0:
-            # save model every 10 epochs (so i dont lose all training progress in case i do something dumb)
-            torch.save(model.state_dict(), out_dir/f'{name}')
-            plot.save_history_graph(epoch_loss, out_dir)
+    # when finished, add a sentinel value to the queue to signal termination
+    for _ in range(num_processes):
+        queue.put(None)
 
+    # wait for all processes to terminate
+    for p in processes:
+        p.join()
 
     print('Finished training')
     train_end = time.time()

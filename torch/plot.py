@@ -2,10 +2,12 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
+import matplotlib.colors as colors
 import matplotlib
 import pandas as pd
 import numpy as np
 from pathlib import Path
+from sklearn.preprocessing import MinMaxScaler
 
 def triangulate(df: pd.DataFrame):   
     """
@@ -230,7 +232,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
     matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
-    fig, ax = plt.subplots(1, len(df.columns), figsize=(20, 4), dpi=200)
+    fig, ax = plt.subplots(1, len(df.columns), figsize=(10, 4), dpi=200)
 
     titles = [column.split()[0] for column in df.columns]
 
@@ -251,3 +253,104 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
 
     return fig
 
+
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.DataFrame, out_dir=None):
+    """Plot correlation between true values and predictions.
+
+    Args:
+        prediction (pd.DataFrame): DataFrame of predicted values.
+        targets (pd.DataFrame): DataFrame of true values.
+        scores (pd.DataFrame): Scores containing the r2.
+        out_dir (Path, optional): Path to save file. Defaults to None.
+    """
+    assert list(prediction.columns) == list(targets.columns)
+
+    prediction = prediction.copy()
+    targets = targets.copy()
+
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+
+    fig, ax = plt.subplots(dpi=200)
+    
+    # customize axes
+    ax.set_xlim(-0.05, 1.05)
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_aspect('equal')
+    ax.set_ylabel('Predicted')
+    ax.set_xlabel('True')
+
+    # plot 1:1 line
+    x = np.linspace(0, 1, 1000)
+    ax.plot(x, x, ls='--', c='k')
+
+    for i, column in enumerate(prediction.columns):
+        # transform with minmax to normalize between (0, 1)
+        scaler = MinMaxScaler()
+        scaler.fit(targets[column].values.reshape(-1, 1))
+        scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
+        scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+
+        # get correlation score
+        r2 = round(scores[column].iloc[3], 2)
+
+        # set label
+        label = f'{column.split()[0]}: {r2}'
+
+        ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
+                   color=colors[i], alpha=0.15, label=label)
+
+    legend = ax.legend(markerscale=4, fontsize='small')
+    for lh in legend.legendHandles: 
+        lh.set_alpha(1)
+    
+    if out_dir is not None:
+        fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
+
+
+def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
+    """Plot the difference between predictions and true values. (py - ty)
+
+    Args:
+        tX (pd.DataFrame): DataFrame of (V, P, X, Y)
+        py (pd.DataFrame): DataFrame of predictions.
+        ty (pd.DataFrame): DataFrame of corresponding true values.
+        out_dir (Path): Directory to save the figure.
+    """
+    assert list(py.columns) == list(ty.columns)
+
+    # TODO: move elsewhere
+    units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
+            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
+            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
+            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
+            'Te (eV)'          :' (eV)'}
+
+    diff = py - ty
+    titles = [column.split()[0] for column in diff.columns]
+
+    tX['x'] = tX['x']*100
+    tX['y'] = tX['y']*100
+
+    ranges = {'potential (V)': (-5, 5), 
+              'Ne (#/m^-3)' : (-8, 8),
+              'Ar+ (#/m^-3)' : (-9, 9),
+              'Nm (#/m^-3)' : (-20, 20),
+              'Te (eV)' : (-3, 3)}
+    
+    cmap = plt.get_cmap('coolwarm')
+
+    fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
+    fig.subplots_adjust(wspace=0.2)
+    
+    for i, column in enumerate(ty.columns):
+        sc = ax[i].scatter(tX['x'], tX['y'], c=diff[column], cmap='coolwarm', 
+                           norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), s=1)
+        plt.colorbar(sc, extend='both')
+        ax[i].set_title(titles[i] + ' ' + units[column])
+        ax[i].set_aspect('equal')
+        ax[i].set_xlim(0,20)
+        ax[i].set_ylim(0,70.9)
+
+    fig.savefig(out_dir/'difference.png', bbox_inches='tight')
+
+    return fig

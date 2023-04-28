@@ -17,7 +17,7 @@ import sys
 import pickle
 from pathlib import Path
 
-import data
+import data_helpers
 import plot
 
 
@@ -141,9 +141,12 @@ class PredictionDataset:
                 print(file=out)
 
         print_scores_core(sys.stdout)
+        plot.correlation(self.targets, self.prediction_result, self.scores, regr_dir)
+
         scores_file = regr_dir/'scores.txt'
         with open(scores_file, 'w') as f:
             print_scores_core(f)
+
         
 
 def process_data(df: pd.DataFrame, data_excluded: tuple):
@@ -292,7 +295,7 @@ if __name__ == '__main__':
     print('\nLoaded model ' + name)
 
     # load dataset
-    regr_df = data.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
+    regr_df = data_helpers.read_file(root/'data'/'avg_data'/'300Vpp_060Pa_node.dat')\
         .drop(columns=['Ex (V/m)', 'Ey (V/m)'])
     regr_df = PredictionDataset(regr_df, model, metadata)
 
@@ -301,4 +304,5 @@ if __name__ == '__main__':
 
     triangles = plot.triangulate(regr_df.features[['x', 'y']])
     plot.quickplot(prediction, regr_dir, triangles=triangles)
+    plot.difference_plot(regr_df.features, prediction, regr_df.targets, out_dir=regr_dir)
     
