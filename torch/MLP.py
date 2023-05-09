@@ -25,7 +25,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import TensorDataset, DataLoader
 
-import data
+import data_helpers as data
 import plot
 
 torch.set_default_dtype(torch.float64)
@@ -75,6 +75,10 @@ class MLP(nn.Module):
         x = self.fc6(x)
         x = F.relu(x)
         x = self.fc7(x)
+        x = F.relu(x)
+        x = self.fc8(x)
+        x = F.relu(x)
+        x = self.fc9(x)
         
         output = x = F.relu(x)
         return output
@@ -220,11 +224,12 @@ if __name__ == '__main__':
     vp = eval(lines[6])
     k = eval(lines[7])  # number of neighbors, 0 to disable
 
-    if k==0:
+    if k == 0:
         neighbor_regularization = False
-        c = eval(lines[8])  # neighbor regularization lambda
-    else:
         c = 0
+    else:
+        neighbor_regularization = True
+        c = eval(lines[8])  # neighbor regularization lambda
 
     # -------------------------------------------------------
 
@@ -319,9 +324,11 @@ if __name__ == '__main__':
             running_loss = 0.0
 
             outputs = model(inputs)  # forward pass
-            neighbor_loss = criterion(outputs, neighbor_means)
             train_loss = criterion(outputs, labels)
-            loss = train_loss + c*neighbor_loss  # second term 0 if neighbor_regularization turned off
+            if neighbor_regularization:
+                neighbor_loss = criterion(outputs, neighbor_means)
+                loss = train_loss + c*neighbor_loss  # second term 0 if neighbor_regularization turned off
+            else: loss = train_loss
             loss.backward()  # compute gradients
             optimizer.step()  # apply changes to network
 
@@ -335,7 +342,7 @@ if __name__ == '__main__':
         epoch_times.append(epoch_end - epoch_start)
         epoch_loss.append(loss.item())
         train_losses.append(train_loss.item())
-        neighbor_losses.append(neighbor_loss.item())
+        if neighbor_regularization: neighbor_losses.append(neighbor_loss.item()) 
 
         if (epoch+1) % epochs == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something dumb)
