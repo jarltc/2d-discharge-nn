@@ -79,10 +79,10 @@ class MLP(nn.Module):
 
 
 ####### neighbor regularization #######
-def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> torch.Tensor: 
-    """Per-chunk processing of the input tensor.
+def process_batch(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> torch.Tensor: 
+    """Batch-wise processing of the input tensor.
 
-    Takes a chunk of a batch as an input, along with the current model, and a DataFrame of 
+    Takes a batch of points as an input, along with the current model, and a DataFrame of 
     grid coordinates. The cKDTree is also created from this df.
     Args:
         chunk (torch.Tensor): _description_
@@ -96,13 +96,13 @@ def process_chunk(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> tor
     def neighbor_mean(point: torch.Tensor, k):
         # get a point's neighbors
         x, y, v, p = point.numpy() # -> np.ndarray
-        v = np.atleast_1d(v)
+        v = np.atleast_1d(v)  # converts to arrays with at least one dimension
         p = np.atleast_1d(p)
         _, ii = tree.query([x, y], k, distance_upper_bound=1e-3)  # get indices of k neighbors of the point (max: 1e-3m)
         
         neighbor_xy = [df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5 vars)
         neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
-        neighbors = [torch.tensor(neighbor).expand(1, -1) for neighbor in neighbors]
+        neighbors = [torch.tensor(neighbor).expand(1, -1) for neighbor in neighbors]  # expand to match sizes (i forgot why)
 
         # concat neighbors and get the mean for each variable
         mean_tensors = torch.cat([model(neighbor) for neighbor in neighbors], dim=0)
@@ -123,7 +123,7 @@ def worker(queue, results, model, df, k):
         chunk = queue.get()  # retrieve data if a batch is added
         if chunk is None:  # worker is active until a None is added to the queue
             break  # terminate the process
-        output = process_chunk(chunk, model, df, k)
+        output = process_batch(chunk, model, df, k)
         results.put(output)  # add output to the results queue
 
 
@@ -205,7 +205,6 @@ if __name__ == '__main__':
     
     lines = [line.split()[-1] for line in lines]
 
-    neighbor_regularization = True
     minmax_y = True  # apply minmax scaling to targets 
     lin = True  # scale the targets linearly
 
@@ -217,12 +216,12 @@ if __name__ == '__main__':
     epochs = eval(lines[4])
     xy = eval(lines[5])
     vp = eval(lines[6])
+    k = eval(lines[7])  # number of neighbors, 0 to disable
 
-    if neighbor_regularization:
-        k = eval(lines[7])  # number of neighbors
+    if k==0:
+        neighbor_regularization = False
         c = eval(lines[8])  # neighbor regularization lambda
     else:
-        k = 0
         c = 0
 
     # -------------------------------------------------------
@@ -307,7 +306,7 @@ if __name__ == '__main__':
             if neighbor_regularization:
                 # means not calculated if regularization is disabled
                 c = c_e(epoch, c=c)
-                neighbor_means = process_chunk(inputs, model, nodes_df)  # TODO: rename process_chunk to something else
+                neighbor_means = process_batch(inputs, model, nodes_df) 
             else:
                 neighbor_means = 0
             
