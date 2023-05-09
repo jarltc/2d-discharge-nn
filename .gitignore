@@ -12,3 +12,4 @@ __pycache__/data.cpython-39.pyc
 !*.yml
 !*.sh
 !requirements.txt
+torch/do_it.sh
