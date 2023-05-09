@@ -13,8 +13,10 @@ Started on: $now
 
 EOF
 
-rsync -avzP --stats --exclude '.git/' ~/2d-discharge-nn/ /Volumes/home/Public_HamaLab/Data/22_jarl/2d-discharge-nn >> $LOG_FILE
- 
+mount_smbfs //hamaguchilab:takeyabuyaketa@NAS_Hamaguchi/home ~/.NAS
+
+rsync -avzP --stats --exclude '.git/' ~/2d-discharge-nn/ ~/.NAS/Public_HamaLab/Data/22_jarl/2d-discharge-nn >> $LOG_FILE
+
 end=$(date)
 printf "\nFinished on: $end" >> $LOG_FILE
 
@@ -27,4 +29,6 @@ num_s=${size#*: }
 # send notification
 message="Transferred $num_t files ($num_s)"
 terminal-notifier -group 'rsync-backup' -title 'rsync Backup' -subtitle 'Backup complete' -message $message -execute "open $LOG_FILE" -sound Funk
-rsync -azP $LOG_FILE /Volumes/home/Public_HamaLab/Data/22_jarl/2d-discharge-nn/backup_log.txt
+rsync -azP $LOG_FILE ~/.NAS/Public_HamaLab/Data/22_jarl/2d-discharge-nn/backup_log.txt
+
+umount ~/NAS
