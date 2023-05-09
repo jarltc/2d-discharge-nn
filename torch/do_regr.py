@@ -53,6 +53,60 @@ class MLP(nn.Module):
         return output
 
 
+class MLP2(nn.Module):
+    """Neural network model for grid-wise prediction of 2D-profiles.
+
+    Model architecture optimized using OpTuna + 2 more layers.
+    Args:
+        name (string): Model name
+        input_size (int): Size of input vector.
+        output_size (int): Size of output vector. Should be 5 for the usual variables.
+    """
+    def __init__(self, input_size, output_size) -> None:
+        super(MLP2, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.fc1 = nn.Linear(input_size, 115)  # linear: y = Ax + b
+        self.fc2 = nn.Linear(115, 78)
+        self.fc3 = nn.Linear(78, 46)
+        self.fc4 = nn.Linear(46, 26)
+        self.fc5 = nn.Linear(26, 46)
+        self.fc6 = nn.Linear(46, 82)
+        self.fc7 = nn.Linear(82, 106)
+        self.fc8 = nn.Linear(106, 115)
+        self.fc9 = nn.Linear(115, output_size)
+        
+    def forward(self, x):
+        """Execute the forward pass.
+
+        Args:
+            x (torch.Tensor): Input tensor of size (batch_size, input_size)
+
+        Returns:
+            torch.Tensor: Predicted values given an input x.
+        """
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        x = self.fc3(x)
+        x = F.relu(x)
+        x = self.fc4(x)
+        x = F.relu(x)
+        x = self.fc5(x)
+        x = F.relu(x)
+        x = self.fc6(x)
+        x = F.relu(x)
+        x = self.fc7(x)
+        x = F.relu(x)
+        x = self.fc8(x)
+        x = F.relu(x)
+        x = self.fc9(x)
+        
+        output = x = F.relu(x)
+        return output
+
+
 class PredictionDataset:
     """
     A dataset for making predictions.
@@ -290,7 +344,7 @@ if __name__ == '__main__':
         metadata = {'scaling': True, 'is_target_scaled':True, 'name':model_dir.name}
 
     # import model
-    model = MLP(4, 5)
+    model = MLP2(4, 5)
     model.load_state_dict(torch.load(model_dir/f'{name}'))
     print('\nLoaded model ' + name)
 
