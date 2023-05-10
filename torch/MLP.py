@@ -80,7 +80,7 @@ class MLP(nn.Module):
         x = F.relu(x)
         x = self.fc9(x)
         
-        output = x = F.relu(x)
+        output = F.relu(x)
         return output
 
 
