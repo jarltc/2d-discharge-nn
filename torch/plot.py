@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import matplotlib.colors as colors
+import matplotlib.gridspec as gridspec
 import matplotlib
 import pandas as pd
 import numpy as np
@@ -247,7 +248,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
     
     fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
 
-    plt.show()
+
     if data_dir is not None:
         fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
 
@@ -325,31 +326,39 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
             'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
             'Te (eV)'          :' (eV)'}
 
-    diff = py - ty
+    diff = 100 * ((py / ty) - 1) 
     titles = [column.split()[0] for column in diff.columns]
 
     tX['x'] = tX['x']*100
     tX['y'] = tX['y']*100
 
-    ranges = {'potential (V)': (-5, 5), 
-              'Ne (#/m^-3)' : (-8, 8),
-              'Ar+ (#/m^-3)' : (-9, 9),
-              'Nm (#/m^-3)' : (-20, 20),
-              'Te (eV)' : (-3, 3)}
+    # ranges = {'potential (V)': (-5, 5), 
+    #           'Ne (#/m^-3)' : (-8, 8),
+    #           'Ar+ (#/m^-3)' : (-9, 9),
+    #           'Nm (#/m^-3)' : (-20, 50),
+    #           'Te (eV)' : (-50, 50)}
     
     cmap = plt.get_cmap('coolwarm')
 
-    fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
-    fig.subplots_adjust(wspace=0.2)
+    # fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4), constrained_layout=True)
+    fig = plt.figure(dpi=200, figsize=(8, 4), constrained_layout=True)
+    gs = gridspec.GridSpec(1, 6, width_ratios=[1, 1, 1, 1, 1, 0.1], figure=fig)
     
     for i, column in enumerate(ty.columns):
-        sc = ax[i].scatter(tX['x'], tX['y'], c=diff[column], cmap='coolwarm', 
-                           norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), s=1)
-        plt.colorbar(sc, extend='both')
-        ax[i].set_title(titles[i] + ' ' + units[column])
-        ax[i].set_aspect('equal')
-        ax[i].set_xlim(0,20)
-        ax[i].set_ylim(0,70.9)
+        ax = fig.add_subplot(gs[0, i])
+        sc = ax.scatter(tX['x'], tX['y'], c=diff[column], cmap=cmap, 
+                        #    norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), 
+                           norm=colors.Normalize(vmin=-100, vmax=100),
+                           s=0.6) 
+        ax.set_title(titles[i])
+        ax.set_aspect('equal')
+        ax.set_xlim(0,20)
+        ax.set_ylim(0,70.9)
+    
+    cax = fig.add_subplot(gs[0, 5])
+    cbar = plt.colorbar(sc, extend='both', cax=cax)
+    cbar.ax.tick_params(labelsize=8)
+    cbar.set_label(r'% difference', size=8)
 
     fig.savefig(out_dir/'difference.png', bbox_inches='tight')
 
