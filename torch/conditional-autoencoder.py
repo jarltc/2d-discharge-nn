@@ -162,8 +162,8 @@ def plot_comparison_ae(reference: np.ndarray, name=None,
     axs1 = subfigs[0].subplots(nrows=1, ncols=5)
     axs2 = subfigs[1].subplots(nrows=1, ncols=5)
 
-    subfigs[1].suptitle('Reconstruction')
-    subfigs[0].suptitle('Original')
+    subfigs[1].suptitle('Prediction from MLP to AE')
+    subfigs[0].suptitle('Original (300V, 60Pa)')
 
     cbar_ranges = [(reference[0, i, :, :].min(),
                     reference[0, i, :, :].max()) for i in range(5)]
