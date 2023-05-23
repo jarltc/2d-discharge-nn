@@ -326,7 +326,7 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
             'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
             'Te (eV)'          :' (eV)'}
 
-    diff = 100 * ((py / ty) - 1) 
+    diff = 100 * ((py - ty) / np.abs(ty)) 
     titles = [column.split()[0] for column in diff.columns]
 
     tX['x'] = tX['x']*100
