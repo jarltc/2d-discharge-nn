@@ -139,6 +139,7 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
         # f.write(
         #     f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
         f.write(f'Evaluation time: {(eval_time):.2f} s\n')
+        f.write(f'Scores (MSE): {scores} s\n')
         f.write('\n***** end of file *****')
 
 
@@ -189,12 +190,22 @@ def plot_comparison_ae(reference: np.ndarray, name=None,
         rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent,
                              vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='Greys_r')
         draw_apparatus(axs2[i])
+
+        score = mse(reference[0, i, :, :], reconstruction[0, i, :, :])
+        scores.append(score)
+
         plt.colorbar(rec)
 
     if out_dir is not None:
         fig.savefig(out_dir/f'test_comparison.png')
 
     return end-start
+
+
+def mse(image1, image2):
+    squared_diff = np.square(image1 - image2)
+    mse = np.mean(squared_diff)
+    return mse
 
 
 if __name__ == '__main__':
@@ -287,5 +298,6 @@ if __name__ == '__main__':
     save_history_graph(epoch_loss, out_dir)
 
     mlp.eval()
+    scores = []
     eval_time = plot_comparison_ae(test_res, out_dir=out_dir, is_square=True)
     write_metadata_ae(out_dir)
