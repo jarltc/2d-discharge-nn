@@ -76,9 +76,10 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 512)
-        self.fc2 = nn.Linear(512, 512)
-        self.fc3 = nn.Linear(512, output_size)
+        self.fc1 = nn.Linear(input_size, 256)
+        self.fc2 = nn.Linear(256, 512)
+        self.fc3 = nn.Linear(512, 1024)
+        self.fc4 = nn.Linear(1024, output_size)
         self.dropout = nn.Dropout(dropout_prob)
 
     def forward(self, x):
@@ -91,6 +92,10 @@ class MLP(nn.Module):
         x = self.dropout(x)
 
         x = self.fc3(x)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x = self.fc4(x)
 
         output = F.relu(x)
         return output
