@@ -139,7 +139,7 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
         # f.write(
         #     f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
         f.write(f'Evaluation time: {(eval_time):.2f} s\n')
-        f.write(f'Scores (MSE): {scores} s\n')
+        f.write(f'Scores (MSE): {scores}\n')
         f.write('\n***** end of file *****')
 
 
