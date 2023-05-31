@@ -76,10 +76,10 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 256)
-        self.fc2 = nn.Linear(256, 512)
-        self.fc3 = nn.Linear(512, 1024)
-        self.fc4 = nn.Linear(1024, output_size)
+        self.fc1 = nn.Linear(input_size, 40)
+        self.fc2 = nn.Linear(40, 80)
+        self.fc3 = nn.Linear(80, 160)
+        self.fc4 = nn.Linear(160, output_size)
         self.dropout = nn.Dropout(dropout_prob)
 
     def forward(self, x):
@@ -183,11 +183,11 @@ def plot_comparison_ae(reference: np.ndarray, name=None,
         end = time.time()
 
     for i in range(5):
-        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', 
+        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', aspect='equal',
                              extent=extent, cmap='Greys_r')
         draw_apparatus(axs1[i])
         plt.colorbar(org)
-        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent,
+        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
                              vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='Greys_r')
         draw_apparatus(axs2[i])
 
