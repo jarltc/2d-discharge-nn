@@ -2,7 +2,7 @@
 
 # this script updates 2d-discharge-nn on the laboratory NAS
 
-terminal-notifier -group 'rsync-backup' -title 'rsync Backup' -subtitle 'Starting' -message 'Backup started.' -sound Glass
+terminal-notifier -group 'rsync-backup' -title '2d-discharge-nn sync' -subtitle 'Starting' -message 'Backup started.' -sound Glass
 
 LOG_FILE="/Users/jarl/2d-discharge-nn/backup_log.txt"
 now=$(date)
@@ -28,7 +28,7 @@ num_s=${size#*: }
 
 # send notification
 message="Transferred $num_t files ($num_s)"
-terminal-notifier -group 'rsync-backup' -title 'rsync Backup' -subtitle 'Backup complete' -message $message -execute "open $LOG_FILE" -sound Funk
+terminal-notifier -group 'rsync-backup' -title '2d-discharge-nn sync' -subtitle 'Backup complete' -message $message -execute "open $LOG_FILE" -sound Funk
 rsync -azP $LOG_FILE ~/.NAS/Public_HamaLab/Data/22_jarl/2d-discharge-nn/backup_log.txt
 
 umount ~/NAS
