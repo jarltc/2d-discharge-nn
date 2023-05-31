@@ -167,17 +167,18 @@ def plot_comparison_ae(reference: np.ndarray, name=None,
         fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
         # reshape encoding from (1, 320) to (1, 20, 4, 4)
         # fake_encoding = fake_encoding.reshape(1, 20, 4, 4)
-        fake_encoding = fake_encoding.reshape(1, 25, 88, 25)
+        fake_encoding = fake_encoding.reshape(1, 25, 88, 25)  # TODO automatically infer somehow
         start = time.time()
         reconstruction = model.decoder(fake_encoding).cpu().numpy()
         end = time.time()
 
     for i in range(5):
-        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', 
+        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', aspect='equal',
                              extent=extent, cmap='Greys_r')
         draw_apparatus(axs1[i])
         plt.colorbar(org)
-        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent,
+
+        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
                              vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='Greys_r')
         draw_apparatus(axs2[i])
         plt.colorbar(rec)
@@ -214,7 +215,7 @@ if __name__ == '__main__':
                             torch.tensor(train_labels, device=device))
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
-    # load autoencoder model (AE101)
+    # load autoencoder model (A105)
     model = Autoencoder()
     model.to(device)
     model.load_state_dict(torch.load(model_dir/'A105'))
@@ -250,7 +251,7 @@ if __name__ == '__main__':
 
         for i, batch_data in enumerate(loop):
             image, labels = batch_data  # feed in images and labels (V, P)
-            target = model.encoder(image).view(1, -1)  # encoding shape: (1, 20, 4, 4)
+            target = model.encoder(image).view(1, -1)  # flattens the image
 
             optimizer.zero_grad()  # reset gradients
 
