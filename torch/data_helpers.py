@@ -238,10 +238,12 @@ class ImageDataset:
     def __init__(self, data_dir: Path, is_square=False):
         self.data_dir = data_dir
         self.is_square = is_square
-        self.v_excluded = 300  # ideally inferred from the nc's metadata
-        self.p_excluded = 60
+        self.v_excluded = None
+        self.p_excluded = None
         self._train = None  # list of [features, labels]
         self._test = None  # list of [features, labels]
+        self.v_used = None
+        self.p_used = None
 
         if (data_dir/'scaler_dict.pkl').exists():
             with open(data_dir/'scaler_dict.pkl', 'rb') as f:
@@ -269,6 +271,10 @@ class ImageDataset:
             else:
                 train_ds = xr.open_dataset(self.data_dir/'rec-interpolation2.nc')
                 train = self._nc_to_np(train_ds, 'train')
+                # TODO: does this create train_features and train_labels?
+
+            self.v_used = {pair[0] for pair in train_labels} 
+            self.p_used = {pair[1] for pair in train_labels}
             
             if self.is_square:
                 train[0] = crop(torch.tensor(train[0]), 350, 0, 200, 200).numpy()  # TODO: use opencv for cropping
@@ -298,6 +304,9 @@ class ImageDataset:
                 test_ds = xr.open_dataset(self.data_dir/'test_set.nc')
                 test = self._nc_to_np(test_ds, 'test')
             
+            self.v_excluded = {pair[0] for pair in test_labels} 
+            self.p_excluded = {pair[1] for pair in test_labels}
+
             if self.is_square:
                 test[0] = crop(torch.tensor(test[0]), 350, 0, 200, 200).numpy()  # crop features only
 
