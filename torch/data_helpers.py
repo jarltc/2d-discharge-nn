@@ -299,8 +299,8 @@ class ImageDataset:
             
             if test_features.exists() & test_labels.exists():
                 test = [torch.load(test_features), torch.load(test_labels)]
-                self.v_excluded = {pair[0] for pair in test[1]} 
-                self.p_excluded = {pair[1] for pair in test[1]}
+                self.v_excluded = {test[1][0]}  # there is only one excluded set so I can't use a list comprehension
+                self.p_excluded = {test[1][1]}
             else:
                 test_ds = xr.open_dataset(self.data_dir/'test_set.nc')
                 test = self._nc_to_np(test_ds, 'test')
