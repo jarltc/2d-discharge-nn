@@ -268,13 +268,12 @@ class ImageDataset:
 
             if train_features.exists() & train_labels.exists():  # consider using a try-except
                 train = [torch.load(train_features), torch.load(train_labels)]
+                self.v_used = {pair[0] for pair in train[1]} 
+                self.p_used = {pair[1] for pair in train[1]}
             else:
                 train_ds = xr.open_dataset(self.data_dir/'rec-interpolation2.nc')
                 train = self._nc_to_np(train_ds, 'train')
                 # TODO: does this create train_features and train_labels?
-
-            self.v_used = {pair[0] for pair in train_labels} 
-            self.p_used = {pair[1] for pair in train_labels}
             
             if self.is_square:
                 train[0] = crop(torch.tensor(train[0]), 350, 0, 200, 200).numpy()  # TODO: use opencv for cropping
@@ -300,12 +299,11 @@ class ImageDataset:
             
             if test_features.exists() & test_labels.exists():
                 test = [torch.load(test_features), torch.load(test_labels)]
+                self.v_excluded = {pair[0] for pair in test[1]} 
+                self.p_excluded = {pair[1] for pair in test[1]}
             else:
                 test_ds = xr.open_dataset(self.data_dir/'test_set.nc')
                 test = self._nc_to_np(test_ds, 'test')
-            
-            self.v_excluded = {pair[0] for pair in test_labels} 
-            self.p_excluded = {pair[1] for pair in test_labels}
 
             if self.is_square:
                 test[0] = crop(torch.tensor(test[0]), 350, 0, 200, 200).numpy()  # crop features only
