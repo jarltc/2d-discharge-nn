@@ -27,7 +27,7 @@ from torchinfo import summary
 from sklearn.model_selection import train_test_split
 
 from data_helpers import ImageDataset
-from plot import draw_apparatus
+from plot import plot_comparison_ae
 
 # define model TODO: construct following input file/specification list
 
@@ -136,60 +136,6 @@ def resize(data: np.ndarray, scale=64) -> np.ndarray:
     data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (scale, scale)) for image in data])
     data = np.moveaxis(data, -1, 1)
     return data
-
-
-def plot_comparison_ae(reference: np.ndarray, name=None, 
-                       out_dir=None, is_square=False) -> float:  # TODO: move to plot module
-    """Create plot comparing the reference data with its autoencoder reconstruction.
-
-    Args:
-        reference (np.ndarray): Reference dataset.
-        name (str, optional): Model name. Defaults to None.
-        out_dir (Path, optional): Output directory. Defaults to None.
-
-    Returns:
-        float: Evaluation time.
-    """
-    if is_square:
-        figsize = (10, 5)
-        extent = [0, 20, 35, 55]
-    else:
-        figsize = (10, 7)
-        extent =[0, 20, 0, 70.7]
-
-    fig = plt.figure(figsize=figsize, dpi=200)
-    subfigs = fig.subfigures(nrows=2)
-
-    axs1 = subfigs[0].subplots(nrows=1, ncols=5)
-    axs2 = subfigs[1].subplots(nrows=1, ncols=5)
-
-    subfigs[1].suptitle('Reconstruction')
-    subfigs[0].suptitle('Original')
-
-    cbar_ranges = [(reference[0, i, :, :].min(),
-                    reference[0, i, :, :].max()) for i in range(5)]
-
-    with torch.no_grad():
-        encoded = model.encoder(torch.tensor(reference, device=device))
-        start = time.time()
-        reconstruction = model.decoder(encoded).cpu().numpy()
-
-    end = time.time()
-
-    for i in range(5):
-        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', 
-                             extent=extent, cmap='Greys_r')
-        draw_apparatus(axs1[i])
-        plt.colorbar(org)
-        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent,
-                             vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='Greys_r')
-        draw_apparatus(axs2[i])
-        plt.colorbar(rec)
-
-    if out_dir is not None:
-        fig.savefig(out_dir/f'test_comparison.png')
-
-    return end-start
 
 
 def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module

@@ -31,7 +31,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import draw_apparatus, save_history_graph
+from plot import plot_comparison_ae, save_history_graph
 
 class SquareAE(nn.Module):
     """Autoencoder using square images as inputs.
@@ -256,5 +256,5 @@ if __name__ == '__main__':
         # reshape encoding from (1, 320) to (1, 20, 4, 4)
         fake_encoding = fake_encoding.reshape(1, 20, 4, 4)
 
-    eval_time = plot_comparison_ae(test_res, out_dir=out_dir, is_square=True)
+    eval_time = plot_comparison_ae(test_res, model, out_dir=out_dir, is_square=True)
     write_metadata_ae(out_dir)
