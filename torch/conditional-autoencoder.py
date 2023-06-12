@@ -185,11 +185,11 @@ def plot_comparison_ae(reference: np.ndarray, name=None,
 
     for i in range(5):
         org = axs1[i].imshow(reference[0, i, :, :], origin='lower', aspect='equal',
-                             extent=extent, cmap='Greys_r')
+                             extent=extent, cmap='magma')
         draw_apparatus(axs1[i])
         plt.colorbar(org)
         rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                             vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='Greys_r')
+                             vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='magma')
         draw_apparatus(axs2[i])
 
         score = mse(reference[0, i, :, :], reconstruction[0, i, :, :])
