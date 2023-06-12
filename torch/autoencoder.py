@@ -5,6 +5,7 @@ Jupyter eats up massive RAM so I'm making a script to do my tests
 
 import os
 import time
+import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -25,9 +26,10 @@ from torch.utils.data import TensorDataset, DataLoader
 from torchinfo import summary
 
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae
+from plot import plot_comparison_ae, save_history_graph
 
 # define model TODO: construct following input file/specification list
 
@@ -91,6 +93,9 @@ class SquareAE64(nn.Module):
             nn.ReLU(),
 
             nn.ConvTranspose2d(40, 20, kernel_size=5, stride=2),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 20, kernel_size=(3, 3), stride=1, padding=1),
             nn.ReLU(),
 
             nn.ConvTranspose2d(20, 10, kernel_size=5, stride=2),
@@ -222,6 +227,36 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write('\n***** end of file *****')
 
 
+def normalize_train(dataset:np.ndarray):
+    normalized_variables = []
+    scalers = {}
+
+    for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
+        x = dataset[:, i, :, :]
+        xMax = np.max(x)
+        xMin = np.min(x)
+        scalers[var] = (xMin, xMax)
+        scaledx = (x-xMin) / (xMax-xMin)  # shape: (31, x, x)
+        normalized_variables.append(scaledx)
+    # shape: (5, 31, x, x)
+    normalized_dataset = np.moveaxis(np.stack(normalized_variables), 0, 1)  # shape: (31, 5, x, x)
+    return normalized_dataset, scalers
+
+
+def normalize_test(dataset:np.ndarray, scalers:dict()):
+    normalized_variables = []
+
+    for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
+        x = dataset[:, i, :, :]
+        xMin, xMax = scalers[var]
+        scaledx = (x-xMin) / (xMax-xMin)  # shape: (31, x, x)
+        normalized_variables.append(scaledx)
+    
+    # shape: (5, 31, x, x)
+    normalized_dataset = np.moveaxis(np.stack(normalized_variables), 0, 1)  # shape: (31, 5, x, x)
+    return normalized_dataset
+
+
 if __name__ == '__main__':
     # set metal backend (apple socs)
     device = torch.device(
@@ -230,6 +265,10 @@ if __name__ == '__main__':
     name = input("Enter model name: ")
     root = Path.cwd()
     is_square=True
+
+    out_dir = root/'created_models'/'autoencoder'/'64x64'/name
+    if not out_dir.exists():
+        out_dir.mkdir(parents=True)
 
     image_ds = ImageDataset(root/'data'/'interpolation_datasets', is_square)
     train = image_ds.train[0]  # import only features (2d profiles)
@@ -240,19 +279,22 @@ if __name__ == '__main__':
     train_res = resize(train, resolution)
     test_res = resize(test, resolution)
 
+    train_res, scalers = normalize_train(train_res)
+    test_res = normalize_test(test_res, scalers)
+
+    with open(out_dir/'scalers.pkl', 'wb') as file:
+        pickle.dump(scalers, file)
+    file.close()
+
     # split validation set
     train_res, val = train_test_split(train_res, test_size=1, train_size=30)
     val = torch.tensor(val, device=device)
-
-    out_dir = root/'created_models'/'autoencoder'/'64x64'/name
-    if not out_dir.exists():
-        out_dir.mkdir(parents=True)
 
     dataset = TensorDataset(torch.tensor(train_res, device=device))
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # hyperparameters (class property?)
-    epochs = 200
+    epochs = 500
     learning_rate = 1e-3
 
     if is_square:
@@ -309,6 +351,11 @@ if __name__ == '__main__':
         epoch_loss.append(running_loss)
         epoch_end = time.time()
         epoch_times.append(time.time()-epoch_start)
+
+        if (epoch+1) % epochs == 0:
+            # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
+            torch.save(model.state_dict(), out_dir/f'{name}')
+            save_history_graph(epoch_loss, out_dir)
 
     train_end = time.time()
 
