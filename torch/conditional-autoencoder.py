@@ -238,7 +238,7 @@ if __name__ == '__main__':
     # train_res, val = train_test_split(train_res, test_size=1, train_size=30)
     # val = torch.tensor(val, device=device)
 
-    model_dir = Path(input('Autoencoder model directory: '))
+    model_dir = Path(root/'created_models'/'autoencoder'/'A212'/'A212')
 
     out_dir = root/'created_models'/'conditional_autoencoder'/name
     if not out_dir.exists():
