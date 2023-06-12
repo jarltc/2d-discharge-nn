@@ -144,12 +144,6 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
         f.write('\n***** end of file *****')
 
 
-def mse(image1, image2):
-    squared_diff = np.square(image1 - image2)
-    mse = np.mean(squared_diff)
-    return mse
-
-
 if __name__ == '__main__':
     # set metal backend (apple socs)
     device = torch.device(
@@ -248,7 +242,6 @@ if __name__ == '__main__':
     save_history_graph(epoch_loss, out_dir)
 
     mlp.eval()
-    scores = []
 
     # construct a fake encoding from a pair of (V, P) and reshape to the desired dimensions
     with torch.no_grad():
@@ -256,5 +249,5 @@ if __name__ == '__main__':
         # reshape encoding from (1, 320) to (1, 20, 4, 4)
         fake_encoding = fake_encoding.reshape(1, 20, 4, 4)
 
-    eval_time = plot_comparison_ae(test_res, model, out_dir=out_dir, is_square=True)
+    eval_time, scores = plot_comparison_ae(test_res, model, out_dir=out_dir, is_square=True)
     write_metadata_ae(out_dir)

@@ -404,3 +404,17 @@ class ImageDataset:
 
             return [features, labels]
         
+
+def mse(image1, image2):
+    """Compute the mean square error between two images.
+
+    Args:
+        image1 (np.ndarray): NumPy array of image data.
+        image2 (np.ndarray): NumPy array of image data.
+
+    Returns:
+        float: Mean square error.
+    """
+    squared_diff = np.square(image1 - image2)
+    mse = np.mean(squared_diff)
+    return mse

@@ -11,9 +11,12 @@ import numpy as np
 import torch
 import torch.nn as nn
 
+import time
 from pathlib import Path
 
 from sklearn.preprocessing import MinMaxScaler
+
+from data_helpers import mse
 
 def triangulate(df: pd.DataFrame):   
     """
@@ -401,6 +404,8 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     reconstruction = model.decoder(prediction).cpu().numpy()
     end = time.time()
 
+    scores = []
+
     for i in range(5):
         org = axs1[i].imshow(reference[0, i, :, :], origin='lower', aspect='equal',
                              extent=extent, cmap='magma')
@@ -418,4 +423,4 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     if out_dir is not None:
         fig.savefig(out_dir/f'test_comparison.png')
 
-    return end-start
+    return end-start, scores
