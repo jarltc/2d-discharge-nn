@@ -217,9 +217,12 @@ if __name__ == '__main__':
     name = input("Model name: ") or "CAE_test"
     root = Path.cwd()
     
+    # get data and important metadata
     image_ds = ImageDataset(root/'data'/'interpolation_datasets', True)
     train_features, train_labels = image_ds.train
     test_features, test_labels = image_ds.test
+    v_used = np.array(list(image_ds.v_used))
+    p_used = np.array(list(image_ds.p_used))
 
     # downscale train images
     resolution = 32
