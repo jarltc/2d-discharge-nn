@@ -28,6 +28,7 @@ from torch.utils.data import TensorDataset, DataLoader
 from torchinfo import summary
 
 from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
 from plot import draw_apparatus, save_history_graph
@@ -224,6 +225,11 @@ if __name__ == '__main__':
     resolution = 32
     train_res = resize(train_features, resolution)
     test_res = resize(test_features, resolution)
+
+    # scale the inputs to the MLP
+    scaler = MinMaxScaler()
+    scaled_labels = scaler.fit_transform(train_labels)
+    scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # ValueError: reshape(1, -1) if it contains a single sample
 
     # split validation set
     # train_res, val = train_test_split(train_res, test_size=1, train_size=30)
