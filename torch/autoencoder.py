@@ -31,13 +31,13 @@ from plot import plot_comparison_ae
 
 # define model TODO: construct following input file/specification list
 
-class SquareAE(nn.Module):
+class SquareAE32(nn.Module):
     """Autoencoder using square images as inputs.
     
-    Input sizes are (5, 64, 64).
+    Input sizes are (5, 32, 32) (no).
     """
     def __init__(self) -> None:
-        super(SquareAE, self).__init__()
+        super(SquareAE32, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -65,6 +65,46 @@ class SquareAE(nn.Module):
         decoded = self.decoder(encoded)
         # decoded = torchvision.transforms.functional.crop(
         #     decoded, 0, 0, 64, 64)
+        return decoded
+
+
+class SquareAE64(nn.Module):
+    """Autoencoder using square images as inputs.
+    
+    Input sizes are (5, 64, 64).
+    """
+    def __init__(self) -> None:
+        super(SquareAE64, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 40, kernel_size=1, stride=2, padding=0),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(40, 40, kernel_size=3, stride=2),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(40, 20, kernel_size=5, stride=2),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(20, 10, kernel_size=5, stride=2),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        decoded = torchvision.transforms.functional.crop(
+            decoded, 0, 0, 64, 64)
         return decoded
 
 
@@ -174,10 +214,11 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
         f.write(f'Resolution: {resolution}\n')
-        f.write(f'Execution time: {(train_end-train_start):.2f} s\n')
-        f.write(
-            f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
+        f.write(f'Train time: {(train_end-train_start):.2f} s\n')
+        # f.write(
+        #     f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
         f.write(f'Evaluation time: {(eval_time):.2f} s\n')
+        f.write(f'Scores (MSE): {scores}\n')
         f.write('\n***** end of file *****')
 
 
@@ -195,7 +236,7 @@ if __name__ == '__main__':
     test = image_ds.test[0]  # import only features (2d profiles)
 
     # downscale train images
-    resolution = 32
+    resolution = 64
     train_res = resize(train, resolution)
     test_res = resize(test, resolution)
 
@@ -203,7 +244,7 @@ if __name__ == '__main__':
     train_res, val = train_test_split(train_res, test_size=1, train_size=30)
     val = torch.tensor(val, device=device)
 
-    out_dir = root/'created_models'/'autoencoder'/name
+    out_dir = root/'created_models'/'autoencoder'/'64x64'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
@@ -211,18 +252,29 @@ if __name__ == '__main__':
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # hyperparameters (class property?)
-    epochs = 500
+    epochs = 200
     learning_rate = 1e-3
 
-    model = SquareAE() if is_square else Autoencoder()
+    if is_square:
+        if resolution == 32:
+            model = SquareAE32()
+        elif resolution == 64:
+            model = SquareAE64()
+        # elif resolution == 200:
+        #     model = SquareAE()
+        else:
+            raise ValueError(f"Resolution {resolution} is invalid!")
+    else:
+        model = Autoencoder()  # use full resolution model
+
     model.to(device)  # move model to gpu
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     # include as class property?
-    weights_np = np.expand_dims(
-        np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32), axis=(0, 2, 3))
-    weights = torch.tensor(weights_np, device=device)
+    # weights_np = np.expand_dims(
+    #     np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32), axis=(0, 2, 3))
+    # weights = torch.tensor(weights_np, device=device)
 
     # convert to class method?
     epoch_loss = []
@@ -243,7 +295,7 @@ if __name__ == '__main__':
             running_loss = 0.0
 
             outputs = model(inputs)
-            loss = criterion(outputs * weights, inputs)
+            loss = criterion(outputs, inputs)
             loss.backward()
             optimizer.step()
 
@@ -260,7 +312,9 @@ if __name__ == '__main__':
 
     train_end = time.time()
 
+    prediction = model.encoder(test_res)
+
     torch.save(model.state_dict(), out_dir/f'{name}')
-    eval_time = plot_comparison_ae(test_res, out_dir=out_dir, is_square=is_square)
+    eval_time, scores = plot_comparison_ae(test_res, prediction, out_dir=out_dir, is_square=is_square)
     plot_train_loss(epoch_loss, epoch_validation)
     write_metadata(out_dir)
