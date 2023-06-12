@@ -144,65 +144,6 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
         f.write('\n***** end of file *****')
 
 
-def plot_comparison_ae(reference: np.ndarray, name=None, 
-                       out_dir=None, is_square=False) -> float:  # TODO: move to plot module
-    """Create plot comparing the reference data with its autoencoder reconstruction.
-
-    Args:
-        reference (np.ndarray): Reference dataset.
-        name (str, optional): Model name. Defaults to None.
-        out_dir (Path, optional): Output directory. Defaults to None.
-
-    Returns:
-        float: Evaluation time.
-    """
-    if is_square:
-        figsize = (10, 5)
-        extent = [0, 20, 35, 55]
-    else:
-        figsize = (10, 7)
-        extent =[0, 20, 0, 70.7]
-
-    fig = plt.figure(figsize=figsize, dpi=200, layout='constrained')
-    subfigs = fig.subfigures(nrows=2, wspace=0.4)
-
-    axs1 = subfigs[0].subplots(nrows=1, ncols=5)
-    axs2 = subfigs[1].subplots(nrows=1, ncols=5)
-
-    subfigs[1].suptitle('Prediction from MLP to AE')
-    subfigs[0].suptitle('Original (300V, 60Pa)')
-
-    cbar_ranges = [(reference[0, i, :, :].min(),
-                    reference[0, i, :, :].max()) for i in range(5)]
-
-    with torch.no_grad():
-        fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
-        # reshape encoding from (1, 320) to (1, 20, 4, 4)
-        fake_encoding = fake_encoding.reshape(1, 20, 4, 4)
-        start = time.time()
-        reconstruction = model.decoder(fake_encoding).cpu().numpy()
-        end = time.time()
-
-    for i in range(5):
-        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', aspect='equal',
-                             extent=extent, cmap='magma')
-        draw_apparatus(axs1[i])
-        plt.colorbar(org)
-        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                             vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='magma')
-        draw_apparatus(axs2[i])
-
-        score = mse(reference[0, i, :, :], reconstruction[0, i, :, :])
-        scores.append(score)
-
-        plt.colorbar(rec)
-
-    if out_dir is not None:
-        fig.savefig(out_dir/f'test_comparison.png')
-
-    return end-start
-
-
 def mse(image1, image2):
     squared_diff = np.square(image1 - image2)
     mse = np.mean(squared_diff)
@@ -308,5 +249,12 @@ if __name__ == '__main__':
 
     mlp.eval()
     scores = []
+
+    # construct a fake encoding from a pair of (V, P) and reshape to the desired dimensions
+    with torch.no_grad():
+        fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
+        # reshape encoding from (1, 320) to (1, 20, 4, 4)
+        fake_encoding = fake_encoding.reshape(1, 20, 4, 4)
+
     eval_time = plot_comparison_ae(test_res, out_dir=out_dir, is_square=True)
     write_metadata_ae(out_dir)
