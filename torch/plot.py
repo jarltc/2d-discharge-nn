@@ -10,6 +10,7 @@ import numpy as np
 
 import torch
 import torch.nn as nn
+import torchvision
 
 import time
 from pathlib import Path
@@ -400,9 +401,11 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     cbar_ranges = [(reference[0, i, :, :].min(),
                     reference[0, i, :, :].max()) for i in range(5)]
 
-    start = time.time()
-    reconstruction = model.decoder(prediction).cpu().numpy()
-    end = time.time()
+    with torch.no_grad():
+        start = time.time()
+        reconstruction = torchvision.transforms.functional.crop(
+            model.decoder(prediction), 0, 0, 64, 64).cpu().numpy()  # FIX THIS LATER LOL
+        end = time.time()
 
     scores = []
 

@@ -312,9 +312,10 @@ if __name__ == '__main__':
 
     train_end = time.time()
 
-    prediction = model.encoder(test_res)
+    with torch.no_grad():
+        encoded = model.encoder(torch.tensor(test_res, device=device))
 
     torch.save(model.state_dict(), out_dir/f'{name}')
-    eval_time, scores = plot_comparison_ae(test_res, prediction, out_dir=out_dir, is_square=is_square)
+    eval_time, scores = plot_comparison_ae(test_res, encoded, model, out_dir=out_dir, is_square=is_square)
     plot_train_loss(epoch_loss, epoch_validation)
     write_metadata(out_dir)
