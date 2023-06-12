@@ -388,8 +388,8 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     fig = plt.figure(figsize=figsize, dpi=200, layout='constrained')
     subfigs = fig.subfigures(nrows=2, wspace=0.4)
 
-    if prediction.size() != model.encoded_size:
-        raise ValueError(f'Tensor does not have the correct size {model.encoded_size}')
+    # if prediction.size() != model.encoded_size:
+    #     raise ValueError(f'Tensor does not have the correct size {model.encoded_size}')
 
     axs1 = subfigs[0].subplots(nrows=1, ncols=5)
     axs2 = subfigs[1].subplots(nrows=1, ncols=5)
