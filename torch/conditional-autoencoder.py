@@ -70,6 +70,49 @@ class SquareAE(nn.Module):
         return decoded
     
 
+class SquareAE64(nn.Module):
+    """Autoencoder using square images as inputs.
+    
+    Input sizes are (5, 64, 64).
+    """
+    def __init__(self) -> None:
+        super(SquareAE64, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=0),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 40, kernel_size=1, stride=2, padding=0),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.ConvTranspose2d(40, 40, kernel_size=3, stride=2),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(40, 20, kernel_size=5, stride=2),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 20, kernel_size=(3, 3), stride=1, padding=1),
+            nn.ReLU(),
+
+            nn.ConvTranspose2d(20, 10, kernel_size=5, stride=2),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        decoded = torchvision.transforms.functional.crop(
+            decoded, 0, 0, 64, 64)
+        return decoded
+
+
 class MLP(nn.Module):
     """MLP to recreate encodings from a pair of V and P.
     """
@@ -77,10 +120,10 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 256)
-        self.fc2 = nn.Linear(256, 512)
-        self.fc3 = nn.Linear(512, 1024)
-        self.fc4 = nn.Linear(1024, output_size)
+        self.fc1 = nn.Linear(input_size, 320)
+        self.fc2 = nn.Linear(320, 640)
+        self.fc3 = nn.Linear(640, 1280)
+        self.fc4 = nn.Linear(1280, output_size)  # for output size of 2560, we halve the neurons per layer
         self.dropout = nn.Dropout(dropout_prob)
 
     def forward(self, x):
@@ -160,7 +203,7 @@ if __name__ == '__main__':
     p_used = np.array(list(image_ds.p_used))
 
     # downscale train images
-    resolution = 32
+    resolution = 64
     train_res = resize(train_features, resolution)
     test_res = resize(test_features, resolution)
 
@@ -173,7 +216,7 @@ if __name__ == '__main__':
     # train_res, val = train_test_split(train_res, test_size=1, train_size=30)
     # val = torch.tensor(val, device=device)
 
-    model_dir = Path(root/'created_models'/'autoencoder'/'A212'/'A212')
+    model_dir = Path(root/'created_models'/'autoencoder'/'64x64'/'A64-6'/'A64-6')
 
     out_dir = root/'created_models'/'conditional_autoencoder'/name
     if not out_dir.exists():
@@ -184,7 +227,7 @@ if __name__ == '__main__':
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # load autoencoder model
-    model = SquareAE()
+    model = SquareAE64()
     model.to(device)
     model.load_state_dict(torch.load(model_dir))
     model.encoder.eval()  # inference mode
@@ -198,7 +241,12 @@ if __name__ == '__main__':
     dropout_prob = 0.5
     loop = tqdm(range(epochs))
 
-    mlp = MLP(2, 20*4*4, dropout_prob=dropout_prob)
+    encodedx = 40
+    encodedy = 8
+    encodedz = 8
+    encoded_size = encodedx*encodedy*encodedz
+
+    mlp = MLP(2, encoded_size, dropout_prob=dropout_prob)
     mlp.to(device)
     optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
@@ -246,8 +294,8 @@ if __name__ == '__main__':
     # construct a fake encoding from a pair of (V, P) and reshape to the desired dimensions
     with torch.no_grad():
         fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
-        # reshape encoding from (1, 320) to (1, 20, 4, 4)
-        fake_encoding = fake_encoding.reshape(1, 20, 4, 4)
+        # reshape encoding from (1, xyz) to (1, x, y, z)
+        fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
 
-    eval_time, scores = plot_comparison_ae(test_res, model, out_dir=out_dir, is_square=True)
+    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=True)
     write_metadata_ae(out_dir)
