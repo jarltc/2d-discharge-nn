@@ -8,6 +8,7 @@ Conditional autoencoder to reproduce 2d plasma profiles from a pair of V, P
 
 import os
 import time
+import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -120,10 +121,12 @@ class MLP(nn.Module):
         super(MLP, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 320)
-        self.fc2 = nn.Linear(320, 640)
-        self.fc3 = nn.Linear(640, 1280)
-        self.fc4 = nn.Linear(1280, output_size)  # for output size of 2560, we halve the neurons per layer
+        self.fc1 = nn.Linear(input_size, 80)
+        self.fc2 = nn.Linear(80, 160)
+        self.fc3 = nn.Linear(160, 320)
+        self.fc4 = nn.Linear(320, 640)
+        self.fc5 = nn.Linear(640, 1280)
+        self.fc6 = nn.Linear(1280, output_size)  # for output size of 2560, we halve the neurons per layer
         self.dropout = nn.Dropout(dropout_prob)
 
     def forward(self, x):
@@ -140,8 +143,16 @@ class MLP(nn.Module):
         x = self.dropout(x)
 
         x = self.fc4(x)
+        x = F.relu(x)
+        x = self.dropout(x)
 
+        x = self.fc5(x)
+        x = F.relu(x)
+        x = self.dropout(x)
+
+        x = self.fc6(x)
         output = F.relu(x)
+
         return output
 
 
@@ -158,6 +169,21 @@ def resize(data: np.ndarray, scale=64) -> np.ndarray:
     data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (scale, scale)) for image in data])
     data = np.moveaxis(data, -1, 1)
     return data
+
+
+def normalize_test(dataset:np.ndarray, scalers:dict()):
+    normalized_variables = []
+
+    for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
+        x = dataset[:, i, :, :]
+        xMin, xMax = scalers[var]
+        scaledx = (x-xMin) / (xMax-xMin)  # shape: (31, x, x)
+        normalized_variables.append(scaledx)
+    
+    # shape: (5, 31, x, x)
+    normalized_dataset = np.moveaxis(np.stack(normalized_variables), 0, 1)  # shape: (31, 5, x, x)
+    return normalized_dataset
+
 
 def write_metadata_ae(out_dir):  # TODO: move to data module
     # if is_square:
@@ -226,6 +252,12 @@ if __name__ == '__main__':
                             torch.tensor(train_labels, device=device))
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
+    scaler_dir = model_dir.parents[0]/'scalers.pkl'
+    with open( scaler_dir, 'rb') as handle:
+        scalers = pickle.load(handle)
+
+    test_res = normalize_test(test_res, scalers)
+    
     # load autoencoder model
     model = SquareAE64()
     model.to(device)
@@ -236,7 +268,7 @@ if __name__ == '__main__':
     # epoch_validation = []
     # epoch_times = []
 
-    epochs = 100
+    epochs = 200
     learning_rate = 1e-3
     dropout_prob = 0.5
     loop = tqdm(range(epochs))
