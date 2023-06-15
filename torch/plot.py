@@ -2,7 +2,7 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
-import matplotlib.colors as colorsf
+import matplotlib.colors as colors
 import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib
