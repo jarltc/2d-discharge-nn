@@ -378,7 +378,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         out_dir (Path, optional): Output directory. Defaults to None.
         is_square (bool, optional): Switch for square image and full rectangle.
             Defaults to False.
-        mode (str, optional): Switch for reconstructing or predicting (plots title). 
+        mode (str, optional): Switch for 'reconstructing' or 'predicting' (plots title). 
             Defaults to 'reconstructing'.
 
     Returns:
@@ -395,7 +395,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     fig = plt.figure(figsize=figsize, dpi=200, layout='constrained')
     if mode=='reconstructing':
         fig.suptitle("Original (top) and reconstruction (bottom) for 300V, 60Pa")
-    elif mode=='prediction':
+    elif mode=='predicting':
         fig.suptitle("Original (top) and prediction (bottom) for 300V, 60Pa")
     else:
         print('dawg how did u mess this up lol')
