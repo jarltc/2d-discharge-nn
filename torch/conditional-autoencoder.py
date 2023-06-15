@@ -329,5 +329,5 @@ if __name__ == '__main__':
         # reshape encoding from (1, xyz) to (1, x, y, z)
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
 
-    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=True)
+    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=True, mode='prediction')
     write_metadata_ae(out_dir)
