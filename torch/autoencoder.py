@@ -323,7 +323,8 @@ if __name__ == '__main__':
     epoch_loss = []
     epoch_validation = []
     epoch_times = []
-    loop = tqdm(range(epochs))
+    loop = tqdm(range(epochs), desc='Training...', 
+                ncols=25, colour='#37B6BD')
 
     train_start = time.time()
     for epoch in loop:
