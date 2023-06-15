@@ -368,7 +368,7 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
 
 
 def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn.Module, 
-                       out_dir=None, is_square=False): 
+                       out_dir=None, is_square=False, mode='reconstructing'): 
     """Create plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
@@ -376,9 +376,14 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         prediction (torch.tensor): Tensor reshaped to match the encoding shape
         model (nn.Module): Model used to make predictions.
         out_dir (Path, optional): Output directory. Defaults to None.
+        is_square (bool, optional): Switch for square image and full rectangle.
+            Defaults to False.
+        mode (str, optional): Switch for reconstructing or predicting (plots title). 
+            Defaults to 'reconstructing'.
 
     Returns:
         float: Evaluation time.
+        scores: List of reconstruction MSE
     """
     if is_square:
         figsize = (10, 3)
@@ -388,6 +393,13 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         extent =[0, 20, 0, 70.7]
 
     fig = plt.figure(figsize=figsize, dpi=200, layout='constrained')
+    if mode=='reconstructing':
+        fig.suptitle("Original (top) and reconstruction (bottom) for 300V, 60Pa")
+    elif mode=='prediction':
+        fig.suptitle("Original (top) and prediction (bottom) for 300V, 60Pa")
+    else:
+        print('dawg how did u mess this up lol')
+        return 0
     
     grid = ImageGrid(fig, 111,  # similar to fig.add_subplot(142).
                      nrows_ncols=(2, 5), axes_pad=0.0, label_mode="1", share_all=True,
