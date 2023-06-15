@@ -3,6 +3,7 @@
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import matplotlib.colors as colors
+from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib
 
 import pandas as pd
@@ -367,7 +368,7 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
 
 
 def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn.Module, 
-                       out_dir=None, is_square=False) -> float:  # TODO: move to plot module
+                       out_dir=None, is_square=False): 
     """Create plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
@@ -380,23 +381,17 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         float: Evaluation time.
     """
     if is_square:
-        figsize = (10, 5)
+        figsize = (10, 3)
         extent = [0, 20, 35, 55]
     else:
-        figsize = (10, 7)
+        figsize = (10, 5)
         extent =[0, 20, 0, 70.7]
 
     fig = plt.figure(figsize=figsize, dpi=200, layout='constrained')
-    subfigs = fig.subfigures(nrows=2, wspace=0.4)
-
-    # if prediction.size() != model.encoded_size:
-    #     raise ValueError(f'Tensor does not have the correct size {model.encoded_size}')
-
-    axs1 = subfigs[0].subplots(nrows=1, ncols=5)
-    axs2 = subfigs[1].subplots(nrows=1, ncols=5)
-
-    subfigs[1].suptitle('Prediction from MLP to AE')
-    subfigs[0].suptitle('Original (300V, 60Pa)')
+    
+    grid = ImageGrid(fig, 111,  # similar to fig.add_subplot(142).
+                     nrows_ncols=(2, 5), axes_pad=0.0, label_mode="1", share_all=True,
+                     cbar_location="right", cbar_mode="single", cbar_size="5%", cbar_pad='5%')
 
     cbar_ranges = [(reference[0, i, :, :].min(),
                     reference[0, i, :, :].max()) for i in range(5)]
@@ -404,24 +399,26 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     with torch.no_grad():
         start = time.time()
         reconstruction = torchvision.transforms.functional.crop(
-            model.decoder(prediction), 0, 0, 64, 64).cpu().numpy()  # FIX THIS LATER LOL
+            model.decoder(prediction), 0, 0, 64, 64).cpu().numpy()  # FIX the croppping LATER LOL
         end = time.time()
 
+    # plot the figures
+    for i, ax in enumerate(grid):
+        if i <= 4:
+            org = ax.imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
+                            vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='magma')
+            draw_apparatus(ax[i])
+        else:
+            rec = ax.imshow(reconstruction[0, i-5, :, :], origin='lower', extent=extent, aspect='equal',
+                            vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='magma')
+            draw_apparatus(ax[i])
+        grid.cbar_axes[0].colorbar(rec)
+
+    # record scores
     scores = []
-
     for i in range(5):
-        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', aspect='equal',
-                             extent=extent, cmap='magma')
-        draw_apparatus(axs1[i])
-        plt.colorbar(org)
-        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                             vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='magma')
-        draw_apparatus(axs2[i])
-
         score = mse(reference[0, i, :, :], reconstruction[0, i, :, :])
         scores.append(score)
-
-        plt.colorbar(rec)
 
     if out_dir is not None:
         fig.savefig(out_dir/f'test_comparison.png')
