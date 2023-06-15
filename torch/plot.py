@@ -2,7 +2,8 @@
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as pat
-import matplotlib.colors as colors
+import matplotlib.colors as colorsf
+import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib
 
@@ -265,7 +266,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
     return fig
 
 
-def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.DataFrame, out_dir=None):
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores_df=None, scores_list=None, out_dir=None):
     """Plot correlation between true values and predictions.
 
     Args:
@@ -302,10 +303,12 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.Data
         scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
 
         # get correlation score
-        r2 = round(scores[column].iloc[3], 2)
-
-        # set label
-        label = f'{column.split()[0]}: {r2}'
+        if (scores_df == None) & (scores_list != None):
+            r2 = round(scores_list[i], 2)
+            label = f'{column.split()[0]}: {r2}'  # set label
+        else:
+            r2 = round(scores_df[column].iloc[3], 2)
+            label = f'{column.split()[0]}'  # set label
 
         ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
                    color=colors[i], alpha=0.15, label=label)
@@ -386,27 +389,21 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         scores: List of reconstruction MSE
     """
     if is_square:
-        figsize = (10, 3)
+        figsize = (6, 3)
         extent = [0, 20, 35, 55]
     else:
         figsize = (10, 5)
         extent =[0, 20, 0, 70.7]
 
-    fig = plt.figure(figsize=figsize, dpi=200, layout='constrained')
-    if mode=='reconstructing':
-        fig.suptitle("Original (top) and reconstruction (bottom) for 300V, 60Pa")
-    elif mode=='predicting':
-        fig.suptitle("Original (top) and prediction (bottom) for 300V, 60Pa")
-    else:
-        print('dawg how did u mess this up lol')
-        return 0
+    fig = plt.figure(dpi=200, layout='constrained')
     
     grid = ImageGrid(fig, 111,  # similar to fig.add_subplot(142).
-                     nrows_ncols=(2, 5), axes_pad=0.0, label_mode="1", share_all=True,
+                     nrows_ncols=(2, 5), axes_pad=0.0, label_mode="L", share_all=True,
                      cbar_location="right", cbar_mode="single", cbar_size="5%", cbar_pad='5%')
 
     cbar_ranges = [(reference[0, i, :, :].min(),
-                    reference[0, i, :, :].max()) for i in range(5)]
+                    reference[0, i, :, :].max()) 
+                    for i in range(5)]
 
     with torch.no_grad():
         start = time.time()
@@ -417,14 +414,25 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     # plot the figures
     for i, ax in enumerate(grid):
         if i <= 4:
+            j = i
             org = ax.imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                            vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='magma')
-            draw_apparatus(ax[i])
+                            vmin=cbar_ranges[j][0], vmax=cbar_ranges[j][1], cmap='magma')
+            draw_apparatus(ax)
         else:
+            j = i-5
             rec = ax.imshow(reconstruction[0, i-5, :, :], origin='lower', extent=extent, aspect='equal',
-                            vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='magma')
-            draw_apparatus(ax[i])
-        grid.cbar_axes[0].colorbar(rec)
+                            vmin=cbar_ranges[j][0], vmax=cbar_ranges[j][1], cmap='magma')
+            draw_apparatus(ax)
+        grid.cbar_axes[0].colorbar(org)
+
+    # set font sizes and tick stuff
+    for ax in grid:
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(3))
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+        ax.yaxis.set_major_locator(ticker.MaxNLocator(3))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
+        ax.tick_params(axis='both', labelsize=8)
 
     # record scores
     scores = []
@@ -433,6 +441,28 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         scores.append(score)
 
     if out_dir is not None:
-        fig.savefig(out_dir/f'test_comparison.png')
+        fig.savefig(out_dir/f'test_comparison.png', bbox_inches='tight')
 
     return end-start, scores
+
+def ae_correlation(reference, prediction, out_dir):
+    from sklearn.metrics import r2_score
+    scores = []
+    columns = ['pot', 'ne', 'ni', 'nm', 'te']
+    prediction_cols = []
+    reference_cols = []
+    
+    for i, column in enumerate(columns):
+        ref_series = pd.Series(reference[0, i, :, :].flatten(), name=column)
+        pred_series = pd.Series(prediction[0, i, :, :].flatten(), name=column)
+        scores.append(r2_score(reference[0, i, :, :].flatten(), 
+                               prediction[0, i, :, :].flatten()))
+        reference_cols.append(ref_series)
+        prediction_cols.append(pred_series)
+    
+    ref_df = pd.DataFrame({k: v for k, v in zip(columns, reference_cols)})
+    pred_df = pd.DataFrame({k: v for k, v in zip(columns, prediction_cols)})
+
+    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
+
+    return scores
