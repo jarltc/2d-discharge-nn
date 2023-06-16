@@ -291,11 +291,12 @@ if __name__ == '__main__':
     # begin training MLP
     print("Training MLP...\r", end="")
     train_start = time.time()
-    for epoch in range(epochs):
-        loop = tqdm(trainloader)
+    loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
+
+    for epoch in loop:
         running_loss = 0.0  # record losses
 
-        for i, batch_data in enumerate(loop):
+        for i, batch_data in enumerate(trainloader):
             image, labels = batch_data  # feed in images and labels (V, P)
             target = model.encoder(image).view(1, -1)  # encoding shape: (1, 20, 4, 4)
 
@@ -318,7 +319,7 @@ if __name__ == '__main__':
 
     print("\33[2KMLP training complete!")
     train_end = time.time()
-    torch.save(model.state_dict(), out_dir/f'{name}')
+    torch.save(mlp.state_dict(), out_dir/f'{name}')
     save_history_graph(epoch_loss, out_dir)
 
     mlp.eval()
