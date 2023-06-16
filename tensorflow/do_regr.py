@@ -282,7 +282,7 @@ def ty_proc(ty):
 if __name__ == '__main__':
     # -------------------------------------------------------
     root = Path(os.getcwd())  # root folder where everything is saved
-    on_grid = args['mesh']  # raised flag stores false: defaults to True (pixels)
+    on_grid = False #args['mesh']  # raised flag stores false: defaults to True (pixels)
     d = datetime.datetime.today()
     print('started on', d.strftime('%Y-%m-%d %H:%M:%S'), '\n')
     
@@ -397,10 +397,11 @@ if __name__ == '__main__':
     if on_grid:
         triangles = None  # TODO
     else:
-        data_plot.difference_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
-        data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
-        data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir, simulation=True)  # plot simulation as reference
+        data_plot.difference_plot2(avg_data.iloc[:,:4], py, ty, regr_dir)
+        # data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir)
+        # data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir, simulation=True)  # plot simulation as reference
         triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
+        data_plot.quickplot(py, regr_dir, triangles=triangles, mesh=False)
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
         if on_grid:
