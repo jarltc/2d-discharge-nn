@@ -355,8 +355,9 @@ if __name__ == '__main__':
     ty = ty_proc(avg_data.iloc[:,4:]) if lin else avg_data.iloc[:,4:]
     
     # scale tX for use in model.predict()
-    if on_grid: stX = scale_for_regr(tX_grid, model_dir)
-    else: stX = scale_for_regr(tX, model_dir)
+    # if on_grid: stX = scale_for_regr(tX_grid, model_dir)
+    # else: stX = scale_for_regr(tX, model_dir)
+    stX = scale_for_regr(tX, model_dir)
     
     # display conds
     print('model_dir:', model_dir)
