@@ -10,6 +10,8 @@ import pandas as pd
 import numpy as np
 from pathlib import Path
 from sklearn.preprocessing import MinMaxScaler
+import data_helpers
+import do_regr
 
 def triangulate(df: pd.DataFrame):   
     """
@@ -393,3 +395,15 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
     fig.savefig(out_dir/'difference.png', bbox_inches='tight')
 
     return fig
+
+if __name__=="__main__":
+    # plot simulation data
+    root = Path.cwd()
+    voltages  = [200, 300, 400, 500] # V
+    pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
+    regr_df = data_helpers.get_data(root, voltages, pressures, (300, 60))[0]
+
+    features = regr_df[['V', 'P', 'x', 'y']]
+    labels = regr_df[['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']]
+
+    quickplot(labels, Path('/Users/jarl/2d-discharge-nn/created_models/mlp'), mesh=True, nodes=features[['x', 'y']]*100)
