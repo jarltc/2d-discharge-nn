@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as pat
 import matplotlib.colors as colors
 import matplotlib.gridspec as gridspec
+from mpl_toolkits.axes_grid1 import ImageGrid
 import matplotlib
 import pandas as pd
 import numpy as np
@@ -216,7 +217,7 @@ def draw_apparatus(ax):
     ax.add_patch(patch_float)
 
 
-def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
+def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=False):
     """Quick plot of all 5 parameters.
 
     This makes a plot for just the predictions, but it might help to have
@@ -233,24 +234,51 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
     matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
-    fig, ax = plt.subplots(1, len(df.columns), figsize=(10, 4), dpi=200)
+    # check whether to plot a filled contour or mesh points
+    
+    fig = plt.figure(dpi=200, figsize=(9, 4), constrained_layout=True)
+    grid = ImageGrid(
+        fig, 111, nrows_ncols=(1, len(df.columns)), 
+        axes_pad=0.5, label_mode="L", share_all=True,
+        cbar_location="right", cbar_mode="each", cbar_size="7%", cbar_pad="5%")
 
     titles = [column.split()[0] for column in df.columns]
 
-    for i, column in enumerate(df.columns):
-        ax[i].set_aspect('equal')
-        cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
-        tri = ax[i].tricontourf(triangles, df[column], levels=36, 
-                                 cmap=cmap, vmin=cmin, vmax=cmax)
-        plt.colorbar(tri)
-        draw_apparatus(ax[i])
-        ax[i].set_title(titles[i])
+    if mesh:
+        for i, column in enumerate(df.columns):
+            ax = grid[i]
+            cax = grid.cbar_axes[i]
+            ax.set_aspect('equal')
+            cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+            sc = ax.scatter(nodes['x'], nodes['y'], c=df[column], 
+                                    cmap=cmap,
+                                    norm=colors.Normalize(vmin=cmin, vmax=cmax),
+                                    s=0.2)
+            cax.colorbar(sc)
+            draw_apparatus(ax)
+            ax.set_xlim(0,20)
+            ax.set_ylim(0,70.9)
+            ax.set_title(titles[i])
+
+    else:
+        for i, column in enumerate(df.columns):
+            ax = grid[i]
+            cax = grid.cbar_axes[i]
+            ax.set_aspect('equal')
+            cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+            tri = ax.tricontourf(triangles, df[column], levels=36, 
+                                    cmap=cmap, vmin=cmin, vmax=cmax)
+            cax.colorbar(tri)
+            draw_apparatus(ax)
+            ax.set_title(titles[i])
     
     fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
 
-
     if data_dir is not None:
-        fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
+        if mesh:
+            fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
+        else:
+            fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
 
     return fig
 
@@ -349,11 +377,13 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
         sc = ax.scatter(tX['x'], tX['y'], c=diff[column], cmap=cmap, 
                         #    norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), 
                            norm=colors.Normalize(vmin=-100, vmax=100),
-                           s=0.6) 
+                           s=0.2) 
+        draw_apparatus(ax)
         ax.set_title(titles[i])
         ax.set_aspect('equal')
         ax.set_xlim(0,20)
         ax.set_ylim(0,70.9)
+        draw_apparatus(ax)
     
     cax = fig.add_subplot(gs[0, 5])
     cbar = plt.colorbar(sc, extend='both', cax=cax)
