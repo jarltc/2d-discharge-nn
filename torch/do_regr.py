@@ -68,13 +68,13 @@ class MLP2(nn.Module):
         self.output_size = output_size
         self.fc1 = nn.Linear(input_size, 115)  # linear: y = Ax + b
         self.fc2 = nn.Linear(115, 78)
-        self.fc3 = nn.Linear(78, 46)
-        self.fc4 = nn.Linear(46, 26)
-        self.fc5 = nn.Linear(26, 46)
-        self.fc6 = nn.Linear(46, 82)
-        self.fc7 = nn.Linear(82, 106)
-        self.fc8 = nn.Linear(106, 115)
-        self.fc9 = nn.Linear(115, output_size)
+        self.fc3 = nn.Linear(78, 26)
+        # self.fc4 = nn.Linear(46, 26)
+        self.fc4 = nn.Linear(26, 46)
+        self.fc5 = nn.Linear(46, 82)
+        self.fc6 = nn.Linear(82, 106)
+        # self.fc7 = nn.Linear(106, 115)
+        self.fc7 = nn.Linear(106, output_size)
         
     def forward(self, x):
         """Execute the forward pass.
@@ -98,10 +98,10 @@ class MLP2(nn.Module):
         x = self.fc6(x)
         x = F.relu(x)
         x = self.fc7(x)
-        x = F.relu(x)
-        x = self.fc8(x)
-        x = F.relu(x)
-        x = self.fc9(x)
+        # x = F.relu(x)
+        # x = self.fc8(x)
+        # x = F.relu(x)
+        # x = self.fc9(x)
         
         output = x = F.relu(x)
         return output
@@ -357,6 +357,7 @@ if __name__ == '__main__':
     regr_df.get_scores()  # get scores
 
     triangles = plot.triangulate(regr_df.features[['x', 'y']])
-    plot.quickplot(prediction, regr_dir, triangles=triangles)
+    plot.quickplot(prediction, regr_dir, triangles=triangles, mesh=False)
+    plot.quickplot(prediction, regr_dir, nodes=regr_df.features[['x', 'y']]*100, mesh=True)
     plot.difference_plot(regr_df.features, prediction, regr_df.targets, out_dir=regr_dir)
     
