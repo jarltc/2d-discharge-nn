@@ -5,6 +5,7 @@ import matplotlib.patches as pat
 import matplotlib.colors as colors
 import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import ImageGrid
+from matplotlib import gridspec
 import matplotlib
 
 import pandas as pd
@@ -227,7 +228,7 @@ def draw_apparatus(ax):
     ax.add_patch(patch_float)
 
 
-def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
+def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=False):
     """Quick plot of all 5 parameters.
 
     This makes a plot for just the predictions, but it might help to have
@@ -244,29 +245,56 @@ def quickplot(df:pd.DataFrame, data_dir=None, grid=False, triangles=None):
     matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
-    fig, ax = plt.subplots(1, len(df.columns), figsize=(10, 4), dpi=200)
+    # check whether to plot a filled contour or mesh points
+    
+    fig = plt.figure(dpi=200, figsize=(9, 4), constrained_layout=True)
+    grid = ImageGrid(
+        fig, 111, nrows_ncols=(1, len(df.columns)), 
+        axes_pad=0.5, label_mode="L", share_all=True,
+        cbar_location="right", cbar_mode="each", cbar_size="7%", cbar_pad="5%")
 
     titles = [column.split()[0] for column in df.columns]
 
-    for i, column in enumerate(df.columns):
-        ax[i].set_aspect('equal')
-        cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
-        tri = ax[i].tricontourf(triangles, df[column], levels=36, 
-                                 cmap=cmap, vmin=cmin, vmax=cmax)
-        plt.colorbar(tri)
-        draw_apparatus(ax[i])
-        ax[i].set_title(titles[i])
+    if mesh:
+        for i, column in enumerate(df.columns):
+            ax = grid[i]
+            cax = grid.cbar_axes[i]
+            ax.set_aspect('equal')
+            cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+            sc = ax.scatter(nodes['x'], nodes['y'], c=df[column], 
+                                    cmap=cmap,
+                                    norm=colors.Normalize(vmin=cmin, vmax=cmax),
+                                    s=0.2)
+            cax.colorbar(sc)
+            draw_apparatus(ax)
+            ax.set_xlim(0,20)
+            ax.set_ylim(0,70.9)
+            ax.set_title(titles[i])
+
+    else:
+        for i, column in enumerate(df.columns):
+            ax = grid[i]
+            cax = grid.cbar_axes[i]
+            ax.set_aspect('equal')
+            cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+            tri = ax.tricontourf(triangles, df[column], levels=36, 
+                                    cmap=cmap, vmin=cmin, vmax=cmax)
+            cax.colorbar(tri)
+            draw_apparatus(ax)
+            ax.set_title(titles[i])
     
     fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
 
-    plt.show()
     if data_dir is not None:
-        fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
+        if mesh:
+            fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
+        else:
+            fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
 
     return fig
 
 
-def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores_df=None, scores_list=None, out_dir=None):
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.DataFrame, out_dir=None):
     """Plot correlation between true values and predictions.
 
     Args:
@@ -303,12 +331,10 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores_df=None,
         scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
 
         # get correlation score
-        if (scores_df == None) & (scores_list != None):
-            r2 = round(scores_list[i], 2)
-            label = f'{column.split()[0]}: {r2}'  # set label
-        else:
-            r2 = round(scores_df[column].iloc[3], 2)
-            label = f'{column.split()[0]}'  # set label
+        r2 = round(scores[column].iloc[3], 2)
+
+        # set label
+        label = f'{column.split()[0]}: {r2}'
 
         ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
                    color=colors[i], alpha=0.15, label=label)
@@ -339,36 +365,45 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
             'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
             'Te (eV)'          :' (eV)'}
 
-    diff = py - ty
+    diff = 100 * ((py - ty) / np.abs(ty)) 
     titles = [column.split()[0] for column in diff.columns]
 
     tX['x'] = tX['x']*100
     tX['y'] = tX['y']*100
 
-    ranges = {'potential (V)': (-5, 5), 
-              'Ne (#/m^-3)' : (-8, 8),
-              'Ar+ (#/m^-3)' : (-9, 9),
-              'Nm (#/m^-3)' : (-20, 20),
-              'Te (eV)' : (-3, 3)}
+    # ranges = {'potential (V)': (-5, 5), 
+    #           'Ne (#/m^-3)' : (-8, 8),
+    #           'Ar+ (#/m^-3)' : (-9, 9),
+    #           'Nm (#/m^-3)' : (-20, 50),
+    #           'Te (eV)' : (-50, 50)}
     
     cmap = plt.get_cmap('coolwarm')
 
-    fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4))
-    fig.subplots_adjust(wspace=0.2)
+    # fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4), constrained_layout=True)
+    fig = plt.figure(dpi=200, figsize=(8, 4), constrained_layout=True)
+    gs = gridspec.GridSpec(1, 6, width_ratios=[1, 1, 1, 1, 1, 0.1], figure=fig)
     
     for i, column in enumerate(ty.columns):
-        sc = ax[i].scatter(tX['x'], tX['y'], c=diff[column], cmap='coolwarm', 
-                           norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), s=1)
-        plt.colorbar(sc, extend='both')
-        ax[i].set_title(titles[i] + ' ' + units[column])
-        ax[i].set_aspect('equal')
-        ax[i].set_xlim(0,20)
-        ax[i].set_ylim(0,70.9)
+        ax = fig.add_subplot(gs[0, i])
+        sc = ax.scatter(tX['x'], tX['y'], c=diff[column], cmap=cmap, 
+                        #    norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), 
+                           norm=colors.Normalize(vmin=-100, vmax=100),
+                           s=0.2) 
+        draw_apparatus(ax)
+        ax.set_title(titles[i])
+        ax.set_aspect('equal')
+        ax.set_xlim(0,20)
+        ax.set_ylim(0,70.9)
+        draw_apparatus(ax)
+    
+    cax = fig.add_subplot(gs[0, 5])
+    cbar = plt.colorbar(sc, extend='both', cax=cax)
+    cbar.ax.tick_params(labelsize=8)
+    cbar.set_label(r'% difference', size=8)
 
     fig.savefig(out_dir/'difference.png', bbox_inches='tight')
 
     return fig
-
 
 def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn.Module, 
                        out_dir=None, is_square=False, mode='reconstructing'): 
