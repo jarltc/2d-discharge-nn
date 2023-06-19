@@ -26,7 +26,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from autoencoder_classes import A300
-from data_helpers import ImageDataset
+from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 
 
@@ -240,6 +240,7 @@ if __name__ == '__main__':
         decoded = model(torch.tensor(test_res, device=device)).cpu().numpy()
 
     torch.save(model.state_dict(), out_dir/f'{name}')
+    train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='autoencoder')
     eval_time, scores = plot_comparison_ae(test_res, encoded, model, out_dir=out_dir, is_square=is_square)
     r2 = ae_correlation(test_res, decoded, out_dir)
     plot_train_loss(epoch_loss, epoch_validation)
