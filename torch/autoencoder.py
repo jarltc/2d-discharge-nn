@@ -18,125 +18,16 @@ from tqdm import tqdm
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-import torchvision
-from torchvision.transforms.functional import crop
 from torch.utils.data import TensorDataset, DataLoader
 from torchinfo import summary
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
+from autoencoder_classes import A300
 from data_helpers import ImageDataset
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
-
-# define model TODO: construct following input file/specification list
-
-class SquareAE32(nn.Module):
-    """Autoencoder using square images as inputs.
-    
-    Input sizes are (5, 32, 32) (no).
-    """
-    def __init__(self) -> None:
-        super(SquareAE32, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-
-            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-
-            nn.Conv2d(20, 20, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(20, 20, kernel_size=2, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(20, 10, kernel_size=2, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(10, 5, kernel_size=2, stride=2),
-            nn.ReLU()
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        # decoded = torchvision.transforms.functional.crop(
-        #     decoded, 0, 0, 64, 64)
-        return decoded
-
-
-class SquareAE64(nn.Module):
-    """Autoencoder using square images as inputs.
-    
-    Input sizes are (5, 64, 64).
-    """
-    def __init__(self) -> None:
-        super(SquareAE64, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=2),
-            nn.ReLU(),
-
-            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=0),
-            nn.ReLU(),
-
-            nn.Conv2d(20, 40, kernel_size=1, stride=2, padding=0),
-            nn.ReLU(),
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(40, 40, kernel_size=3, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(40, 20, kernel_size=5, stride=2),
-            nn.ReLU(),
-
-            nn.Conv2d(20, 20, kernel_size=(3, 3), stride=1, padding=1),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(20, 10, kernel_size=5, stride=2),
-            nn.ReLU(),
-
-            nn.Conv2d(10, 5, kernel_size=1, stride=1),
-            nn.ReLU()
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 64, 64)
-        return decoded
-
-
-class Autoencoder(nn.Module):
-    def __init__(self):
-        super(Autoencoder, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(20, 40, kernel_size=3, stride=2, padding=1),
-            nn.ReLU()
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(10, 5, kernel_size=5, stride=2)
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 707, 200)
-        return decoded
 
 
 class Trial():  # TODO: add plotting
@@ -145,7 +36,7 @@ class Trial():  # TODO: add plotting
         self.learning_rate = learning_rate
         self.kernel1 = kernel1
         self.kernel2 = kernel2
-        self.model = Autoencoder()
+        # self.model = Autoencoder()
         self.optimizer = optim.Adam(model.parameters(), lr=self.learning_rate)
         self.criterion = nn.MSELoss()
         self.epoch_loss = []
@@ -267,7 +158,8 @@ if __name__ == '__main__':
     root = Path.cwd()
     is_square=True
 
-    out_dir = root/'created_models'/'autoencoder'/'64x64'/name
+    # out_dir = root/'created_models'/'autoencoder'/'64x64'/name
+    out_dir = root/'created_models'/'autoencoder'/'32x32'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
@@ -276,7 +168,7 @@ if __name__ == '__main__':
     test = image_ds.test[0]  # import only features (2d profiles)
 
     # downscale train images
-    resolution = 64
+    resolution = 32
     train_res = resize(train, resolution)
     test_res = resize(test, resolution)
 
@@ -287,7 +179,7 @@ if __name__ == '__main__':
         pickle.dump(scalers, file)
     file.close()
 
-    # split validation set
+    # split validation set (takes one random set as validation)
     train_res, val = train_test_split(train_res, test_size=1, train_size=30)
     val = torch.tensor(val, device=device)
 
@@ -295,29 +187,12 @@ if __name__ == '__main__':
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # hyperparameters (class property?)
-    epochs = 200
+    epochs = 500
     learning_rate = 1e-3
-
-    if is_square:
-        if resolution == 32:
-            model = SquareAE32()
-        elif resolution == 64:
-            model = SquareAE64()
-        # elif resolution == 200:
-        #     model = SquareAE()
-        else:
-            raise ValueError(f"Resolution {resolution} is invalid!")
-    else:
-        model = Autoencoder()  # use full resolution model
-
+    model = A300()
     model.to(device)  # move model to gpu
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    # include as class property?
-    # weights_np = np.expand_dims(
-    #     np.array([1.0, 1.0, 1.0, 1.0, 1.0], dtype=np.float32), axis=(0, 2, 3))
-    # weights = torch.tensor(weights_np, device=device)
 
     # convert to class method?
     epoch_loss = []

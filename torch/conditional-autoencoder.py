@@ -33,127 +33,8 @@ from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
 from plot import plot_comparison_ae, save_history_graph
-
-class SquareAE(nn.Module):
-    """Autoencoder using square images as inputs.
-    
-    Input sizes are (5, 64, 64).
-    """
-    def __init__(self) -> None:
-        super(SquareAE, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-
-            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-
-            nn.Conv2d(20, 20, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(),
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(20, 20, kernel_size=2, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(20, 10, kernel_size=2, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(10, 5, kernel_size=2, stride=2),
-            nn.ReLU()
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        # decoded = torchvision.transforms.functional.crop(
-        #     decoded, 0, 0, 64, 64)
-        return decoded
-    
-
-class SquareAE64(nn.Module):
-    """Autoencoder using square images as inputs.
-    
-    Input sizes are (5, 64, 64).
-    """
-    def __init__(self) -> None:
-        super(SquareAE64, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=2),
-            nn.ReLU(),
-
-            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=0),
-            nn.ReLU(),
-
-            nn.Conv2d(20, 40, kernel_size=1, stride=2, padding=0),
-            nn.ReLU(),
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(40, 40, kernel_size=3, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(40, 20, kernel_size=5, stride=2),
-            nn.ReLU(),
-
-            nn.Conv2d(20, 20, kernel_size=(3, 3), stride=1, padding=1),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(20, 10, kernel_size=5, stride=2),
-            nn.ReLU(),
-
-            nn.Conv2d(10, 5, kernel_size=1, stride=1),
-            nn.ReLU()
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 64, 64)
-        return decoded
-
-
-class MLP(nn.Module):
-    """MLP to recreate encodings from a pair of V and P.
-    """
-    def __init__(self, input_size, output_size, dropout_prob) -> None:
-        super(MLP, self).__init__()
-        self.input_size = input_size
-        self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 80)
-        self.fc2 = nn.Linear(80, 160)
-        self.fc3 = nn.Linear(160, 320)
-        self.fc4 = nn.Linear(320, 640)
-        self.fc5 = nn.Linear(640, 1280)
-        self.fc6 = nn.Linear(1280, output_size)  # for output size of 2560, we halve the neurons per layer
-        self.dropout = nn.Dropout(dropout_prob)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc2(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc3(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc4(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc5(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc6(x)
-        output = F.relu(x)
-
-        return output
+import autoencoder_classes
+from mlp_classes import MLP, MLP1
 
 
 def resize(data: np.ndarray, scale=64) -> np.ndarray:
@@ -220,6 +101,25 @@ if __name__ == '__main__':
     
     name = input("Model name: ") or "CAE_test"
     root = Path.cwd()
+
+    ##### things to change #####
+    model = autoencoder_classes.A212()
+    # ----- #
+    resolution = 32
+    encodedx = 20
+    encodedy = 4
+    encodedz = 4
+    encoded_size = encodedx*encodedy*encodedz
+    # model_dir = Path(root/'created_models'/'autoencoder'/'64x64'/'A64-6'/'A64-6')
+    # model_dir = Path(root/'created_models'/'autoencoder'/'32x32'/'A300'/'A300')
+    model_dir = model.path
+    # ----- #
+    epochs = 200
+    learning_rate = 1e-3
+    dropout_prob = 0.5
+    # ----- #
+    mlp = MLP1(2, encoded_size, dropout_prob=dropout_prob)
+    label_minmax = True
     
     # get data and important metadata
     image_ds = ImageDataset(root/'data'/'interpolation_datasets', True)
@@ -229,7 +129,6 @@ if __name__ == '__main__':
     p_used = np.array(list(image_ds.p_used))
 
     # downscale train images
-    resolution = 64
     train_res = resize(train_features, resolution)
     test_res = resize(test_features, resolution)
 
@@ -238,28 +137,32 @@ if __name__ == '__main__':
     scaled_labels = scaler.fit_transform(train_labels)
     scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # ValueError: reshape(1, -1) if it contains a single sample
 
+    if label_minmax:
+        train_labels = scaled_labels
+        test_labels = scaled_labels_test
+
     # split validation set
     # train_res, val = train_test_split(train_res, test_size=1, train_size=30)
     # val = torch.tensor(val, device=device)
 
-    model_dir = Path(root/'created_models'/'autoencoder'/'64x64'/'A64-6'/'A64-6')
+    # scale images if available
+    image_scalefile = model_dir.parents[0]/'scaler.pkl'
+    if image_scalefile.exists():
+        with open(image_scalefile, 'rb') as f:
+            imageScaler = pickle.load(f)
+        test_res = normalize_test(test_res, imageScaler)
+        train_res = normalize_test(train_res, imageScaler)
+        
 
     out_dir = root/'created_models'/'conditional_autoencoder'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
-    dataset = TensorDataset(torch.tensor(train_res, device=device), 
+    dataset = TensorDataset(torch.tensor(train_res, device=device),
                             torch.tensor(train_labels, device=device))
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
-
-    scaler_dir = model_dir.parents[0]/'scalers.pkl'
-    with open( scaler_dir, 'rb') as handle:
-        scalers = pickle.load(handle)
-
-    test_res = normalize_test(test_res, scalers)
     
     # load autoencoder model
-    model = SquareAE64()
     model.to(device)
     model.load_state_dict(torch.load(model_dir))
     model.encoder.eval()  # inference mode
@@ -268,25 +171,12 @@ if __name__ == '__main__':
     # epoch_validation = []
     # epoch_times = []
 
-    epochs = 200
-    learning_rate = 1e-3
-    dropout_prob = 0.5
     loop = tqdm(range(epochs))
 
-    encodedx = 40
-    encodedy = 8
-    encodedz = 8
-    encoded_size = encodedx*encodedy*encodedz
-
-    mlp = MLP(2, encoded_size, dropout_prob=dropout_prob)
     mlp.to(device)
     optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
     epoch_loss = []
-
-    dataset = TensorDataset(torch.tensor(train_res, device=device), 
-                            torch.tensor(train_labels, device=device))
-    trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
 
     # begin training MLP
     print("Training MLP...\r", end="")
@@ -298,11 +188,11 @@ if __name__ == '__main__':
 
         for i, batch_data in enumerate(trainloader):
             image, labels = batch_data  # feed in images and labels (V, P)
-            target = model.encoder(image).view(1, -1)  # encoding shape: (1, 20, 4, 4)
+            target = model.encoder(image).view(1, -1)  # generate encoding from image, shape: (1, 20, 4, 4)
 
             optimizer.zero_grad()  # reset gradients
 
-            output = mlp(labels)  # forward pass
+            output = mlp(labels)  # forward pass, get mlp prediction from (v, p)
             loss = criterion(output, target)
             loss.backward()  # backward propagation
             optimizer.step()  # apply changes to network
@@ -312,7 +202,7 @@ if __name__ == '__main__':
             running_loss += loss.item()
 
         epoch_loss.append(loss.item())
-        if (epoch+1) % epochs == 0:
+        if (epoch+1) % 10 == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
             torch.save(model.state_dict(), out_dir/f'{name}')
             save_history_graph(epoch_loss, out_dir)
@@ -330,5 +220,7 @@ if __name__ == '__main__':
         # reshape encoding from (1, xyz) to (1, x, y, z)
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
 
-    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=True, mode='prediction')
+    # add resolution=64 for larger images
+    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, 
+                                           out_dir=out_dir, is_square=True, mode='prediction')
     write_metadata_ae(out_dir)
