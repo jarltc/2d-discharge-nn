@@ -294,7 +294,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
     return fig
 
 
-def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.DataFrame, out_dir=None):
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, out_dir=None):
     """Plot correlation between true values and predictions.
 
     Args:
@@ -331,7 +331,10 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.Data
         scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
 
         # get correlation score
-        r2 = round(scores[column].iloc[3], 2)
+        if scores == None:
+            r2 = round(scores_list[i], 2)
+        else: 
+            r2 = round(scores[column].iloc[3], 2)
 
         # set label
         label = f'{column.split()[0]}: {r2}'
