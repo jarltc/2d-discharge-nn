@@ -42,12 +42,15 @@ class MLP1(nn.Module):
         super(MLP1, self).__init__()
         self.input_size = input_size
         self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 512)
-        # self.fc2 = nn.Linear(512, output_size)  # for output size of 2560, we halve the neurons per layer
+        self.input = nn.Linear(input_size, 512)
+        self.fc1 = nn.Linear(512, 512)
+        
         self.output = nn.Linear(512, output_size)
         self.dropout = nn.Dropout(dropout_prob)
 
     def forward(self, x):
+        x = F.relu(self.input(x))
+
         for _ in range(5):
             x = self.fc1(x)
             x = F.relu(x)
