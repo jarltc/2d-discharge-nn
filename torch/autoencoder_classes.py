@@ -2,6 +2,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
 
+from pathlib import Path
+
 class A212(nn.Module):
     """Autoencoder using square images as inputs.
     
@@ -9,6 +11,8 @@ class A212(nn.Module):
     """
     def __init__(self) -> None:
         super(A212, self).__init__()
+        # trained on normalized dataset, otherwise see A212
+        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/32x32/A212b/A212b')
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -46,6 +50,7 @@ class A300(nn.Module):
     """
     def __init__(self) -> None:
         super(A300, self).__init__()
+        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/32x32/A300/A300')
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
