@@ -31,7 +31,7 @@ from torchinfo import summary
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from data_helpers import ImageDataset
+from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph
 import autoencoder_classes
 from mlp_classes import MLP, MLP1
@@ -103,12 +103,12 @@ if __name__ == '__main__':
     root = Path.cwd()
 
     ##### things to change #####
-    model = autoencoder_classes.A212()
+    model = autoencoder_classes.A64_6()
     # ----- #
-    resolution = 32
-    encodedx = 20
-    encodedy = 4
-    encodedz = 4
+    resolution = 64
+    encodedx = 40
+    encodedy = 8
+    encodedz = 8
     encoded_size = encodedx*encodedy*encodedz
     # model_dir = Path(root/'created_models'/'autoencoder'/'64x64'/'A64-6'/'A64-6')
     # model_dir = Path(root/'created_models'/'autoencoder'/'32x32'/'A300'/'A300')
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     learning_rate = 1e-3
     dropout_prob = 0.5
     # ----- #
-    mlp = MLP1(2, encoded_size, dropout_prob=dropout_prob)
+    mlp = MLP(2, encoded_size, dropout_prob=dropout_prob)
     label_minmax = True
     
     # get data and important metadata
@@ -146,7 +146,7 @@ if __name__ == '__main__':
     # val = torch.tensor(val, device=device)
 
     # scale images if available
-    image_scalefile = model_dir.parents[0]/'scaler.pkl'
+    image_scalefile = model_dir.parents[0]/'scalers.pkl'
     if image_scalefile.exists():
         with open(image_scalefile, 'rb') as f:
             imageScaler = pickle.load(f)
@@ -222,5 +222,6 @@ if __name__ == '__main__':
 
     # add resolution=64 for larger images
     eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, 
-                                           out_dir=out_dir, is_square=True, mode='prediction')
+                                           out_dir=out_dir, is_square=True, mode='prediction', resolution=resolution)
     write_metadata_ae(out_dir)
+    train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='mlp')
