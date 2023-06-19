@@ -408,14 +408,15 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
 
     return fig
 
+
 def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn.Module, 
-                       out_dir=None, is_square=False, mode='reconstructing'): 
+                       out_dir=None, is_square=False, mode='reconstructing', resolution=32): 
     """Create plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
         reference (np.ndarray): Reference dataset.
-        prediction (torch.tensor): Tensor reshaped to match the encoding shape
-        model (nn.Module): Model used to make predictions.
+        prediction (torch.tensor): Tensor reshaped to match the encoding shape.
+        model (nn.Module): Autoencoder model whose decoder used to make predictions.
         out_dir (Path, optional): Output directory. Defaults to None.
         is_square (bool, optional): Switch for square image and full rectangle.
             Defaults to False.
