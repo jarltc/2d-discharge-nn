@@ -418,3 +418,23 @@ def mse(image1, image2):
     squared_diff = np.square(image1 - image2)
     mse = np.mean(squared_diff)
     return mse
+
+
+def train2db(model_dir: Path, name:str, epochs:int, v_excluded, p_excluded, resolution:int, typ=None):
+    # TODO: find a way to infer the base and iteration
+    import sqlite3
+    root = Path('/Users/jarl/2d-discharge-nn')
+    conn = sqlite3.connect(root/'created_models'/'created_models.db')
+    cursor = conn.cursor()
+
+    creation_date = datetime.now().strftime('%Y-%m-%d %H:%M')
+    values = (name, str(model_dir), typ, epochs, creation_date, str(v_excluded), str(p_excluded), resolution)
+
+    cursor.execute('INSERT INTO ae_models (name, path, type, train_epochs, creation_date, v_excluded, p_excluded, resolution)\
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                    values)
+    
+    conn.commit()
+    conn.close()
+
+    return 1
