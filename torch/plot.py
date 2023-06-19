@@ -7,6 +7,7 @@ import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib import gridspec
 import matplotlib
+matplotlib.use('Agg')
 
 import pandas as pd
 import numpy as np
