@@ -446,7 +446,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     with torch.no_grad():
         start = time.time()
         reconstruction = torchvision.transforms.functional.crop(
-            model.decoder(prediction), 0, 0, 64, 64).cpu().numpy()  # FIX the croppping LATER LOL
+            model.decoder(prediction), 0, 0, resolution, resolution).cpu().numpy() 
         end = time.time()
 
     # plot the figures
