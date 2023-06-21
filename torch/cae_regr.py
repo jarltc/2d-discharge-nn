@@ -88,7 +88,6 @@ if __name__ == '__main__':
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
-    resolution = 32
     image_ds = ImageDataset(root/'data'/'interpolation_datasets', is_square)
     train_labels = image_ds.train[1]
     test_features, test_labels = image_ds.test
@@ -104,9 +103,6 @@ if __name__ == '__main__':
     scaled_labels = scaler.fit_transform(train_labels)
     scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # check if scaled first
 
-    # TODO THE CODE DOESN'T WORK RIGHT BECAUSE I WAS SAVING THE WRONG MODEL THE WHOLE TIME (!!)
-    model = SquareAE32()
-    mlp = MLP(2, encoded_size, dropout_prob=0.5)
     mlp.load_state_dict(torch.load(mlp_dir))
     model.load_state_dict(torch.load(ae_dir))  # use path directly to model
     mlp.load_state_dict(torch.load(mlp_dir))  # use path directly to model
@@ -120,5 +116,5 @@ if __name__ == '__main__':
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
         decoded = model.decoder(fake_encoding)
 
-    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=is_square)
+    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=is_square, resolution=resolution)
     r2 = ae_correlation(test_res, fake_encoding, out_dir)
