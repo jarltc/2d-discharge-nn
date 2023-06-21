@@ -30,82 +30,10 @@ from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
+import autoencoder_classes
+import mlp_classes
 
 # define model TODO: construct following input file/specification list
-
-class SquareAE32(nn.Module):
-    """Autoencoder using square images as inputs.
-    
-    Input sizes are (5, 32, 32) (no).
-    """
-    def __init__(self) -> None:
-        super(SquareAE32, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(10, 20, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(20, 20, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1)),
-            nn.ReLU()
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(20, 20, kernel_size=(2, 2), stride=(2, 2)),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(20, 10, kernel_size=2, stride=2),
-            nn.ReLU(),
-
-            nn.ConvTranspose2d(10, 5, kernel_size=2, stride=2),
-            nn.ReLU()
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        # decoded = torchvision.transforms.functional.crop(
-        #     decoded, 0, 0, 64, 64)
-        return decoded
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 64, 64)
-        return decoded
-
-
-class MLP(nn.Module):
-    """MLP to recreate encodings from a pair of V and P.
-    """
-    def __init__(self, input_size, output_size, dropout_prob) -> None:
-        super(MLP, self).__init__()
-        self.input_size = input_size
-        self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 256)
-        self.fc2 = nn.Linear(256, 512)
-        self.fc3 = nn.Linear(512, 1024)
-        self.fc4 = nn.Linear(1024, output_size)  
-        self.dropout = nn.Dropout(dropout_prob)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc2(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc3(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc4(x)
-        x = F.relu(x)
-
-        return x
-
 
 def resize(data: np.ndarray, scale=64) -> np.ndarray:
     """Resize square images to 64x64 resolution by downscaling.
