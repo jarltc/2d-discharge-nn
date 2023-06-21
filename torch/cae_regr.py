@@ -69,8 +69,6 @@ if __name__ == '__main__':
     device = torch.device(
         'mps' if torch.backends.mps.is_available() else 'cpu')
 
-    ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/32x32/A212/A212')
-    mlp_dir = Path(input("Enter model directory (MLP): "))
     root = Path.cwd()
     is_square=True
 
