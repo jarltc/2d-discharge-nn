@@ -8,6 +8,7 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib import gridspec
 import matplotlib
 matplotlib.use('Agg')
+matplotlib.rcParams['font.family'] = 'Arial'
 
 import pandas as pd
 import numpy as np
@@ -435,7 +436,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         figsize = (10, 5)
         extent =[0, 20, 0, 70.7]
 
-    fig = plt.figure(dpi=200, layout='constrained')
+    fig = plt.figure(dpi=300, layout='constrained')
     
     grid = ImageGrid(fig, 111,  # similar to fig.add_subplot(142).
                      nrows_ncols=(2, 5), axes_pad=0.0, label_mode="L", share_all=True,
@@ -481,7 +482,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         scores.append(score)
 
     if out_dir is not None:
-        fig.savefig(out_dir/f'test_comparison.png', bbox_inches='tight')
+        fig.savefig(out_dir/f'test_comparison1.png', bbox_inches='tight')
 
     return end-start, scores
 
@@ -491,6 +492,8 @@ def ae_correlation(reference, prediction, out_dir):
     columns = ['pot', 'ne', 'ni', 'nm', 'te']
     prediction_cols = []
     reference_cols = []
+
+    prediction = prediction.cpu().numpy()
     
     for i, column in enumerate(columns):
         ref_series = pd.Series(reference[0, i, :, :].flatten(), name=column)
