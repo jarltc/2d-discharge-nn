@@ -74,6 +74,18 @@ if __name__ == '__main__':
     root = Path.cwd()
     is_square=True
 
+    resolution = 64
+    encodedx = 40
+    encodedy = 8
+    encodedz = 8
+    encoded_size = encodedx*encodedy*encodedz
+    model = autoencoder_classes.A64_6()
+    # model = autoencoder_classes.A300()
+    mlp = mlp_classes.MLP(2, encoded_size, dropout_prob=0.5)
+    
+    ae_dir = model.path
+    mlp_dir = mlp.path64
+
     out_dir = mlp_dir.parents[0]
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
