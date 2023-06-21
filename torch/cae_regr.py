@@ -49,6 +49,21 @@ def resize(data: np.ndarray, scale=64) -> np.ndarray:
     data = np.moveaxis(data, -1, 1)
     return data
 
+
+def normalize_test(dataset:np.ndarray, scalers:dict()):
+    normalized_variables = []
+
+    for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
+        x = dataset[:, i, :, :]
+        xMin, xMax = scalers[var]
+        scaledx = (x-xMin) / (xMax-xMin)  # shape: (31, x, x)
+        normalized_variables.append(scaledx)
+    
+    # shape: (5, 31, x, x)
+    normalized_dataset = np.moveaxis(np.stack(normalized_variables), 0, 1)  # shape: (31, 5, x, x)
+    return normalized_dataset
+
+
 if __name__ == '__main__':
     # set metal backend (apple socs)
     device = torch.device(
@@ -65,17 +80,19 @@ if __name__ == '__main__':
 
     resolution = 32
     image_ds = ImageDataset(root/'data'/'interpolation_datasets', is_square)
+    train_labels = image_ds.train[1]
     test_features, test_labels = image_ds.test
     test_res = resize(test_features, resolution)
 
-    # scaler = MinMaxScaler()
-    # scaled_labels = scaler.fit_transform(train_labels)
-    # scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # check if scaled first
+    image_scalefile = ae_dir.parents[0]/'scalers.pkl'
+    if image_scalefile.exists():
+        with open(image_scalefile, 'rb') as f:
+            imageScaler = pickle.load(f)
+        test_res = normalize_test(test_res, imageScaler)
 
-    encodedx = 20
-    encodedy = 5
-    encodedz = 5
-    encoded_size = encodedx*encodedy*encodedz
+    scaler = MinMaxScaler()
+    scaled_labels = scaler.fit_transform(train_labels)
+    scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # check if scaled first
 
     # TODO THE CODE DOESN'T WORK RIGHT BECAUSE I WAS SAVING THE WRONG MODEL THE WHOLE TIME (!!)
     model = SquareAE32()
@@ -89,7 +106,8 @@ if __name__ == '__main__':
     mlp.eval()
 
     with torch.no_grad():
-        fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
+        fake_encoding = mlp(torch.tensor(scaled_labels_test, device=device, dtype=torch.float32))  # mps does not support float64
+        fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
         decoded = model.decoder(fake_encoding)
 
     eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=is_square)
