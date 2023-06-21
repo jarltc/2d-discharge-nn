@@ -560,7 +560,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
             cax = grid.cbar_axes[i]
             ax.set_aspect('equal')
             cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
-            sc = ax.scatter(nodes['x'], nodes['y'], c=df[column], 
+            sc = ax.scatter(nodes['X'], nodes['Y'], c=df[column], 
                                     cmap=cmap,
                                     norm=colors.Normalize(vmin=cmin, vmax=cmax),
                                     s=0.2)

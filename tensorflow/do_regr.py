@@ -402,6 +402,7 @@ if __name__ == '__main__':
         # data_plot.all_plot(avg_data.iloc[:,:4], py, ty, regr_dir, simulation=True)  # plot simulation as reference
         triangles = data_plot.triangulate(pd.concat([avg_data.iloc[:,:4],py], axis='columns'))
         data_plot.quickplot(py, regr_dir, triangles=triangles, mesh=False)
+        data_plot.quickplot(py, regr_dir, mesh=True, nodes=avg_data.iloc[:,2:4]*100)
     
     for n,p_param in enumerate(ty.columns, start=1): # figs
         if on_grid:
