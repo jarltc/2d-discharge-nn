@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision
+from pathlib import Path
 
 # 32 x 32
 class MLP(nn.Module):
@@ -8,6 +9,8 @@ class MLP(nn.Module):
     """
     def __init__(self, input_size, output_size, dropout_prob) -> None:
         super(MLP, self).__init__()
+        self.path64 = Path('/Users/jarl/2d-discharge-nn/created_models/conditional_autoencoder/64x64/A64g/A64g')
+        self.path32 = Path('/Users/jarl/2d-discharge-nn/created_models/conditional_autoencoder/32x32/A32g/A32g')
         self.input_size = input_size
         self.output_size = output_size
         self.fc1 = nn.Linear(input_size, 256)
