@@ -22,7 +22,7 @@ from pathlib import Path
 
 from sklearn.preprocessing import MinMaxScaler
 
-from data_helpers import mse
+from data_helpers import mse, get_data
 
 def triangulate(df: pd.DataFrame):   
     """
@@ -522,7 +522,7 @@ if __name__=="__main__":
     root = Path.cwd()
     voltages  = [200, 300, 400, 500] # V
     pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
-    regr_df = data_helpers.get_data(root, voltages, pressures, (300, 60))[0]
+    regr_df = get_data(root, voltages, pressures, (300, 60))[0]
 
     features = regr_df[['V', 'P', 'x', 'y']]
     labels = regr_df[['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']]
