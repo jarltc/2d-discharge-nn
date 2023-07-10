@@ -189,8 +189,11 @@ def save_metadata(out_dir: Path):
             f.write(f'Grid augmentation: {xy}\n')
             f.write(f'VP augmentation: {vp}\n')
             if neighbor_regularization:
-                f.write(f'Neighbor regularization: k = {k}, lambda = {c}\n')
+                f.write(f'Neighbor regularization: k = {k}, lambda = {c} \n')
             else:
+                f.write(f'Neighbor regularization: none\n')
+            f.write('\n***end of file***\n')
+
 def gridUnscale(x, y, df):
     """Unscale a previously minmax-scaled point (x, y)
 
@@ -318,10 +321,10 @@ if __name__ == '__main__':
 
     model.train()
     # model training loop
-    for epoch in tqdm(range(epochs)):
+    for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
         # record time per epoch
         epoch_start = time.time()
-        loop = tqdm(trainloader)
+        loop = tqdm(trainloader, unit='batch', colour='#f5a97f')
 
         for i, batch_data in enumerate(loop):
             # get the inputs; data is a list of [inputs, labels]
@@ -330,7 +333,7 @@ if __name__ == '__main__':
             if neighbor_regularization:
                 # means not calculated if regularization is disabled
                 c = c_e(epoch, c=c)
-                neighbor_means = process_batch(inputs, model, nodes_df) 
+                neighbor_means = process_batch(inputs, model, tree, scaledNodes)
             else:
                 neighbor_means = 0
             
