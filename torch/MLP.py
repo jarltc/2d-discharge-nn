@@ -45,13 +45,13 @@ class MLP(nn.Module):
         self.output_size = output_size
         self.fc1 = nn.Linear(input_size, 115)  # linear: y = Ax + b
         self.fc2 = nn.Linear(115, 78)
-        self.fc3 = nn.Linear(78, 46)
-        self.fc4 = nn.Linear(46, 26)
-        self.fc5 = nn.Linear(26, 46)
-        self.fc6 = nn.Linear(46, 82)
-        self.fc7 = nn.Linear(82, 106)
-        self.fc8 = nn.Linear(106, 115)
-        self.fc9 = nn.Linear(115, output_size)
+        # self.fc3 = nn.Linear(78, 46)
+        self.fc3 = nn.Linear(78, 26)
+        self.fc4 = nn.Linear(26, 46)
+        self.fc5 = nn.Linear(46, 82)
+        self.fc6 = nn.Linear(82, 106)
+        # self.fc8 = nn.Linear(106, 115)
+        self.fc7 = nn.Linear(106, output_size)
         
     def forward(self, x):
         """Execute the forward pass.
@@ -75,25 +75,23 @@ class MLP(nn.Module):
         x = self.fc6(x)
         x = F.relu(x)
         x = self.fc7(x)
-        x = F.relu(x)
-        x = self.fc8(x)
-        x = F.relu(x)
-        x = self.fc9(x)
         
         output = F.relu(x)
         return output
 
 
 ####### neighbor regularization #######
-def process_batch(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> torch.Tensor: 
+def process_batch(chunk: torch.Tensor, model: MLP, tree:cKDTree, sdf: pd.DataFrame, k=4) -> torch.Tensor: 
     """Batch-wise processing of the input tensor.
 
     Takes a batch of points as an input, along with the current model, and a DataFrame of 
     grid coordinates. The cKDTree is also created from this df.
     Args:
-        chunk (torch.Tensor): _description_
-        model (MLP): _description_
-        df (pd.DataFrame): _description_
+        chunk (torch.Tensor): batch of input tensors whose neighbor means will be calculated.
+        model (MLP): model being trained.
+        tree: kd-tree of (unscaled) grid coordinates
+        sdf (pd.DataFrame): DataFrame of scaled nodes (grid points)
+        k: number of nearest neighbors to query. default is 4.
 
     Returns:
         torch.Tensor: Tensor of size (chunk_size, 5) containing neighbor means of the input chunk.
@@ -101,20 +99,19 @@ def process_batch(chunk: torch.Tensor, model: MLP, df: pd.DataFrame, k=4) -> tor
 
     def neighbor_mean(point: torch.Tensor, k):
         # get a point's neighbors
-        x, y, v, p = point.numpy() # -> np.ndarray
+        a, b, v, p = point.numpy() # -> np.ndarray
+        x, y = gridUnscale(a, b, nodes)  # to properly enforce the distance upper bound in tree.query()
         v = np.atleast_1d(v)  # converts to arrays with at least one dimension
         p = np.atleast_1d(p)
         _, ii = tree.query([x, y], k, distance_upper_bound=1e-3)  # get indices of k neighbors of the point (max: 1e-3m)
         
-        neighbor_xy = [df[['X', 'Y']].iloc[i].to_numpy() for i in ii]  # size: (k, 5 vars)
+        neighbor_xy = [sdf.iloc[i-1].to_numpy() for i in ii]  # size: (k, 5 vars)
         neighbors = [np.concatenate((xy, v, p)) for xy in neighbor_xy]  # list of input vectors x
         neighbors = [torch.tensor(neighbor).expand(1, -1) for neighbor in neighbors]  # expand to match sizes (i forgot why)
 
         # concat neighbors and get the mean for each variable
         mean_tensors = torch.cat([model(neighbor) for neighbor in neighbors], dim=0)
         return torch.mean(mean_tensors, dim=0)
-    
-    tree = cKDTree(np.c_[df['X'].to_numpy(), df['Y'].to_numpy()])
 
     with torch.no_grad():
         results = [neighbor_mean(x, 4) for x in chunk]
@@ -194,9 +191,27 @@ def save_metadata(out_dir: Path):
             if neighbor_regularization:
                 f.write(f'Neighbor regularization: k = {k}, lambda = {c}\n')
             else:
-                f.write(f'Neighbor regularization: none')
-            f.write('\n*** end of file ***\n')
+def gridUnscale(x, y, df):
+    """Unscale a previously minmax-scaled point (x, y)
 
+    Args:
+        x (float): x-coordinate (scaled) 
+        y (float): y-coordinate (scaled)
+        df (pd.DataFrame): df of unscaled x and y
+
+    Returns:
+        x, y: unscaled x, y
+    """
+    xmin = df['X'].min()
+    xmax = df['X'].max()
+    ymin = df['Y'].min()
+    ymax = df['Y'].max()
+
+    # unscale (assuming minmax)
+    x = x*(xmax-xmin) + xmin
+    y = y*(ymax-ymin) + ymin
+
+    return x, y
 
 if __name__ == '__main__':
     # --------------- Model hyperparameters -----------------
@@ -275,8 +290,10 @@ if __name__ == '__main__':
     alldf = pd.concat([features, labels], axis=1)  # TODO: consider removing this
     dataset_size = len(alldf)
 
-    # kD tree for neighbor regularization
-    nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
+    # kD tree for neighbor regularization (converted to tree later)
+    nodes = data_excluded[['X', 'Y']]
+    tree = cKDTree(np.c_[nodes['X'].to_numpy(), nodes['Y'].to_numpy()])
+    scaledNodes = data.scale_all(data_excluded[['X', 'Y']], 'x') 
 
     # create dataset object and shuffle it()  # TODO: train/val split
     features = torch.tensor(features.to_numpy())
