@@ -292,6 +292,10 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
             fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
         else:
             fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
+        if mesh:
+            fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
+        else:
+            fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
 
     return fig
 

@@ -15,6 +15,8 @@ from pathlib import Path
 import re
 import pandas as pd
 import matplotlib.patches as pat
+from matplotlib import gridspec
+from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib import colors
 from sklearn.preprocessing import MinMaxScaler
 # import data
@@ -467,4 +469,125 @@ if __name__ == '__main__':
     # ax.imshow(grid)
     
 
+def difference_plot2(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
+    """Plot the difference between predictions and true values. (py - ty)
 
+    Args:
+        tX (pd.DataFrame): DataFrame of (V, P, X, Y)
+        py (pd.DataFrame): DataFrame of predictions.
+        ty (pd.DataFrame): DataFrame of corresponding true values.
+        out_dir (Path): Directory to save the figure.
+    """
+    assert list(py.columns) == list(ty.columns)
+
+    # TODO: move elsewhere
+    units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
+            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
+            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
+            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
+            'Te (eV)'          :' (eV)'}
+
+    diff = 100 * ((py - ty) / np.abs(ty)) 
+    titles = [column.split()[0] for column in diff.columns]
+
+    tX['X'] = tX['X']*100
+    tX['Y'] = tX['Y']*100
+
+    # ranges = {'potential (V)': (-5, 5), 
+    #           'Ne (#/m^-3)' : (-8, 8),
+    #           'Ar+ (#/m^-3)' : (-9, 9),
+    #           'Nm (#/m^-3)' : (-20, 50),
+    #           'Te (eV)' : (-50, 50)}
+    
+    cmap = plt.get_cmap('coolwarm')
+
+    # fig, ax = plt.subplots(ncols=5, dpi=200, figsize=(12, 4), constrained_layout=True)
+    fig = plt.figure(dpi=200, figsize=(8, 4), constrained_layout=True)
+    gs = gridspec.GridSpec(1, 6, width_ratios=[1, 1, 1, 1, 1, 0.1], figure=fig)
+    
+    for i, column in enumerate(ty.columns):
+        ax = fig.add_subplot(gs[0, i])
+        sc = ax.scatter(tX['X'], tX['Y'], c=diff[column], cmap=cmap, 
+                        #    norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), 
+                           norm=colors.Normalize(vmin=-100, vmax=100),
+                           s=0.2) 
+        draw_apparatus(ax)
+        ax.set_title(titles[i])
+        ax.set_aspect('equal')
+        ax.set_xlim(0,20)
+        ax.set_ylim(0,70.9)
+        draw_apparatus(ax)
+    
+    cax = fig.add_subplot(gs[0, 5])
+    cbar = plt.colorbar(sc, extend='both', cax=cax)
+    cbar.ax.tick_params(labelsize=8)
+    cbar.set_label(r'% difference', size=8)
+
+    fig.savefig(out_dir/'difference.png', bbox_inches='tight')
+
+    return fig
+
+def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=False):
+    """Quick plot of all 5 parameters.
+
+    This makes a plot for just the predictions, but it might help to have
+    the actual simulation results for comparison (TODO).
+    Args:
+        df (pd.DataFrame): DataFrame of only the predictions (no features).
+        data_dir (Path, optional): Path to where the model is saved. Defaults to None.
+        grid (bool, optional): _description_. Defaults to False.
+        triangles (_type_, optional): _description_. Defaults to None.
+
+    Returns:
+        _type_: _description_
+    """
+    matplotlib.rcParams['font.family'] = 'Arial'
+    cmap = plt.cm.viridis
+
+    # check whether to plot a filled contour or mesh points
+    
+    fig = plt.figure(dpi=200, figsize=(9, 4), constrained_layout=True)
+    grid = ImageGrid(
+        fig, 111, nrows_ncols=(1, len(df.columns)), 
+        axes_pad=0.5, label_mode="L", share_all=True,
+        cbar_location="right", cbar_mode="each", cbar_size="7%", cbar_pad="5%")
+
+    titles = [column.split()[0] for column in df.columns]
+
+    if mesh:
+        for i, column in enumerate(df.columns):
+            ax = grid[i]
+            cax = grid.cbar_axes[i]
+            ax.set_aspect('equal')
+            cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+            sc = ax.scatter(nodes['X'], nodes['Y'], c=df[column], 
+                                    cmap=cmap,
+                                    norm=colors.Normalize(vmin=cmin, vmax=cmax),
+                                    s=0.2)
+            cax.colorbar(sc)
+            draw_apparatus(ax)
+            ax.set_xlim(0,20)
+            ax.set_ylim(0,70.9)
+            ax.set_title(titles[i])
+
+    else:
+        for i, column in enumerate(df.columns):
+            ax = grid[i]
+            cax = grid.cbar_axes[i]
+            ax.set_aspect('equal')
+            cmin, cmax = get_cbar_range_300V_60Pa(column, lin=True)
+            tri = ax.tricontourf(triangles, df[column], levels=36, 
+                                    cmap=cmap, vmin=cmin, vmax=cmax)
+            cax.colorbar(tri)
+            draw_apparatus(ax)
+            ax.set_title(titles[i])
+    
+    fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
+
+    if data_dir is not None:
+        if mesh:
+            fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
+        else:
+            fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
+
+    return fig
