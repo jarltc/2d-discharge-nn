@@ -25,7 +25,7 @@ from torchinfo import summary
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from autoencoder_classes import A300
+from autoencoder_classes import A300, A64_6, A64_6s, A300s
 from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 
@@ -113,7 +113,7 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write(f'Train time: {(train_end-train_start):.2f} s\n')
         # f.write(
         #     f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
-        f.write(f'Evaluation time: {(eval_time):.2f} s\n')
+        f.write(f'Evaluation time: {(eval_time):.2f} ms\n')
         f.write(f'Scores (MSE): {scores}\n')
         f.write(f'Scores (r2): {r2}\n')
         f.write('\n***** end of file *****')
@@ -158,8 +158,8 @@ if __name__ == '__main__':
     root = Path.cwd()
     is_square=True
 
-    # out_dir = root/'created_models'/'autoencoder'/'64x64'/name
     out_dir = root/'created_models'/'autoencoder'/'32x32'/name
+    # out_dir = root/'created_models'/'autoencoder'/'32x32'/'speed_test'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
@@ -189,7 +189,8 @@ if __name__ == '__main__':
     # hyperparameters (class property?)
     epochs = 500
     learning_rate = 1e-3
-    model = A300()
+    # model = A300()
+    model = A300s()
     model.to(device)  # move model to gpu
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -237,11 +238,11 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         encoded = model.encoder(torch.tensor(test_res, device=device))
-        decoded = model(torch.tensor(test_res, device=device)).cpu().numpy()
+        decoded = model(torch.tensor(test_res, device=device))
 
     torch.save(model.state_dict(), out_dir/f'{name}')
     train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='autoencoder')
-    eval_time, scores = plot_comparison_ae(test_res, encoded, model, out_dir=out_dir, is_square=is_square)
+    eval_time, scores = plot_comparison_ae(test_res, encoded, model, out_dir=out_dir, is_square=is_square, resolution=resolution)
     r2 = ae_correlation(test_res, decoded, out_dir)
     plot_train_loss(epoch_loss, epoch_validation)
     write_metadata(out_dir)

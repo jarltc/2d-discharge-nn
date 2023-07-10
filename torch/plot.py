@@ -447,10 +447,12 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
                     for i in range(5)]
 
     with torch.no_grad():
-        start = time.time()
+        start = time.time_ns()
         reconstruction = torchvision.transforms.functional.crop(
             model.decoder(prediction), 0, 0, resolution, resolution).cpu().numpy() 
-        end = time.time()
+        end = time.time_ns()
+
+    eval_time = round((end-start)/1e-6, 2)
 
     # plot the figures
     for i, ax in enumerate(grid):
@@ -484,7 +486,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     if out_dir is not None:
         fig.savefig(out_dir/f'test_comparison1.png', bbox_inches='tight')
 
-    return end-start, scores
+    return eval_time, scores
 
 def ae_correlation(reference, prediction, out_dir):
     from sklearn.metrics import r2_score
