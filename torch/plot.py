@@ -337,7 +337,7 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
         scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
 
         # get correlation score
-        if scores == None:
+        if scores is None:
             r2 = round(scores_list[i], 2)
         else: 
             r2 = round(scores[column].iloc[3], 2)
