@@ -312,6 +312,9 @@ if __name__ == '__main__':
 
     # train the model
     print('begin model training...')
+    print(f'neighbor_regularization = {neighbor_regularization}')
+    if neighbor_regularization:
+        print(f'lambda = {c}, k = {k}')
     train_start = time.time()  # record start time
 
     epoch_times = []
