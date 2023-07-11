@@ -9,11 +9,11 @@ import os
 import sys
 import time
 import datetime
-import shutil
+import ast
 import pickle
 from tqdm import tqdm
 from pathlib import Path
-import torch.multiprocessing as mp
+
 
 import numpy as np
 import pandas as pd
@@ -187,7 +187,7 @@ def save_metadata(out_dir: Path):
             f.write(f'\nUser-specified hyperparameters\n')
             f.write(f'Batch size: {batch_size}\n')
             f.write(f'Learning rate: {learning_rate}\n')
-            f.write(f'Validation split: {validation_split}\n')
+            f.write(f'Validation split: currently not used\n')
             f.write(f'Epochs: {epochs}\n')
             f.write(f'Grid augmentation: {xy}\n')
             f.write(f'VP augmentation: {vp}\n')
@@ -203,179 +203,181 @@ if __name__ == '__main__':
 
     root = Path.cwd() 
     data_fldr_path = root/'data'/'avg_data'
-    inputFile = root/'torch'/sys.argv[1] # root/'torch'/'M501.txt'
+    inputFile = root/'torch'/'conf_dicts.txt'
 
-    # read input file
+    # read input file for list of configurations
     with open(inputFile, 'r') as i:
-        lines = i.readlines()
-    
-    lines = [line.split()[-1] for line in lines]
+        config_list = ast.literal_eval(i.read())
 
-    minmax_y = True  # apply minmax scaling to targets 
-    lin = True  # scale the targets linearly
+    for config in config_list:
 
-    # read metadata from input file
-    name = lines[0]
-    batch_size = eval(lines[1])
-    learning_rate = eval(lines[2])
-    validation_split = eval(lines[3])
-    epochs = eval(lines[4])
-    xy = eval(lines[5])
-    vp = eval(lines[6])
-    k = eval(lines[7])  # number of neighbors, 0 to disable
+        minmax_y = True  # apply minmax scaling to targets 
+        lin = True  # scale the targets linearly
 
-    if k == 0:
-        neighbor_regularization = False
-        c = 0
-    else:
-        neighbor_regularization = True
-        c = eval(lines[8])  # neighbor regularization lambda
+        # read metadata from config file
+        name = config['name']
+        batch_size = config['batch_size']
+        learning_rate = config['learning_rate']
+        validation_split = config['validation_split']
+        epochs = config['epochs']
+        xy = config['xy']
+        vp = config['vp']
+        k = config['k']  # number of neighbors, 0 to disable
 
-    # -------------------------------------------------------
+        if k == 0:
+            neighbor_regularization = False
+            c = 0
+        else:
+            neighbor_regularization = True
+            c = config['lambda']  # neighbor regularization lambda
 
-    voltages  = [200, 300, 400, 500] # V
-    pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
+        # -------------------------------------------------------
 
-    voltage_excluded = 300 # V
-    pressure_excluded = 60 # Pa
+        voltages  = [200, 300, 400, 500] # V
+        pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
 
-    # -------------------------------------------------------
+        voltage_excluded = 300 # V
+        pressure_excluded = 60 # Pa
 
-    if ((name=='test') & (root/'created_models'/'test_dir_torch').exists()):
-        out_dir = root/'created_models'/'test_dir_torch'  
-    elif ((name=='test') & (not (root/'created_models'/'test_dir_torch').exists())): 
-        os.mkdir(root/'created_models'/'test_dir_torch')
-    else:
-        out_dir = data.create_output_dir(root) 
+        # -------------------------------------------------------
+        
+        ########## data prep ##########
+        if ((name=='test') & (root/'created_models'/'test_dir_torch').exists()):
+            out_dir = root/'created_models'/'test_dir_torch'  
+        elif ((name=='test') & (not (root/'created_models'/'test_dir_torch').exists())): 
+            os.mkdir(root/'created_models'/'test_dir_torch')
+        else:
+            out_dir = data.create_output_dir(root) 
 
-    scaler_dir = out_dir / 'scalers'
-    if (not scaler_dir.exists()):
-        os.mkdir(scaler_dir) 
+        scaler_dir = out_dir / 'scalers'
+        if (not scaler_dir.exists()):
+            os.mkdir(scaler_dir) 
 
-    feature_names = ['V', 'P', 'x', 'y']
-    label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+        feature_names = ['V', 'P', 'x', 'y']
+        label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-    data_used, data_excluded = data.get_data(root, voltages, pressures, 
-                                            (voltage_excluded, pressure_excluded),
-                                            xy=xy, vp=vp)
-    # sanity check
-    assert list(data_used.columns) == feature_names + label_names
+        data_used, data_excluded = data.get_data(root, voltages, pressures, 
+                                                (voltage_excluded, pressure_excluded),
+                                                xy=xy, vp=vp)
+        # sanity check
+        assert list(data_used.columns) == feature_names + label_names
 
-    # set threshold to make very small values zero
-    pd.set_option('display.chop_threshold', 1e-10)
+        # set threshold to make very small values zero
+        pd.set_option('display.chop_threshold', 1e-10)
 
-    # scale features and labels
-    scale_exp = []
-    features = data.scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
-    labels = data.data_preproc(data_used[label_names], scale_exp).astype('float64')
+        # scale features and labels
+        scale_exp = []
+        features = data.scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
+        labels = data.data_preproc(data_used[label_names], scale_exp).astype('float64')
 
-    if minmax_y:  # if applying minmax to target data
-        labels = data.scale_all(labels, 'y', scaler_dir)
+        if minmax_y:  # if applying minmax to target data
+            labels = data.scale_all(labels, 'y', scaler_dir)
 
-    alldf = pd.concat([features, labels], axis=1)  # TODO: consider removing this
-    dataset_size = len(alldf)
+        alldf = pd.concat([features, labels], axis=1)  # TODO: consider removing this
+        dataset_size = len(alldf)
 
-    # kD tree for neighbor regularization
-    nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
+        # kD tree for neighbor regularization
+        nodes_df = data.scale_all(data_excluded[['X', 'Y']], 'x') 
 
-    # create dataset object and shuffle it()  # TODO: train/val split
-    features = torch.tensor(features.to_numpy())
-    labels = torch.tensor(labels.to_numpy())
-    dataset = TensorDataset(features, labels)
+        # create dataset object and shuffle it()  # TODO: train/val split
+        features = torch.tensor(features.to_numpy())
+        labels = torch.tensor(labels.to_numpy())
+        dataset = TensorDataset(features, labels)
 
-    trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    model = MLP(name, len(feature_names), len(label_names)) 
-    model.share_memory()
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+        model = MLP(name, len(feature_names), len(label_names)) 
+        model.share_memory()
+        criterion = nn.MSELoss()
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    # train the model
-    print('begin model training...')
-    train_start = time.time()  # record start time
+        # train the model
+        print('begin model training...')
+        train_start = time.time()  # record start time
 
-    epoch_times = []
-    epoch_loss = []
-    train_losses = []
-    neighbor_losses = []
+        epoch_times = []
+        epoch_loss = []
+        train_losses = []
+        neighbor_losses = []
 
-    model.train()
-    # model training loop
-    for epoch in tqdm(range(epochs)):
+        ########## actual training happens here ##########
+        model.train()
+        # model training loop
+        for epoch in tqdm(range(epochs)):
+            # record time per epoch
+            epoch_start = time.time()
+            loop = tqdm(trainloader)
+
+            for i, batch_data in enumerate(loop):
+                # get the inputs; data is a list of [inputs, labels]
+                inputs, labels = batch_data
+
+                if neighbor_regularization:
+                    # means not calculated if regularization is disabled
+                    c = c_e(epoch, c=c)
+                    neighbor_means = process_batch(inputs, model, nodes_df) 
+                else:
+                    neighbor_means = 0
+                
+                # zero the parameter gradients
+                optimizer.zero_grad()
+
+                # record losses
+                running_loss = 0.0
+
+                outputs = model(inputs)  # forward pass
+                train_loss = criterion(outputs, labels)
+                if neighbor_regularization:
+                    neighbor_loss = criterion(outputs, neighbor_means)
+                    loss = train_loss + c*neighbor_loss  # second term 0 if neighbor_regularization turned off
+                else: loss = train_loss
+                loss.backward()  # compute gradients
+                optimizer.step()  # apply changes to network
+
+                # print statistics
+                running_loss += loss.item()
+                loop.set_description(f"Epoch {epoch+1}/{epochs}")
+                loop.set_postfix(loss=running_loss)
+                running_loss = 0.0
+
+            epoch_end = time.time()
+            epoch_times.append(epoch_end - epoch_start)
+            epoch_loss.append(loss.item())
+            train_losses.append(train_loss.item())
+            if neighbor_regularization: neighbor_losses.append(neighbor_loss.item()) 
+
+            if (epoch+1) % epochs == 0:
+                # save model every 10 epochs (so i dont lose all training progress in case i do something dumb)
+                torch.save(model.state_dict(), out_dir/f'{name}')
+                plot.save_history_graph(epoch_loss, out_dir)
+
+
+        print('Finished training')
+        train_end = time.time()
+
+        # save the model and loss
+        torch.save(model.state_dict(), out_dir/f'{name}')
+        print('NN model has been saved.\n')
+        plot.save_history_graph(epoch_loss, out_dir)
+        print('NN training history has been saved.\n')
+
+        # save metadata
+        metadata = {'name' : name,  # str
+                    'scaling' : lin,  # bool
+                    'is_target_scaled': minmax_y,  # bool
+                    'parameter_exponents': scale_exp}  # list of float
+
+        with open(out_dir / 'train_metadata.pkl', 'wb') as f:
+            pickle.dump(metadata, f)
+
         # record time per epoch
-        epoch_start = time.time()
-        loop = tqdm(trainloader)
+        with open(out_dir / 'times.txt', 'w') as f:
+            f.write('Train times per epoch\n')
+            for i, time in enumerate(epoch_times):
+                time = round(time, 2)
+                f.write(f'Epoch {i+1}: {time} s\n')
 
-        for i, batch_data in enumerate(loop):
-            # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = batch_data
+        d = datetime.datetime.today()
+        print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
 
-            if neighbor_regularization:
-                # means not calculated if regularization is disabled
-                c = c_e(epoch, c=c)
-                neighbor_means = process_batch(inputs, model, nodes_df) 
-            else:
-                neighbor_means = 0
-            
-            # zero the parameter gradients
-            optimizer.zero_grad()
-
-            # record losses
-            running_loss = 0.0
-
-            outputs = model(inputs)  # forward pass
-            train_loss = criterion(outputs, labels)
-            if neighbor_regularization:
-                neighbor_loss = criterion(outputs, neighbor_means)
-                loss = train_loss + c*neighbor_loss  # second term 0 if neighbor_regularization turned off
-            else: loss = train_loss
-            loss.backward()  # compute gradients
-            optimizer.step()  # apply changes to network
-
-            # print statistics
-            running_loss += loss.item()
-            loop.set_description(f"Epoch {epoch+1}/{epochs}")
-            loop.set_postfix(loss=running_loss)
-            running_loss = 0.0
-
-        epoch_end = time.time()
-        epoch_times.append(epoch_end - epoch_start)
-        epoch_loss.append(loss.item())
-        train_losses.append(train_loss.item())
-        if neighbor_regularization: neighbor_losses.append(neighbor_loss.item()) 
-
-        if (epoch+1) % epochs == 0:
-            # save model every 10 epochs (so i dont lose all training progress in case i do something dumb)
-            torch.save(model.state_dict(), out_dir/f'{name}')
-            plot.save_history_graph(epoch_loss, out_dir)
-
-
-    print('Finished training')
-    train_end = time.time()
-
-    # save the model and loss
-    torch.save(model.state_dict(), out_dir/f'{name}')
-    print('NN model has been saved.\n')
-    plot.save_history_graph(epoch_loss, out_dir)
-    print('NN training history has been saved.\n')
-
-    # save metadata
-    metadata = {'name' : name,  # str
-                'scaling' : lin,  # bool
-                'is_target_scaled': minmax_y,  # bool
-                'parameter_exponents': scale_exp}  # list of float
-
-    with open(out_dir / 'train_metadata.pkl', 'wb') as f:
-        pickle.dump(metadata, f)
-
-    # record time per epoch
-    with open(out_dir / 'times.txt', 'w') as f:
-        f.write('Train times per epoch\n')
-        for i, time in enumerate(epoch_times):
-            time = round(time, 2)
-            f.write(f'Epoch {i+1}: {time} s\n')
-
-    d = datetime.datetime.today()
-    print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
-
-    save_metadata(out_dir)
+        save_metadata(out_dir)
