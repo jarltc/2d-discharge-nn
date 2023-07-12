@@ -195,7 +195,7 @@ class PredictionDataset:
                 print(file=out)
 
         print_scores_core(sys.stdout)
-        plot.correlation(self.targets, self.prediction_result, self.scores, regr_dir)
+        plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)
 
         scores_file = regr_dir/'scores.txt'
         with open(scores_file, 'w') as f:
@@ -354,7 +354,7 @@ if __name__ == '__main__':
     regr_df = PredictionDataset(regr_df, model, metadata)
 
     prediction = regr_df.prediction  # make a prediction
-    regr_df.get_scores()  # get scores
+    regr_df.get_scores()  # get scores and make correlation plot
 
     triangles = plot.triangulate(regr_df.features[['x', 'y']])
     plot.quickplot(prediction, regr_dir, triangles=triangles, mesh=False)

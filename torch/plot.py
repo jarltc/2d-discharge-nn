@@ -292,10 +292,6 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
             fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
         else:
             fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
-        if mesh:
-            fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
-        else:
-            fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
 
     return fig
 
@@ -337,7 +333,7 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
         scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
 
         # get correlation score
-        if scores == None:
+        if scores is None:
             r2 = round(scores_list[i], 2)
         else: 
             r2 = round(scores[column].iloc[3], 2)
@@ -515,16 +511,3 @@ def ae_correlation(reference, prediction, out_dir):
     correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
 
     return scores
-
-
-if __name__=="__main__":
-    # plot simulation data
-    root = Path.cwd()
-    voltages  = [200, 300, 400, 500] # V
-    pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
-    regr_df = get_data(root, voltages, pressures, (300, 60))[0]
-
-    features = regr_df[['V', 'P', 'x', 'y']]
-    labels = regr_df[['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']]
-
-    quickplot(labels, Path('/Users/jarl/2d-discharge-nn/created_models/mlp'), mesh=True, nodes=features[['x', 'y']]*100)
