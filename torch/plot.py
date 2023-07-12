@@ -284,8 +284,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
             cax.colorbar(tri)
             draw_apparatus(ax)
             ax.set_title(titles[i])
-    
-    fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
+        
 
     if data_dir is not None:
         if mesh:
