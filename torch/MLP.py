@@ -294,10 +294,10 @@ if __name__ == '__main__':
         alldf = pd.concat([features, labels], axis=1)  # TODO: consider removing this
         dataset_size = len(alldf)
 
-    # kD tree for neighbor regularization (converted to tree later)
-    nodes = data_excluded[['X', 'Y']]
-    tree = cKDTree(np.c_[nodes['X'].to_numpy(), nodes['Y'].to_numpy()])
-    scaledNodes = data.scale_all(data_excluded[['X', 'Y']], 'x') 
+        # kD tree for neighbor regularization (converted to tree later)
+        nodes = data_excluded[['X', 'Y']]
+        tree = cKDTree(np.c_[nodes['X'].to_numpy(), nodes['Y'].to_numpy()])
+        scaledNodes = data.scale_all(data_excluded[['X', 'Y']], 'x') 
 
         # create dataset object and shuffle it()  # TODO: train/val split
         features = torch.tensor(features.to_numpy())
@@ -311,38 +311,38 @@ if __name__ == '__main__':
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    # train the model
-    print('begin model training...')
-    print(f'neighbor_regularization = {neighbor_regularization}')
-    if neighbor_regularization:
-        print(f'lambda = {c}, k = {k}')
-    train_start = time.time()  # record start time
+        # train the model
+        print('begin model training...')
+        print(f'neighbor_regularization = {neighbor_regularization}')
+        if neighbor_regularization:
+            print(f'lambda = {c}, k = {k}')
+        train_start = time.time()  # record start time
 
         epoch_times = []
         epoch_loss = []
         train_losses = []
         neighbor_losses = []
 
-    model.train()
-    # model training loop
-    for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
-        # record time per epoch
-        epoch_start = time.time()
-        loop = tqdm(trainloader, unit='batch', colour='#f5a97f')
+        model.train()
+        # model training loop
+        for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
+            # record time per epoch
+            epoch_start = time.time()
+            loop = tqdm(trainloader, unit='batch', colour='#f5a97f')
 
             for i, batch_data in enumerate(loop):
                 # get the inputs; data is a list of [inputs, labels]
                 inputs, labels = batch_data
 
-            if neighbor_regularization:
-                # means not calculated if regularization is disabled
-                c = c_e(epoch, c=c)
-                neighbor_means = process_batch(inputs, model, tree, scaledNodes)
-            else:
-                neighbor_means = 0
-            
-            # zero the parameter gradients
-            optimizer.zero_grad()
+                if neighbor_regularization:
+                    # means not calculated if regularization is disabled
+                    c = c_e(epoch, c=c)
+                    neighbor_means = process_batch(inputs, model, tree, scaledNodes)
+                else:
+                    neighbor_means = 0
+                
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
                 # record losses
                 running_loss = 0.0
