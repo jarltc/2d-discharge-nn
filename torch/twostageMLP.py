@@ -241,13 +241,7 @@ if __name__ == '__main__':
         xy = config['xy']
         vp = config['vp']
         k = config['k']  # number of neighbors, 0 to disable
-
-        if k == 0:
-            neighbor_regularization = False
-            c = 0
-        else:
-            neighbor_regularization = True
-            c = config['lambda']  # neighbor regularization lambda
+        c = config['lambda']  # neighbor regularization lambda
 
         # -------------------------------------------------------
 
@@ -283,7 +277,7 @@ if __name__ == '__main__':
         # set threshold to make very small values zero
         pd.set_option('display.chop_threshold', 1e-10)
 
-        # scale features and labels
+        # scale features and labels 
         scale_exp = []
         features = data.scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
         labels = data.data_preproc(data_used[label_names], scale_exp).astype('float64')
@@ -311,77 +305,79 @@ if __name__ == '__main__':
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-        # train the model
+        # train the model twice, first regularly and again with the neighbor regularization
         print('begin model training...')
-        print(f'neighbor_regularization = {neighbor_regularization}')
-        if neighbor_regularization:
-            print(f'lambda = {c}, k = {k}')
-        train_start = time.time()  # record start time
+        for neighbor_regularization in [False, True]:
+            print(f'neighbor_regularization = {neighbor_regularization}')
+            if neighbor_regularization:
+                print(f'lambda = {c}, k = {k}')
+                epochs = 20  # hp: only train with neighbor regularization for a few epochs
+            train_start = time.time()  # record start time
 
-        epoch_times = []
-        epoch_loss = []
-        train_losses = []
-        neighbor_losses = []
+            epoch_times = []
+            epoch_loss = []
+            train_losses = []
+            neighbor_losses = []
 
-        model.train()
-        # model training loop
-        for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
-            # record time per epoch
-            epoch_start = time.time()
-            loop = tqdm(trainloader, unit='batch', colour='#f5a97f')
+            model.train()
+            # model training loop
+            for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
+                # record time per epoch
+                epoch_start = time.time()
+                loop = tqdm(trainloader, unit='batch', colour='#f5a97f')
 
-            for i, batch_data in enumerate(loop):
-                # get the inputs; data is a list of [inputs, labels]
-                inputs, labels = batch_data
+                for i, batch_data in enumerate(loop):
+                    # get the inputs; data is a list of [inputs, labels]
+                    inputs, labels = batch_data
 
-                if neighbor_regularization:
-                    # means not calculated if regularization is disabled
-                    c = c_e(epoch, c=c)
-                    neighbor_means = process_batch(inputs, model, tree, scaledNodes)
-                else:
-                    neighbor_means = 0
-                
-                # zero the parameter gradients
-                optimizer.zero_grad()
+                    if neighbor_regularization:
+                        # means not calculated if regularization is disabled
+                        c = c_e(epoch, c=c)
+                        neighbor_means = process_batch(inputs, model, tree, scaledNodes)
+                    else:
+                        neighbor_means = 0
+                    
+                    # zero the parameter gradients
+                    optimizer.zero_grad()
 
-                # record losses
-                running_loss = 0.0
+                    # record losses
+                    running_loss = 0.0
 
-                outputs = model(inputs)  # forward pass
-                train_loss = criterion(outputs, labels)
-                if neighbor_regularization:
-                    neighbor_loss = criterion(outputs, neighbor_means)
-                    loss = train_loss + c*neighbor_loss  # second term 0 if neighbor_regularization turned off
-                else: loss = train_loss
-                loss.backward()  # compute gradients
-                optimizer.step()  # apply changes to network
+                    outputs = model(inputs)  # forward pass
+                    train_loss = criterion(outputs, labels)
+                    if neighbor_regularization:
+                        neighbor_loss = criterion(outputs, neighbor_means)
+                        loss = c*neighbor_loss  # c = 0 if no neighbor regularization
+                    else: loss = train_loss
+                    loss.backward()  # compute gradients
+                    optimizer.step()  # apply changes to network
 
-                # print statistics
-                running_loss += loss.item()
-                loop.set_description(f"Epoch {epoch+1}/{epochs}")
-                loop.set_postfix(loss=running_loss)
-                running_loss = 0.0
+                    # print statistics
+                    running_loss += loss.item()
+                    loop.set_description(f"Epoch {epoch+1}/{epochs}")
+                    loop.set_postfix(loss=running_loss)
+                    running_loss = 0.0
 
-            epoch_end = time.time()
-            epoch_times.append(epoch_end - epoch_start)
-            epoch_loss.append(loss.item())
-            train_losses.append(train_loss.item())
-            if neighbor_regularization: neighbor_losses.append(neighbor_loss.item()) 
+                epoch_end = time.time()
+                epoch_times.append(epoch_end - epoch_start)
+                epoch_loss.append(loss.item())
+                train_losses.append(train_loss.item())
+                if neighbor_regularization: neighbor_losses.append(neighbor_loss.item()) 
 
-            if (epoch+1) % epochs == 0:
-                # save model every 10 epochs (so i dont lose all training progress in case i do something dumb)
-                torch.save(model.state_dict(), out_dir/f'{name}')
-                plot.save_history_graph(epoch_loss, out_dir)
+                if (epoch+1) % epochs == 0:
+                    # save model every 10 epochs (so i dont lose all training progress in case i do something dumb)
+                    torch.save(model.state_dict(), out_dir/f'{name}')
+                    plot.save_history_graph(epoch_loss, out_dir)
 
 
-        print('Finished training')
-        train_end = time.time()
+            print('Finished training')
+            train_end = time.time()
 
-        # save the model and loss
-        torch.save(model.state_dict(), out_dir/f'{name}')
-        print('NN model has been saved.\n')
-        plot.save_history_graph(epoch_loss, out_dir)
-        print('NN training history has been saved.\n')
+            # save the model and loss
+            torch.save(model.state_dict(), out_dir/f'{name}')
+            print('NN model has been saved.\n')
+            plot.save_history_graph(epoch_loss, out_dir)
+            print('NN training history has been saved.\n')
 
         # save metadata
         metadata = {'name' : name,  # str
