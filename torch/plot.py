@@ -12,6 +12,7 @@ matplotlib.rcParams['font.family'] = 'Arial'
 
 import pandas as pd
 import numpy as np
+import xarray as xr
 
 import torch
 import torch.nn as nn
@@ -510,3 +511,61 @@ def ae_correlation(reference, prediction, out_dir):
     correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
 
     return scores
+
+def slices(model, kind='mesh', out_dir=None):
+    columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    if kind == 'mesh':
+        # test v and p (scaled)
+        v = 300.0
+        p = 60.0
+        testV = (v - 200.0)/(500.0 - 200.0)
+        testP = (p - 5.0)/(120.0 - 5.0)
+
+        v = [200., 300., 400., 500.]
+        p = [  5.,  10.,  30.,  45.,  60.,  80., 100., 120.]
+
+        # scale distances (assumes max ranges are 0.2 and .707)
+        # x_scaler = (x - xmin)/(xmax - xmin), x/xmax if xmin=0
+        x_scaler = 1/0.2
+        y_scaler = 1/0.707
+        
+        # horizontal line
+        xhs = np.linspace(0, 0.2, 1000)
+        yh = 0.44  # m
+        horizontal = np.array([np.array([testV, testP, xh*x_scaler, yh*y_scaler]) for xh in xhs.tolist()])
+
+        # vertical line
+        xv = 0.115  # m
+        yvs = np.linspace(0, 0.707, 1000)
+        vertical = np.array([np.array([testV, testP, xv*x_scaler, yv*y_scaler]) for yv in yvs.tolist()])
+
+        # create tensor of x, y points for both horizontal and vertical slices
+        horizontal = torch.FloatTensor(horizontal)
+        vertical = torch.FloatTensor(vertical)
+
+        # predict x, y points from model and plot
+        model.eval()
+        with torch.no_grad():
+            vertical_prediction = pd.DataFrame(model(horizontal).numpy(), columns=columns)
+            horizontal_prediction = pd.DataFrame(model(vertical).numpy(), columns=columns)
+
+    # elif kind == 'image':
+    #     # using model (mlp+decoder), predict images
+    #     # get slice of image (how??) xr.dataarray?
+    #     image.plot()
+    else: print('how you manage to break this cuh 💀')
+
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+    fig, ax = plt.subplots(dpi=300)
+    
+    # horizontal plot
+    for i, column in enumerate(columns):
+        ax.plot(xhs*100, horizontal_prediction[column], color=colors[i], label=column)
+        ax.grid()
+        ax.legend()
+        ax.set_ylabel('Scaled magnitude')
+        ax.set_xlabel('x [cm]')
+
+    # add simulation data to the plots (use image data)
+    if out_dir is not None:
+        fig.savefig(out_dir/'slices.png', bbox_inches='tight')
