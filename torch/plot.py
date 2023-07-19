@@ -533,23 +533,30 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
         xhs = scalers[2].transform(np.linspace(0, 0.2, 1000).reshape(-1, 1))
         yh = scalers[3].transform(np.array([0.44]).reshape(-1, 1))  # m
         horizontal = np.array([np.array([testV.item(), testP.item(), xh.item(), yh.item()]) for xh in xhs])
-        xhs = xhs.reshape(-1, )
+        xhs = np.linspace(0, 0.2, 1000)
         yh = yh.item()
 
-        # vertical line TODO
-        # xv = 0.115  # m
-        # yvs = np.linspace(0, 0.707, 1000)
-        # vertical = np.array([np.array([testV, testP, xv, yv]) for yv in yvs.tolist()])
+        # vertical line 
+        xv = scalers[2].transform(np.array([0.115]).reshape(-1, 1))  # m
+        yvs = scalers[3].transform(np.linspace(0, 0.707, 1000).reshape(-1, 1))
+        vertical = np.array([np.array([testV.item(), testP.item(), xv.item(), yv.item()]) for yv in yvs])
+        yvs = np.linspace(0, 0.707, 1000)
+        xv = xv.item()
 
         # create tensor of x, y points for both horizontal and vertical slices
         horizontal = torch.FloatTensor(horizontal)
-        # vertical = torch.FloatTensor(vertical)
+        vertical = torch.FloatTensor(vertical)
 
         # predict x, y points from model and plot
         model.eval()
         with torch.no_grad():
             horizontal_prediction = pd.DataFrame(model(horizontal).numpy(), columns=columns)
-            # horizontal_prediction = pd.DataFrame(model(vertical).numpy(), columns=columns)
+            horizontal_prediction['x'] = xhs*1000
+            horizontal_prediction.set_index('x', inplace=True)
+
+            vertical_prediction = pd.DataFrame(model(vertical).numpy(), columns=columns)
+            vertical_prediction['y'] = yvs*1000
+            vertical_prediction.set_index('y', inplace=True)
 
     # elif kind == 'image':
     #     # using model (mlp+decoder), predict images
@@ -558,7 +565,6 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     else: print('how you manage to break this cuh 💀')
 
     colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
-    fig, ax = plt.subplots(dpi=300)
 
     # load reference data
     ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
@@ -573,20 +579,47 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
         return column_data/(10**mean_exp)
     
     # horizontal plot
-    for i, column in enumerate(columns):
-        # the dataset has x and y in mm
-        reference = ds[column].sel(V=300, P=60, y=440).values.reshape(-1, 1)
-        reference = scale_column(reference)
-        with open(scalers[i], 'rb') as f:
-            scaler = pickle.load(f)
-            reference = scaler.transform(reference)
+    def horizontal_plot():
+        fig, ax = plt.subplots(dpi=300)
+        for i, column in enumerate(columns):
+            # the dataset has x and y in mm
+            reference = ds[column].sel(V=300, P=60, y=0.44).values.reshape(-1, 1)
+            reference = scale_column(reference)
+            with open(scalers[i], 'rb') as f:
+                scaler = pickle.load(f)
+                reference = scaler.transform(reference)
 
-        ax.plot(xhs*1000, horizontal_prediction[column], color=colors[i], label=column)
-        ax.plot(reference, color=colors[i], alpha=0.3)
-        ax.grid()
-        ax.legend()
-        ax.set_ylabel('Scaled magnitude')
-        ax.set_xlabel('x [mm]')
+            horizontal_prediction[column].plot(ax=ax, color=colors[i], label=column)
+            ax.plot(reference, color=colors[i], alpha=0.3)
+            ax.grid()
+            ax.legend()
+            ax.set_ylabel('Scaled magnitude')
+            ax.set_xlabel('x [mm]')
+
+        return fig
+    
+    def vertical_plot():
+        fig, ax = plt.subplots(dpi=300)
+        for i, column in enumerate(columns):
+            # the dataset has x and y in mm
+            reference = ds[column].sel(V=300, P=60, x=0.115, method='nearest').values.reshape(-1, 1)
+            reference = scale_column(np.nan_to_num(reference))
+            with open(scalers[i], 'rb') as f:
+                scaler = pickle.load(f)
+                reference = scaler.transform(reference)
+
+            vertical_prediction[column].plot(ax=ax, color=colors[i], label=column)
+            ax.plot(reference, color=colors[i], alpha=0.3)
+            ax.grid()
+            # ax.legend()
+            ax.set_ylabel('Scaled magnitude')
+            ax.set_xlabel('y [mm]')
+
+        return fig
+    
+    hplot = horizontal_plot()
+    vplot = vertical_plot()
 
     if out_dir is not None:
-        fig.savefig(out_dir/'h_slices.png', bbox_inches='tight')
+        hplot.savefig(out_dir/'h_slices.png', bbox_inches='tight')
+        vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
