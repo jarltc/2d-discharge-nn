@@ -19,6 +19,7 @@ import torch.nn as nn
 import torchvision
 
 import time
+import pickle
 from pathlib import Path
 
 from sklearn.preprocessing import MinMaxScaler
@@ -512,42 +513,43 @@ def ae_correlation(reference, prediction, out_dir):
 
     return scores
 
-def slices(model, kind='mesh', out_dir=None):
+def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    xscalers = sorted(scaler_dir.rglob('xscaler*.pkl'))  # order goes V, P, x, y
     if kind == 'mesh':
+        scalers = []  # TODO this will work but think of a different name
+        for i in range(len(xscalers)):
+            with open(xscalers[i], 'rb') as f:
+                scaler = pickle.load(f)
+                scalers.append(scaler)
+
         # test v and p (scaled)
         v = 300.0
         p = 60.0
-        testV = (v - 200.0)/(500.0 - 200.0)
-        testP = (p - 5.0)/(120.0 - 5.0)
-
-        v = [200., 300., 400., 500.]
-        p = [  5.,  10.,  30.,  45.,  60.,  80., 100., 120.]
-
-        # scale distances (assumes max ranges are 0.2 and .707)
-        # x_scaler = (x - xmin)/(xmax - xmin), x/xmax if xmin=0
-        x_scaler = 1/0.2
-        y_scaler = 1/0.707
+        testV = scalers[0].transform(np.array([v]).reshape(-1, 1))
+        testP = scalers[1].transform(np.array([p]).reshape(-1, 1))
         
         # horizontal line
-        xhs = np.linspace(0, 0.2, 1000)
-        yh = 0.44  # m
-        horizontal = np.array([np.array([testV, testP, xh*x_scaler, yh*y_scaler]) for xh in xhs.tolist()])
+        xhs = scalers[2].transform(np.linspace(0, 0.2, 1000).reshape(-1, 1))
+        yh = scalers[3].transform(np.array([0.44]).reshape(-1, 1))  # m
+        horizontal = np.array([np.array([testV.item(), testP.item(), xh.item(), yh.item()]) for xh in xhs])
+        xhs = xhs.reshape(-1, )
+        yh = yh.item()
 
-        # vertical line
-        xv = 0.115  # m
-        yvs = np.linspace(0, 0.707, 1000)
-        vertical = np.array([np.array([testV, testP, xv*x_scaler, yv*y_scaler]) for yv in yvs.tolist()])
+        # vertical line TODO
+        # xv = 0.115  # m
+        # yvs = np.linspace(0, 0.707, 1000)
+        # vertical = np.array([np.array([testV, testP, xv, yv]) for yv in yvs.tolist()])
 
         # create tensor of x, y points for both horizontal and vertical slices
         horizontal = torch.FloatTensor(horizontal)
-        vertical = torch.FloatTensor(vertical)
+        # vertical = torch.FloatTensor(vertical)
 
         # predict x, y points from model and plot
         model.eval()
         with torch.no_grad():
-            vertical_prediction = pd.DataFrame(model(horizontal).numpy(), columns=columns)
-            horizontal_prediction = pd.DataFrame(model(vertical).numpy(), columns=columns)
+            horizontal_prediction = pd.DataFrame(model(horizontal).numpy(), columns=columns)
+            # horizontal_prediction = pd.DataFrame(model(vertical).numpy(), columns=columns)
 
     # elif kind == 'image':
     #     # using model (mlp+decoder), predict images
@@ -557,15 +559,34 @@ def slices(model, kind='mesh', out_dir=None):
 
     colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
     fig, ax = plt.subplots(dpi=300)
+
+    # load reference data
+    ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
+    scalers = sorted(scaler_dir.rglob('yscaler*.pkl'))
+
+    def scale_column(column_data):
+        # need to divide by the magnitude of the mean
+        mean_exp = round(np.log10(np.mean(column_data)), 0) - 1.0
+        if mean_exp <= 0.0: 
+            mean_exp = 0.0
+        
+        return column_data/(10**mean_exp)
     
     # horizontal plot
     for i, column in enumerate(columns):
-        ax.plot(xhs*100, horizontal_prediction[column], color=colors[i], label=column)
+        # the dataset has x and y in mm
+        reference = ds[column].sel(V=300, P=60, y=440).values.reshape(-1, 1)
+        reference = scale_column(reference)
+        with open(scalers[i], 'rb') as f:
+            scaler = pickle.load(f)
+            reference = scaler.transform(reference)
+
+        ax.plot(xhs*1000, horizontal_prediction[column], color=colors[i], label=column)
+        ax.plot(reference, color=colors[i], alpha=0.3)
         ax.grid()
         ax.legend()
         ax.set_ylabel('Scaled magnitude')
-        ax.set_xlabel('x [cm]')
+        ax.set_xlabel('x [mm]')
 
-    # add simulation data to the plots (use image data)
     if out_dir is not None:
-        fig.savefig(out_dir/'slices.png', bbox_inches='tight')
+        fig.savefig(out_dir/'h_slices.png', bbox_inches='tight')
