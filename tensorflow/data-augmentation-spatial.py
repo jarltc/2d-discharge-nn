@@ -72,7 +72,7 @@ def create_mask(X, Y):
     return mask
 
 
-def interpolation(df, parameter, voltage, pressure):
+def interpolation(df, parameter, voltage, pressure, X, Y, x, y):
     """ Perform interpolation for a parameter in a certain file.
 
     Args:
@@ -100,36 +100,7 @@ def interpolation(df, parameter, voltage, pressure):
     return da.assign_coords(V=voltage, P=pressure).expand_dims(dim=['V','P'])
 
 
-###### main #######
-root = Path(os.getcwd())
-data_folder = root/'data'/'avg_data'
-out_dir = root/'data'/'interpolation_datasets'
-if not os.path.exists(out_dir): os.mkdir(out_dir)
-
-files = [file for file in data_folder.rglob('*')]
-
-excluded = '300Vpp_060Pa_node'
-
-# remove test data
-for i, file in enumerate(files):
-    if file.stem == excluded:
-        files.pop(i)
-
-step = 0.001 # meters
-
-# list of parameters for the interpolation
-parameters = ['potential (V)', 
-            #   'Ex (V/m)', 
-            #   'Ey (V/m)', 
-              'Ne (#/m^-3)', 
-              'Ar+ (#/m^-3)', 
-              'Nm (#/m^-3)', 
-              'Te (eV)']
-
-# list of datasets to be concat at the end
-ds_list = []
-# process each file
-for file in tqdm(files):
+def process_file(file):
     # get voltage and pressure from filename
     v_string, p_string, _ = file.stem.split('_')
     voltage = float(v_string[:3])
@@ -155,13 +126,46 @@ for file in tqdm(files):
     Y = ma.array(Y, mask=mask).filled(fill_value=np.nan)
 
     # create a list of DataArrays for each variable in the file
-    var_array = [interpolation(df, parameter, voltage, pressure) for parameter in parameters]
+    var_array = [interpolation(df, parameter, voltage, pressure, X, Y, x, y) for parameter in parameters]
+    return var_array
+
+###### main #######
+root = Path(os.getcwd())
+data_folder = root/'data'/'avg_data'
+out_dir = root/'data'/'interpolation_datasets'
+if not os.path.exists(out_dir): os.mkdir(out_dir)
+
+files = [file for file in data_folder.rglob('*')]
+
+excluded = '300Vpp_060Pa_node'
+
+# remove test data
+for i, file in enumerate(files):
+    if file.stem == excluded:
+        test_set = files.pop(i)
+
+step = 0.001 # meters
+
+# list of parameters for the interpolation
+parameters = ['potential (V)', 
+            #   'Ex (V/m)', 
+            #   'Ey (V/m)', 
+              'Ne (#/m^-3)', 
+              'Ar+ (#/m^-3)', 
+              'Nm (#/m^-3)', 
+              'Te (eV)']
+
+# list of datasets to be concat at the end
+ds_list = []
+# process each file
+for file in tqdm(files):
+    var_array = process_file(file)
     ds_list.append(xr.merge(var_array))  # merge into Dataset
 
 # create one large Dataset from ds_list and save
 print('Concatenating datasets...')
 ds = xr.combine_by_coords(ds_list)
-name = 'rec-interpolation'
+name = 'rec-interpolation3'
 out_file = out_dir/f'{name}.nc'
 
 # write the file in chunks
@@ -170,6 +174,9 @@ from dask.diagnostics import ProgressBar
 with ProgressBar():
     print(f"Writing to {out_file}")
     write_job.compute()
+
+test_ds = process_file(test_set)
+test_ds.to_netcdf(out_dir/f'test_set.nc')
 
 metadata = {'dataset excluded': excluded,
             'grid spacing (m)' : step,
