@@ -580,7 +580,7 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     
     # horizontal plot
     def horizontal_plot():
-        fig, ax = plt.subplots(dpi=300)
+        fig, ax = plt.subplots(figsize=(6,3), dpi=300)
         for i, column in enumerate(columns):
             # the dataset has x and y in mm
             reference = ds[column].sel(V=300, P=60, y=0.44).values.reshape(-1, 1)
@@ -592,14 +592,14 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
             horizontal_prediction[column].plot(ax=ax, color=colors[i], label=column)
             ax.plot(reference, color=colors[i], alpha=0.3)
             ax.grid()
-            ax.legend()
+            ax.legend(fontsize='small')
             ax.set_ylabel('Scaled magnitude')
             ax.set_xlabel('x [mm]')
 
         return fig
     
     def vertical_plot():
-        fig, ax = plt.subplots(dpi=300)
+        fig, ax = plt.subplots(figsize=(3,6), dpi=300)
         for i, column in enumerate(columns):
             # the dataset has x and y in mm
             reference = ds[column].sel(V=300, P=60, x=0.115, method='nearest').values.reshape(-1, 1)
