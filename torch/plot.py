@@ -608,12 +608,12 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
                 scaler = pickle.load(f)
                 reference = scaler.transform(reference)
 
-            vertical_prediction[column].plot(ax=ax, color=colors[i], label=column)
-            ax.plot(reference, color=colors[i], alpha=0.3)
+            ax.plot(vertical_prediction[column].values, vertical_prediction.index.values, color=colors[i], label=column)
+            ax.plot(reference, ds.y.values*1000, color=colors[i], alpha=0.3)
             ax.grid()
-            # ax.legend()
-            ax.set_ylabel('Scaled magnitude')
-            ax.set_xlabel('y [mm]')
+            ax.legend(fontsize='small')
+            ax.set_xlabel('Scaled magnitude')
+            ax.set_ylabel('y [mm]')
 
         return fig
     
