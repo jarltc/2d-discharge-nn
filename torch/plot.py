@@ -515,8 +515,14 @@ def ae_correlation(reference, prediction, out_dir):
 
 def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
-    xscalers = sorted(scaler_dir.rglob('xscaler*.pkl'))  # order goes V, P, x, y
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+    
+    # load reference data
+    ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
+    scalers = sorted(scaler_dir.rglob('yscaler*.pkl'))
+
     if kind == 'mesh':
+        xscalers = sorted(scaler_dir.rglob('xscaler*.pkl'))  # order goes V, P, x, y
         scalers = []  # TODO this will work but think of a different name
         for i in range(len(xscalers)):
             with open(xscalers[i], 'rb') as f:
@@ -558,64 +564,55 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
             vertical_prediction['y'] = yvs*1000
             vertical_prediction.set_index('y', inplace=True)
 
-    # elif kind == 'image':
-    #     # using model (mlp+decoder), predict images
-    #     # get slice of image (how??) xr.dataarray?
-    #     image.plot()
-    else: print('how you manage to break this cuh 💀')
-
-    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
-
-    # load reference data
-    ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
-    scalers = sorted(scaler_dir.rglob('yscaler*.pkl'))
-
-    def scale_column(column_data):
+        def scale_column(column_data):
         # need to divide by the magnitude of the mean
-        mean_exp = round(np.log10(np.mean(column_data)), 0) - 1.0
-        if mean_exp <= 0.0: 
-            mean_exp = 0.0
-        
-        return column_data/(10**mean_exp)
+            mean_exp = round(np.log10(np.mean(column_data)), 0) - 1.0
+            if mean_exp <= 0.0: 
+                mean_exp = 0.0
+            
+            return column_data/(10**mean_exp)
     
-    # horizontal plot
-    def horizontal_plot():
-        fig, ax = plt.subplots(figsize=(6,3), dpi=300)
-        for i, column in enumerate(columns):
-            # the dataset has x and y in mm
-            reference = ds[column].sel(V=300, P=60, y=0.44).values.reshape(-1, 1)
-            reference = scale_column(reference)
-            with open(scalers[i], 'rb') as f:
-                scaler = pickle.load(f)
-                reference = scaler.transform(reference)
+        # horizontal plot
+        def horizontal_plot():
+            fig, ax = plt.subplots(figsize=(6,3), dpi=300)
+            for i, column in enumerate(columns):
+                # the dataset has x and y in mm
+                reference = ds[column].sel(V=300, P=60, y=0.44).values.reshape(-1, 1)
+                reference = scale_column(reference)
+                with open(scalers[i], 'rb') as f:
+                    scaler = pickle.load(f)
+                    reference = scaler.transform(reference)
 
-            horizontal_prediction[column].plot(ax=ax, color=colors[i], label=column)
-            ax.plot(reference, color=colors[i], alpha=0.3)
-            ax.grid()
-            ax.legend(fontsize='small')
-            ax.set_ylabel('Scaled magnitude')
-            ax.set_xlabel('x [mm]')
+                horizontal_prediction[column].plot(ax=ax, color=colors[i], label=column)
+                ax.plot(reference, color=colors[i], alpha=0.3)
+                ax.grid()
+                ax.legend(fontsize='small')
+                ax.set_ylabel('Scaled magnitude')
+                ax.set_xlabel('x [mm]')
 
-        return fig
+            return fig
+
+
+        def vertical_plot():
+            fig, ax = plt.subplots(figsize=(3,6), dpi=300)
+            for i, column in enumerate(columns):
+                # the dataset has x and y in mm
+                reference = ds[column].sel(V=300, P=60, x=0.115, method='nearest').values.reshape(-1, 1)
+                reference = scale_column(np.nan_to_num(reference))
+                with open(scalers[i], 'rb') as f:
+                    scaler = pickle.load(f)
+                    reference = scaler.transform(reference)
+
+                ax.plot(vertical_prediction[column].values, vertical_prediction.index.values, color=colors[i], label=column)
+                ax.plot(reference, ds.y.values*1000, color=colors[i], alpha=0.3)
+                ax.grid()
+                ax.legend(fontsize='small')
+                ax.set_xlabel('Scaled magnitude')
+                ax.set_ylabel('y [mm]')
+
+            return fig
     
-    def vertical_plot():
-        fig, ax = plt.subplots(figsize=(3,6), dpi=300)
-        for i, column in enumerate(columns):
-            # the dataset has x and y in mm
-            reference = ds[column].sel(V=300, P=60, x=0.115, method='nearest').values.reshape(-1, 1)
-            reference = scale_column(np.nan_to_num(reference))
-            with open(scalers[i], 'rb') as f:
-                scaler = pickle.load(f)
-                reference = scaler.transform(reference)
-
-            ax.plot(vertical_prediction[column].values, vertical_prediction.index.values, color=colors[i], label=column)
-            ax.plot(reference, ds.y.values*1000, color=colors[i], alpha=0.3)
-            ax.grid()
-            ax.legend(fontsize='small')
-            ax.set_xlabel('Scaled magnitude')
-            ax.set_ylabel('y [mm]')
-
-        return fig
+    else: print('how you manage to break this cuh 💀')
     
     hplot = horizontal_plot()
     vplot = vertical_plot()
