@@ -8,7 +8,11 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib import gridspec
 import matplotlib
 matplotlib.use('Agg')
-matplotlib.rcParams['font.family'] = 'Arial'
+
+try:
+    matplotlib.rcParams['font.family'] = 'Arial'
+except:
+    matplotlib.rcParams['font.family'] = 'Liberation Sans'
 
 import pandas as pd
 import numpy as np
