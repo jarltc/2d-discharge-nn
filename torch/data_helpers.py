@@ -235,6 +235,7 @@ def yn(str):
 
 ##### image datasets (autoencoder, gan, etc) #####
 class ImageDataset:
+    # TODO: add per-parameter scaling here
     def __init__(self, data_dir: Path, is_square=False):
         self.data_dir = data_dir
         self.is_square = is_square
@@ -313,6 +314,7 @@ class ImageDataset:
 
 
     def _scale_np(self, array: np.ndarray, var: str, scaler_dict: dict):
+        # BUG this doesn't work??
         """Apply scaling on np arrays
 
         Saves the scaler dict containing (min, max) for each variable.
