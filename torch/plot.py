@@ -136,7 +136,6 @@ def draw_a_2D_graph(avg_data, param_col_label, file_path=None, set_cbar_range=Tr
              'Te (eV)'          :' (eV)'}
 
     
-    matplotlib.rcParams['font.family'] = 'Arial'
     x = avg_data.X.values.reshape(-1,1)*100
     y = avg_data.Y.values.reshape(-1,1)*100
     z = avg_data[param_col_label].values.reshape(-1,1)
@@ -177,7 +176,6 @@ def draw_a_2D_graph(avg_data, param_col_label, file_path=None, set_cbar_range=Tr
 
 
 def save_history_graph(history: list, out_dir: Path):
-    matplotlib.rcParams['font.family'] = 'Arial'
     x  = np.array(history)
 
     plt.rcParams['font.size'] = 12 # 12 is the default size
@@ -248,7 +246,6 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
     Returns:
         _type_: _description_
     """
-    matplotlib.rcParams['font.family'] = 'Arial'
     cmap = plt.cm.viridis
 
     # check whether to plot a filled contour or mesh points
