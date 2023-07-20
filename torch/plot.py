@@ -489,6 +489,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
 
     return eval_time, scores
 
+
 def ae_correlation(reference, prediction, out_dir):
     from sklearn.metrics import r2_score
     scores = []
@@ -512,6 +513,7 @@ def ae_correlation(reference, prediction, out_dir):
     correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
 
     return scores
+
 
 def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
