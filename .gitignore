@@ -13,3 +13,4 @@ __pycache__/data.cpython-39.pyc
 !*.sh
 !requirements.txt
 torch/do_it.sh
+nas-update-antares.sh

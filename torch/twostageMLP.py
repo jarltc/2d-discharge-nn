@@ -242,6 +242,7 @@ if __name__ == '__main__':
         vp = config['vp']
         k = config['k']  # number of neighbors, 0 to disable
         c = config['lambda']  # neighbor regularization lambda
+        n_epochs = config['n_epochs']  # neighbor regularization epochs
 
         # -------------------------------------------------------
 
@@ -311,7 +312,7 @@ if __name__ == '__main__':
             print(f'neighbor_regularization = {neighbor_regularization}')
             if neighbor_regularization:
                 print(f'lambda = {c}, k = {k}')
-                epochs = 20  # hp: only train with neighbor regularization for a few epochs
+                epochs = n_epochs  # hp: only train with neighbor regularization for a few epochs
             train_start = time.time()  # record start time
 
             epoch_times = []
