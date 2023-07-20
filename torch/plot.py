@@ -612,7 +612,7 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
 
             return fig
     
-    else: print('how you manage to break this cuh 💀')
+    else: raise ValueError('kind can only be mesh')
     
     hplot = horizontal_plot()
     vplot = vertical_plot()
