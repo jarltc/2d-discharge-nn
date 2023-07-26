@@ -516,20 +516,42 @@ def ae_correlation(reference, prediction, out_dir):
 
 
 def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
+    """Plot 1D profile at specific vertical and horizontal slices (x=115 mm, y=440 mm).
+
+    Args:
+        model (nn.Module): Model with weights loaded.
+        scaler_dir (Path): Path to scalers (model_dir/scalers)
+        kind (str, optional): Get slices of mesh models or images. Defaults to 'mesh'.
+        out_dir (Path, optional): Path to save the figure. Defaults to None.
+
+    Raises:
+        ValueError: If kind is not 'mesh' (I have to write the code for image slices)
+
+    Returns:
+        None: none
+    """
     columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
     
     # load reference data
     ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
-    scalers = sorted(scaler_dir.rglob('yscaler*.pkl'))
 
     if kind == 'mesh':
-        xscalers = sorted(scaler_dir.rglob('xscaler*.pkl'))  # order goes V, P, x, y
-        scalers = []  # TODO this will work but think of a different name
-        for i in range(len(xscalers)):
-            with open(xscalers[i], 'rb') as f:
+        xscalers_dir = sorted(scaler_dir.rglob('xscaler*.pkl'))  # order goes V, P, x, y
+        yscalers_dir = sorted(scaler_dir.rglob('yscaler*.pkl'))
+        scalers = []
+        yscalers = []
+
+        for i in range(len(xscalers_dir)):
+            with open(xscalers_dir[i], 'rb') as f:
+                ''' I would rename this to xscalers but there would be too many things to change'''
                 scaler = pickle.load(f)
                 scalers.append(scaler)
+        
+        for i in range(len(yscalers_dir)):
+            with open(yscalers_dir[i], 'rb') as f:
+                scaler = pickle.load(f)
+                yscalers.append(scaler)
 
         # test v and p (scaled)
         v = 300.0
@@ -567,7 +589,7 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
             vertical_prediction.set_index('y', inplace=True)
 
         def scale_column(column_data):
-        # need to divide by the magnitude of the mean
+        # divide by the magnitude of the mean
             mean_exp = round(np.log10(np.mean(column_data)), 0) - 1.0
             if mean_exp <= 0.0: 
                 mean_exp = 0.0
@@ -581,9 +603,7 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
                 # the dataset has x and y in mm
                 reference = ds[column].sel(V=300, P=60, y=0.44).values.reshape(-1, 1)
                 reference = scale_column(reference)
-                with open(scalers[i], 'rb') as f:
-                    scaler = pickle.load(f)
-                    reference = scaler.transform(reference)
+                reference = yscalers[i].transform(reference)
 
                 horizontal_prediction[column].plot(ax=ax, color=colors[i], label=column)
                 ax.plot(reference, color=colors[i], alpha=0.3)
@@ -601,9 +621,7 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
                 # the dataset has x and y in mm
                 reference = ds[column].sel(V=300, P=60, x=0.115, method='nearest').values.reshape(-1, 1)
                 reference = scale_column(np.nan_to_num(reference))
-                with open(scalers[i], 'rb') as f:
-                    scaler = pickle.load(f)
-                    reference = scaler.transform(reference)
+                reference = yscalers[i].transform(reference)
 
                 ax.plot(vertical_prediction[column].values, vertical_prediction.index.values, color=colors[i], label=column)
                 ax.plot(reference, ds.y.values*1000, color=colors[i], alpha=0.3)
