@@ -305,7 +305,7 @@ if __name__ == '__main__':
         labels = torch.tensor(labels.to_numpy())
         dataset = TensorDataset(features, labels)
 
-        generator = torch.Generator().manual_seed(8091)  # make reproducible with fixed seed
+        generator = torch.Generator().manual_seed(8097)  # make reproducible with fixed seed
         dataset, val_set = torch.random_split(range(10), [validation_split, (1-validation_split)], generator=generator)
 
         trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
