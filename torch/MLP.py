@@ -340,7 +340,7 @@ if __name__ == '__main__':
 
                 if neighbor_regularization:
                     # means not calculated if regularization is disabled
-                    c = c_e(epoch, c=c)
+                    c = c_e(epoch, c=c, r=r)
                     neighbor_means = process_batch(inputs, model, tree, scaledNodes)
                 else:
                     neighbor_means = 0
