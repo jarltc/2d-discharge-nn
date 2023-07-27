@@ -237,10 +237,11 @@ if __name__ == '__main__':
         batch_size = config['batch_size']
         learning_rate = config['learning_rate']
         validation_split = config['validation_split']
-        epochs = config['epochs']
-        xy = config['xy']
-        vp = config['vp']
+        epochs = config['epochs']  # train epochs
+        xy = config['xy']  # grid augmentation
+        vp = config['vp']  # vp augmentation
         k = config['k']  # number of neighbors, 0 to disable
+        r = config['n_epochs']  # epochs when to introduce regularization
 
         if k == 0:
             neighbor_regularization = False
@@ -299,12 +300,16 @@ if __name__ == '__main__':
         tree = cKDTree(np.c_[nodes['X'].to_numpy(), nodes['Y'].to_numpy()])
         scaledNodes = data.scale_all(data_excluded[['X', 'Y']], 'x') 
 
-        # create dataset object and shuffle it()  # TODO: train/val split
+        # create dataset object and shuffle it()  
         features = torch.tensor(features.to_numpy())
         labels = torch.tensor(labels.to_numpy())
         dataset = TensorDataset(features, labels)
 
+        generator = torch.Generator().manual_seed(8091)  # make reproducible with fixed seed
+        dataset, val_set = torch.random_split(range(10), [validation_split, (1-validation_split)], generator=generator)
+
         trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+        valloader = DataLoader(val_set, batch_size=batch_size, shuffle=True)
 
         model = MLP(name, len(feature_names), len(label_names)) 
         model.share_memory()
@@ -320,8 +325,7 @@ if __name__ == '__main__':
 
         epoch_times = []
         epoch_loss = []
-        train_losses = []
-        neighbor_losses = []
+        epoch_validation = []
 
         model.train()
         # model training loop
@@ -361,12 +365,16 @@ if __name__ == '__main__':
                 loop.set_description(f"Epoch {epoch+1}/{epochs}")
                 loop.set_postfix(loss=running_loss)
                 running_loss = 0.0
-
+            
+            with torch.no_grad():
+                for val in valloader:
+                    inputs, labels = val
+                    val_loss = criterion(model(inputs), labels).item()
+                    epoch_validation.append(val_loss)
+            
             epoch_end = time.time()
             epoch_times.append(epoch_end - epoch_start)
             epoch_loss.append(loss.item())
-            train_losses.append(train_loss.item())
-            if neighbor_regularization: neighbor_losses.append(neighbor_loss.item()) 
 
             if (epoch+1) % epochs == 0:
                 # save model every 10 epochs (so i dont lose all training progress in case i do something dumb)
