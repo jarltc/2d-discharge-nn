@@ -391,6 +391,9 @@ if __name__ == '__main__':
         plot.save_history_graph(epoch_loss, out_dir)
         print('NN training history has been saved.\n')
 
+        # plot train losses
+        plot.plot_train_loss(epoch_loss, val_loss, out_dir=out_dir)
+
         # save metadata
         metadata = {'name' : name,  # str
                     'scaling' : lin,  # bool

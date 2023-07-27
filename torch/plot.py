@@ -8,7 +8,10 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib import gridspec
 import matplotlib
 matplotlib.use('Agg')
-matplotlib.rcParams['font.family'] = 'Arial'
+try:
+    matplotlib.rcParams['font.family'] = 'Arial'
+except:
+    matplotlib.rcParams['font.family'] = 'Liberation Sans'
 
 import pandas as pd
 import numpy as np
@@ -640,3 +643,27 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     if out_dir is not None:
         hplot.savefig(out_dir/'h_slices.png', bbox_inches='tight')
         vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
+
+
+def plot_train_loss(losses, validation_losses=None, out_dir=None):
+
+    losses = np.array(losses)
+    fig, ax = plt.subplots()
+    ax.set_yscale('log')
+    ax.plot(losses, c='r', label='train')
+
+    try:  # im not sure what the original validation_losses is
+        validation_array = np.array(validation_losses)
+    except:
+        validation_array = validation_losses
+
+    if validation_losses is not None:
+        ax.plot(validation_array, c='r', ls=':', label='validation')
+        ax.legend()
+
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid()
+
+    if out_dir is not None:
+        fig.savefig(out_dir/'train_loss.png', bbox_inches='tight')

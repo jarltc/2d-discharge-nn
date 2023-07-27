@@ -74,24 +74,6 @@ def resize(data: np.ndarray, scale=64) -> np.ndarray:
     return data
 
 
-def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
-
-    losses = np.array(losses)
-    fig, ax = plt.subplots()
-    ax.set_yscale('log')
-    ax.plot(losses, c='r', label='train')
-
-    if validation_losses is not None:
-        ax.plot(validation_losses, c='r', ls=':', label='validation')
-        ax.legend()
-
-    ax.set_xlabel('Epoch')
-    ax.set_ylabel('Loss')
-    ax.grid()
-
-    fig.savefig(out_dir/'train_loss.png')
-
-
 def write_metadata(out_dir):  # TODO: move to data module
     # if is_square:
     #     in_size = (1, 5, 200, 200)
