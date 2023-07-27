@@ -23,7 +23,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import TensorDataset, DataLoader, random_split
 
 import data_helpers as data
 import plot
@@ -306,7 +306,7 @@ if __name__ == '__main__':
         dataset = TensorDataset(features, labels)
 
         generator = torch.Generator().manual_seed(8097)  # make reproducible with fixed seed
-        dataset, val_set = torch.random_split(range(10), [validation_split, (1-validation_split)], generator=generator)
+        val_set, dataset = random_split(dataset, [validation_split, (1-validation_split)], generator=generator)
 
         trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
         valloader = DataLoader(val_set, batch_size=batch_size, shuffle=True)
