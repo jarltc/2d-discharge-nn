@@ -406,9 +406,9 @@ if __name__ == '__main__':
         # record time per epoch
         with open(out_dir / 'times.txt', 'w') as f:
             f.write('Train times per epoch\n')
-            for i, time in enumerate(epoch_times):
-                time = round(time, 2)
-                f.write(f'Epoch {i+1}: {time} s\n')
+            for i, e_time in enumerate(epoch_times):
+                e_time = round(e_time, 2)
+                f.write(f'Epoch {i+1}: {e_time} s\n')
 
         d = datetime.datetime.today()
         print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
