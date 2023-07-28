@@ -88,7 +88,7 @@ class A300(nn.Module):
 
 
 class A300s(nn.Module):
-    """Autoencoder using square images as inputs.
+    """Symmetrical variant of A300. Used to test if the additional conv2d layers make a difference.
     
     Input sizes are (5, 32, 32).
     """
@@ -171,7 +171,7 @@ class A64_6(nn.Module):
 
 
 class A64_6s(nn.Module):
-    """Autoencoder using square images as inputs.
+    """Symmetric variant of A64_6.
     
     Input sizes are (5, 64, 64).
     """
