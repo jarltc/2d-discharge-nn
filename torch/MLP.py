@@ -311,7 +311,7 @@ if __name__ == '__main__':
         print(f'neighbor_regularization = {neighbor_regularization}')
         if neighbor_regularization:
             print(f'lambda = {c}, k = {k}')
-        train_start = time.time()  # record start time
+        train_start = time.perf_counter()  # record start time
 
         epoch_times = []
         epoch_loss = []
@@ -322,7 +322,7 @@ if __name__ == '__main__':
         # model training loop
         for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
             # record time per epoch
-            epoch_start = time.time()
+            epoch_start = time.perf_counter()
             loop = tqdm(trainloader, unit='batch', colour='#f5a97f')
 
             for i, batch_data in enumerate(loop):
@@ -357,7 +357,7 @@ if __name__ == '__main__':
                 loop.set_postfix(loss=running_loss)
                 running_loss = 0.0
 
-            epoch_end = time.time()
+            epoch_end = time.perf_counter()
             epoch_times.append(epoch_end - epoch_start)
             epoch_loss.append(loss.item())
             train_losses.append(train_loss.item())
@@ -370,7 +370,7 @@ if __name__ == '__main__':
 
 
         print('Finished training')
-        train_end = time.time()
+        train_end = time.perf_counter()
 
         # save the model and loss
         torch.save(model.state_dict(), out_dir/f'{name}')
