@@ -233,21 +233,16 @@ if __name__ == '__main__':
         lin = True  # scale the targets linearly
 
         # read metadata from config file
-        name = config['name']
-        batch_size = config['batch_size']
-        learning_rate = config['learning_rate']
-        validation_split = config['validation_split']
-        epochs = config['epochs']
-        xy = config['xy']
-        vp = config['vp']
-        k = config['k']  # number of neighbors, 0 to disable
+        name, epochs, batch_size, learning_rate, validation_split, xy, vp, k, c = config
+        # xy: grid augmentation, vp: vp augmentation, 
+        # k: number of neighbors for neigbor regularization (0 when turned off)
+        # c = lambda value for neighbor regularization
 
         if k == 0:
             neighbor_regularization = False
             c = 0
         else:
             neighbor_regularization = True
-            c = config['lambda']  # neighbor regularization lambda
 
         # -------------------------------------------------------
 
