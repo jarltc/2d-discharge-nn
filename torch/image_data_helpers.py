@@ -94,7 +94,7 @@ def downscale(image_stack: np.ndarray, resolution: int) -> np.ndarray:
     return np.moveaxis(data, -1, 1)  # revert moveaxis operation
 
 
-def minmax_scale(image:np.ndarray):
+def minmax_scale(image:np.ndarray, ds:xr.Dataset):
     """Perform minmax scaling on some input image with shape (channels, height, width)
 
     Args:
@@ -104,12 +104,11 @@ def minmax_scale(image:np.ndarray):
         np.ndarray: Minmax-scaled array.
     """
 
-    global nc_data
     scaled_arrays = []
 
-    for i, variable in enumerate(list(nc_data.keys())):
+    for i, variable in enumerate(list(ds.keys())):
 
-        var_data = np.nan_to_num(nc_data[variable].values)
+        var_data = np.nan_to_num(ds[variable].values)
         a = 0.0  # force 0 minimum
         b = var_data.max()
 
@@ -152,7 +151,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=False)
         image = crop(image) if square else None
         image = downscale(image, resolution) if resolution is not None else None
 
-        image = minmax_scale(image)
+        image = minmax_scale(image, ds)
 
         if vp == test:
             test_image = np.expand_dims(image, axis=0)
