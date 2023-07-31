@@ -135,7 +135,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=False)
         square (bool, optional): Crops to a square if True. Defaults to False.
 
     Returns:
-        [train, test, [validation]]: Training and test images, and validation image if provided.
+        [train, test, [validation]]: Minmax-scaled training and test images, and validation image if provided.
     """
     
     global nc_data
