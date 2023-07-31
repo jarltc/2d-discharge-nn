@@ -17,12 +17,15 @@ if __name__ == '__main__':
     pressures = [   5.,  10.,  30.,  45.,  60.,  80., 100., 120.]
     now = dt.now().strftime('%Y-%m-%d %H:%M')
 
-    root = Path('/Users/jarl/2d-discharge-nn/data/')
+    root = Path.cwd()/'data'
+    # root = Path('/Users/jarl/2d-discharge-nn/data/')
     data = root/'interpolation_datasets'/'full_interpolation.nc'
     ds = xr.open_dataset(data)
     variables = list(ds.keys())
 
     out_dir = root/'image_datasets'
+    if not out_dir.exists():
+        out_dir.mkdir()
 
     for p in tqdm(pressures):
         for v in voltages:
