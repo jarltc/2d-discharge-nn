@@ -106,7 +106,7 @@ data_folder = root/'data'/'avg_data'
 out_dir = root/'data'/'interpolation_datasets'
 if not os.path.exists(out_dir): os.mkdir(out_dir)
 
-files = [file for file in data_folder.rglob('*')]
+files = [file for file in data_folder.rglob('*.dat')]
 
 excluded = '300Vpp_060Pa_node'
 
