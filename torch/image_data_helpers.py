@@ -1,6 +1,6 @@
 """ Python module for functions and stuff that have to do with autoencoder models. 
 
-created by jarl on 31 Jul 22:20
+created by jarl on 31 Jul 2023 22:20
 """
 
 import cv2
@@ -45,7 +45,7 @@ def get_dataset(V, P, dataset:Path = nc_data):
             Defaults to Path('/Users/jarl/2d-discharge-nn/data/\ interpolation_datasets/full_interpolation.nc').
 
     Returns:
-        _type_: _description_
+        np.ndarray: Dataset for the specified V, P pair, with shape (channels, height, width).
     """
 
     ds = xr.open_dataset(dataset)
@@ -69,7 +69,7 @@ def crop(image:np.ndarray, corner:tuple =(0, 350), width:int =200, height:int =2
         height (Crop height): Height of the crop.
 
     Returns:
-        np.ndarray: Cropped n-channel image.
+        np.ndarray: Cropped n-channel image with shape (n, height, width).
     """    
     startx, starty = corner
 
@@ -87,7 +87,7 @@ def downscale(image_stack: np.ndarray, resolution: int) -> np.ndarray:
         resolution (int): Resolution of downscaled images.
 
     Returns:
-        np.ndarray: Downscaled image.
+        np.ndarray: Downscaled image with shape (channels, height, width).
     """
     
     data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (resolution, resolution)) for image in image_stack])
@@ -124,3 +124,46 @@ def minmax_scale(image:np.ndarray):
 
     return scaled
 
+
+def get_data(test:tuple, validation:tuple = None, resolution=None, square=False):
+    """Get train, test, and (optional) validation data from an .nc file.
+
+    Assumes that test and validation sets are only single images. (This might change with a much larger dataset)
+    Args:
+        test (tuple): Pair of V, P for the test set.
+        validation (tuple, optional): Pair of V, P for the validation set. Defaults to None.
+        resolution (int, optional): Perform downscaling if specified. Defaults to None.
+        square (bool, optional): Crops to a square if True. Defaults to False.
+
+    Returns:
+        [train, test, [validation]]: Training and test images, and validation image if provided.
+    """
+    
+    global nc_data
+    ds = xr.open_dataset(nc_data)
+    v_list = list(ds.V.values)
+    p_list = list(ds.P.values)
+
+    vps = [(v, p) for v in v_list for p in p_list]
+
+    train_images = []
+    for vp in vps:
+        image = get_dataset(vp[0], vp[1])  # load data
+        image = crop(image) if square else None
+        image = downscale(image, resolution) if resolution is not None else None
+
+        image = minmax_scale(image)
+
+        if vp == test:
+            test_image = np.expand_dims(image, axis=0)
+        elif vp == validation:
+            val_image = np.expand_dims(image, axis=0)
+        else:
+            train_images.append(image)
+
+        train_set = np.stack(train_images)
+
+    if validation is not None:
+        return [train_set, test_image, val_image]
+    else:
+        return [train_set, test_image]
