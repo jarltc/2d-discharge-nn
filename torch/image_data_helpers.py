@@ -97,6 +97,8 @@ def downscale(image_stack: np.ndarray, resolution: int) -> np.ndarray:
 def minmax_scale(image:np.ndarray, ds:xr.Dataset):
     """Perform minmax scaling on some input image with shape (channels, height, width)
 
+    Values for the minmax scaling are obtained from the .nc file. 
+    This also forces the minimum to be 0 instead of some crazy value that might mess with calculations.
     Args:
         image (np.ndarray): Image to be scaled, with shape (channels, height, width)
 
