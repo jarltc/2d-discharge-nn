@@ -60,10 +60,8 @@ def crop(image:np.ndarray, corner:tuple =(0, 350), width:int =200, height:int =2
     # image shape = 5, 707, 200
     """Crop images to desired size (width and height). 
 
-    Assumes input images with a shape of (channels, height, width).
-
     Args:
-        image (np.ndarray): Image to be cropped.
+        image (np.ndarray): Image (channels, height, width) to be cropped.
         corner (Tuple[int, int]): Location of the lower-left corner for the cropping.
         width (Crop width): Width of the crop.
         height (Crop height): Height of the crop.
@@ -83,7 +81,7 @@ def downscale(image_stack: np.ndarray, resolution: int) -> np.ndarray:
     """Downscale input images to lower resolution.
 
     Args:
-        image_stack (np.ndarray): n-channel image to downscale
+        image_stack (np.ndarray): n-channel image (n, height, width) to downscale.
         resolution (int): Resolution of downscaled images.
 
     Returns:
@@ -100,7 +98,7 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset):
     Values for the minmax scaling are obtained from the .nc file. 
     This also forces the minimum to be 0 instead of some crazy value that might mess with calculations.
     Args:
-        image (np.ndarray): Image to be scaled, with shape (channels, height, width)
+        image (np.ndarray): Image (channels, height, width) to be scaled.
 
     Returns:
         np.ndarray: Minmax-scaled array.
