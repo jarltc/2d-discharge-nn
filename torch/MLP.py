@@ -233,7 +233,7 @@ if __name__ == '__main__':
         lin = True  # scale the targets linearly
 
         # read metadata from config file
-        name, epochs, batch_size, learning_rate, validation_split, xy, vp, k, c = config
+        name, epochs, batch_size, learning_rate, validation_split, xy, vp, k, c, r = config
         # xy: grid augmentation, vp: vp augmentation, 
         # k: number of neighbors for neigbor regularization (0 when turned off)
         # c = lambda value for neighbor regularization
@@ -300,6 +300,7 @@ if __name__ == '__main__':
         dataset = TensorDataset(features, labels)
 
         generator = torch.Generator().manual_seed(8097)  # make reproducible with fixed seed
+        torch.manual_seed(8097)  # hopefully reproduce layer weight initialization, I dont know if this works
         val_set, dataset = random_split(dataset, [validation_split, (1-validation_split)], generator=generator)
 
         trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
