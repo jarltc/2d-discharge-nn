@@ -348,7 +348,9 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
             r2 = round(scores[column].iloc[3], 2)
 
         # set label
-        label = f'{column.split()[0]}: {r2}'
+        math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']  # math style labels
+        # label = f'{column.split()[0]}: {r2}'
+        label = f'{math[i]}: {r2}'
 
         ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
                    color=colors[i], alpha=0.15, label=label)
