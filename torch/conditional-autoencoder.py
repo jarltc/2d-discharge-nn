@@ -32,7 +32,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset, train2db
-from plot import plot_comparison_ae, save_history_graph
+from plot import plot_comparison_ae, save_history_graph, ae_correlation
 import autoencoder_classes
 from mlp_classes import MLP, MLP1
 
@@ -221,9 +221,12 @@ if __name__ == '__main__':
         fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
         # reshape encoding from (1, xyz) to (1, x, y, z)
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
+        decoded = model.decoder(fake_encoding)
+        decoded = torchvision.transforms.functional.crop(decoded, 0, 0, resolution, resolution)
 
     # add resolution=64 for larger images
     eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, 
                                            out_dir=out_dir, is_square=True, mode='prediction', resolution=resolution)
     write_metadata_ae(out_dir)
+    ae_correlation(test_res, decoded, out_dir)
     train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='mlp')
