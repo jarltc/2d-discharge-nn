@@ -233,22 +233,16 @@ if __name__ == '__main__':
         lin = True  # scale the targets linearly
 
         # read metadata from config file
-        name = config['name']
-        batch_size = config['batch_size']
-        learning_rate = config['learning_rate']
-        validation_split = config['validation_split']
-        epochs = config['epochs']  # train epochs
-        xy = config['xy']  # grid augmentation
-        vp = config['vp']  # vp augmentation
-        k = config['k']  # number of neighbors, 0 to disable
-        r = config['n_epochs']  # epochs when to introduce regularization
+        name, epochs, batch_size, learning_rate, validation_split, xy, vp, k, c = config
+        # xy: grid augmentation, vp: vp augmentation, 
+        # k: number of neighbors for neigbor regularization (0 when turned off)
+        # c = lambda value for neighbor regularization
 
         if k == 0:
             neighbor_regularization = False
             c = 0
         else:
             neighbor_regularization = True
-            c = config['lambda']  # neighbor regularization lambda
 
         # -------------------------------------------------------
 
@@ -321,7 +315,7 @@ if __name__ == '__main__':
         print(f'neighbor_regularization = {neighbor_regularization}')
         if neighbor_regularization:
             print(f'lambda = {c}, k = {k}')
-        train_start = time.time()  # record start time
+        train_start = time.perf_counter()  # record start time
 
         epoch_times = []
         epoch_loss = []
@@ -331,7 +325,7 @@ if __name__ == '__main__':
         # model training loop
         for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
             # record time per epoch
-            epoch_start = time.time()
+            epoch_start = time.perf_counter()
             loop = tqdm(trainloader, unit='batch', colour='#f5a97f')
 
             for i, batch_data in enumerate(loop):
@@ -372,7 +366,7 @@ if __name__ == '__main__':
                     val_loss = criterion(model(inputs), labels).item()
                     epoch_validation.append(val_loss)
             
-            epoch_end = time.time()
+            epoch_end = time.perf_counter()
             epoch_times.append(epoch_end - epoch_start)
             epoch_loss.append(loss.item())
 
@@ -383,7 +377,7 @@ if __name__ == '__main__':
 
 
         print('Finished training')
-        train_end = time.time()
+        train_end = time.perf_counter()
 
         # save the model and loss
         torch.save(model.state_dict(), out_dir/f'{name}')
