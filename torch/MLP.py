@@ -233,7 +233,7 @@ if __name__ == '__main__':
         lin = True  # scale the targets linearly
 
         # read metadata from config file
-        name, epochs, batch_size, learning_rate, validation_split, xy, vp, k, c = config
+        name, epochs, batch_size, learning_rate, validation_split, xy, vp, k, c, r = config
         # xy: grid augmentation, vp: vp augmentation, 
         # k: number of neighbors for neigbor regularization (0 when turned off)
         # c = lambda value for neighbor regularization
