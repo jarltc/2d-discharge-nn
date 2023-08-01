@@ -195,7 +195,7 @@ class PredictionDataset:
                 print(file=out)
 
         print_scores_core(sys.stdout)
-        plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)
+        plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)  # TODO: double check order of arguments
 
         scores_file = regr_dir/'scores.txt'
         with open(scores_file, 'w') as f:
