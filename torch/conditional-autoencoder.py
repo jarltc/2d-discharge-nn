@@ -164,7 +164,7 @@ if __name__ == '__main__':
     # load autoencoder model
     model.to(device)
     model.load_state_dict(torch.load(model_dir))
-    model.encoder.eval()  # inference mode
+    model.eval()  # inference mode, disables training
     
     #### train MLP ####
     # epoch_validation = []
@@ -187,12 +187,15 @@ if __name__ == '__main__':
 
         for i, batch_data in enumerate(trainloader):
             image, labels = batch_data  # feed in images and labels (V, P)
-            target = model.encoder(image).view(1, -1)  # generate encoding from image, shape: (1, 20, 4, 4)
+            # target = model.encoder(image).view(1, -1)  # generate encoding from image, shape: (1, 20, 4, 4): view(1, -1) flattens it
 
             optimizer.zero_grad()  # reset gradients
 
-            output = mlp(labels)  # forward pass, get mlp prediction from (v, p)
-            loss = criterion(output, target)
+            encoding = mlp(labels).reshape(1, encodedx, encodedy, encodedz)  # forward pass, get mlp prediction from (v, p) then reshape
+            output = model.decoder(encoding)  # get output image from decoder
+            output = torchvision.transforms.functional.crop(output, 0, 0, 64, 64)
+
+            loss = criterion(output, image)
             loss.backward()  # backward propagation
             optimizer.step()  # apply changes to network
 
