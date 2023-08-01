@@ -320,8 +320,9 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
     fig, ax = plt.subplots(dpi=200)
     
     # customize axes
-    # ax.set_xlim(-0.05, 1.05)
-    # ax.set_ylim(-0.05, 1.05)
+    if prediction.values.max() > 5.0:
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
     ax.set_aspect('equal')
     ax.set_ylabel('Predicted')
     ax.set_xlabel('True')
