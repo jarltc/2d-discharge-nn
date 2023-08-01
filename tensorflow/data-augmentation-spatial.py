@@ -106,7 +106,7 @@ data_folder = root/'data'/'avg_data'
 out_dir = root/'data'/'interpolation_datasets'
 if not os.path.exists(out_dir): os.mkdir(out_dir)
 
-files = [file for file in data_folder.rglob('*')]
+files = [file for file in data_folder.rglob('*.dat')]
 
 excluded = '300Vpp_060Pa_node'
 
@@ -175,9 +175,12 @@ metadata = {'dataset excluded': excluded,
             'grid spacing (m)' : step,
             'masking' : 'before interpolation',
             'file size (mb)' : os.path.getsize(out_file) / 1e6,
-            'sizes' : str(ds.sizes)}
+            'sizes' : str(ds.sizes),
+            'V' : ds.V.values,
+            'P' : ds.P.values}
 
 # save metadata
 with open(out_dir/f'{name}_metadata.txt', 'w') as f:
     for key, value in metadata.items():
         f.write(key + ': ' + str(value) + '\n')
+        

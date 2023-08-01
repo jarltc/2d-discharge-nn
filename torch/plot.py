@@ -296,7 +296,8 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
     return fig
 
 
-def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, out_dir=None):
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, 
+                out_dir=None, minmax=True):
     """Plot correlation between true values and predictions.
 
     Args:
@@ -315,8 +316,9 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
     fig, ax = plt.subplots(dpi=200)
     
     # customize axes
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
+    if prediction.values.max() > 5.0:
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
     ax.set_aspect('equal')
     ax.set_ylabel('Predicted')
     ax.set_xlabel('True')
@@ -327,10 +329,14 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
 
     for i, column in enumerate(prediction.columns):
         # transform with minmax to normalize between (0, 1)
-        scaler = MinMaxScaler()
-        scaler.fit(targets[column].values.reshape(-1, 1))
-        scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
-        scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+        if minmax:
+            scaler = MinMaxScaler()
+            scaler.fit(targets[column].values.reshape(-1, 1))
+            scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
+            scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+        else:
+            scaled_targets = targets[column].values.reshape(-1, 1)
+            scaled_predictions = prediction[column].values.reshape(-1, 1)
 
         # get correlation score
         if scores is None:
@@ -339,17 +345,19 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
             r2 = round(scores[column].iloc[3], 2)
 
         # set label
-        label = f'{column.split()[0]}: {r2}'
+        math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']  # math style labels
+        # label = f'{column.split()[0]}: {r2}'
+        label = f'{math[i]}: {r2}'
 
         ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
                    color=colors[i], alpha=0.15, label=label)
 
-    legend = ax.legend(markerscale=4, fontsize='small')
+    legend = ax.legend(markerscale=4, fontsize='small', title='$r^2$ values')
     for lh in legend.legendHandles: 
         lh.set_alpha(1)
     
     if out_dir is not None:
-        fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
+        fig.savefig(out_dir/'correlation1.png', bbox_inches='tight')
 
 
 def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
@@ -488,10 +496,10 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
 
     return eval_time, scores
 
-def ae_correlation(reference, prediction, out_dir):
+def ae_correlation(reference, prediction, out_dir, minmax=True):
     from sklearn.metrics import r2_score
     scores = []
-    columns = ['pot', 'ne', 'ni', 'nm', 'te']
+    columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
     prediction_cols = []
     reference_cols = []
 
@@ -508,6 +516,6 @@ def ae_correlation(reference, prediction, out_dir):
     ref_df = pd.DataFrame({k: v for k, v in zip(columns, reference_cols)})
     pred_df = pd.DataFrame({k: v for k, v in zip(columns, prediction_cols)})
 
-    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
+    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir, minmax=minmax)
 
     return scores

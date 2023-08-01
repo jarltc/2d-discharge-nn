@@ -47,9 +47,8 @@ def resize(data: np.ndarray, scale=64) -> np.ndarray:
         np.ndarray: Downscaled input data.
     """
 
-    data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (scale, scale)) for image in data])
-    data = np.moveaxis(data, -1, 1)
-    return data
+    data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (scale, scale)) for image in data]) 
+    return np.moveaxis(data, -1, 1)  # revert initial moveaxis
 
 
 def normalize_test(dataset:np.ndarray, scalers:dict()):
