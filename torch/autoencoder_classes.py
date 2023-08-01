@@ -128,6 +128,8 @@ class A300s(nn.Module):
 # 64x64 networks
 class A64_7(nn.Module):
     """A64_6 with fixed padding of 1 and an extra convolutional layer at the decoder (idk why really)
+
+    Size-matching is pending.
     
     Input sizes are (5, 64, 64).
     """
