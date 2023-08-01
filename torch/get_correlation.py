@@ -28,7 +28,7 @@ def label_minmax(V, P):
 if __name__ == '__main__':
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
     
-    resolution = 32
+    resolution = 64
     if resolution == 64:
         ae_model = A64_6()
         ae_model.load_state_dict(torch.load(ae_model.path))
@@ -78,4 +78,4 @@ if __name__ == '__main__':
         decoded = torchvision.transforms.functional.crop(
              decoded, 0, 0, resolution, resolution)
 
-    r2 = ae_correlation(test_data, decoded, out_dir)
+    r2 = ae_correlation(test_data, decoded, out_dir, minmax=False)

@@ -300,7 +300,8 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
     return fig
 
 
-def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, out_dir=None):
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, 
+                out_dir=None, minmax=True):
     """Plot correlation between true values and predictions.
 
     Args:
@@ -331,10 +332,14 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
 
     for i, column in enumerate(prediction.columns):
         # transform with minmax to normalize between (0, 1)
-        scaler = MinMaxScaler()
-        scaler.fit(targets[column].values.reshape(-1, 1))
-        scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
-        scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+        if minmax:
+            scaler = MinMaxScaler()
+            scaler.fit(targets[column].values.reshape(-1, 1))
+            scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
+            scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+        else:
+            scaled_targets = targets[column].values.reshape(-1, 1)
+            scaled_predictions = prediction[column].values.reshape(-1, 1)
 
         # get correlation score
         if scores is None:
@@ -492,7 +497,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
 
     return eval_time, scores
 
-def ae_correlation(reference, prediction, out_dir):
+def ae_correlation(reference, prediction, out_dir, minmax=False):
     from sklearn.metrics import r2_score
     scores = []
     columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
@@ -512,6 +517,6 @@ def ae_correlation(reference, prediction, out_dir):
     ref_df = pd.DataFrame({k: v for k, v in zip(columns, reference_cols)})
     pred_df = pd.DataFrame({k: v for k, v in zip(columns, prediction_cols)})
 
-    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
+    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir, minmax=minmax)
 
     return scores
