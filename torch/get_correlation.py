@@ -78,4 +78,4 @@ if __name__ == '__main__':
         decoded = torchvision.transforms.functional.crop(
              decoded, 0, 0, resolution, resolution)
 
-    r2 = ae_correlation(test_data, decoded, out_dir, minmax=False)
+    r2 = ae_correlation(test_data, decoded, out_dir)
