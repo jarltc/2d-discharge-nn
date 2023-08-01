@@ -433,6 +433,70 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores: pd.Data
         fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
 
 
+def correlation_torch(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, 
+                out_dir=None, minmax=True):
+    """Plot correlation between true values and predictions.
+
+    Args:
+        prediction (pd.DataFrame): DataFrame of predicted values.
+        targets (pd.DataFrame): DataFrame of true values.
+        scores (pd.DataFrame): Scores containing the r2.
+        out_dir (Path, optional): Path to save file. Defaults to None.
+    """
+    assert list(prediction.columns) == list(targets.columns)
+
+    prediction = prediction.copy()
+    targets = targets.copy()
+
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+
+    fig, ax = plt.subplots(dpi=200)
+    
+    # customize axes
+    if prediction.values.max() > 5.0:
+        ax.set_xlim(-0.05, 1.05)
+        ax.set_ylim(-0.05, 1.05)
+    ax.set_aspect('equal')
+    ax.set_ylabel('Predicted')
+    ax.set_xlabel('True')
+
+    # plot 1:1 line
+    x = np.linspace(0, 1, 1000)
+    ax.plot(x, x, ls='--', c='k')
+
+    for i, column in enumerate(prediction.columns):
+        # transform with minmax to normalize between (0, 1)
+        if minmax:
+            scaler = MinMaxScaler()
+            scaler.fit(targets[column].values.reshape(-1, 1))
+            scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
+            scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
+        else:
+            scaled_targets = targets[column].values.reshape(-1, 1)
+            scaled_predictions = prediction[column].values.reshape(-1, 1)
+
+        # get correlation score
+        if scores is None:
+            r2 = round(scores_list[i], 2)
+        else: 
+            r2 = round(scores[column].iloc[3], 2)
+
+        # set label
+        math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']  # math style labels
+        # label = f'{column.split()[0]}: {r2}'
+        label = f'{math[i]}: {r2}'
+
+        ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
+                   color=colors[i], alpha=0.15, label=label)
+
+    legend = ax.legend(markerscale=4, fontsize='small', title='$r^2$ values')
+    for lh in legend.legendHandles: 
+        lh.set_alpha(1)
+    
+    if out_dir is not None:
+        fig.savefig(out_dir/'correlation1.png', bbox_inches='tight')
+
+
 if __name__ == '__main__':
     df = read_file(file_path).drop(columns=['Ex (V/m)', 'Ey (V/m)'])
     

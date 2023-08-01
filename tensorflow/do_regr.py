@@ -421,7 +421,7 @@ if __name__ == '__main__':
         scores = print_scores(ty, py, regr_dir)
     
     if not on_grid:
-        data_plot.correlation(prediction=py, targets=ty, scores=scores, out_dir=regr_dir)
+        data_plot.correlation_torch(prediction=py, targets=ty, scores=scores, out_dir=regr_dir)
 
     d = datetime.datetime.today()
     print('finished on', d.strftime('%Y-%m-%d %H:%M:%S'))
