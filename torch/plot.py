@@ -348,7 +348,7 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
         ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
                    color=colors[i], alpha=0.15, label=label)
 
-    legend = ax.legend(markerscale=4, fontsize='small')
+    legend = ax.legend(markerscale=4, fontsize='small', title='$r^2$ values')
     for lh in legend.legendHandles: 
         lh.set_alpha(1)
     
@@ -495,7 +495,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
 def ae_correlation(reference, prediction, out_dir):
     from sklearn.metrics import r2_score
     scores = []
-    columns = ['pot', 'ne', 'ni', 'nm', 'te']
+    columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
     prediction_cols = []
     reference_cols = []
 
