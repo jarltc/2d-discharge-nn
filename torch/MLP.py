@@ -386,7 +386,7 @@ if __name__ == '__main__':
         print('NN training history has been saved.\n')
 
         # plot train losses
-        plot.plot_train_loss(epoch_loss, val_loss, out_dir=out_dir)
+        plot.plot_train_loss(epoch_loss, epoch_validation, out_dir=out_dir)
 
         # save metadata
         metadata = {'name' : name,  # str
