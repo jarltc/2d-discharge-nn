@@ -320,8 +320,8 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
     fig, ax = plt.subplots(dpi=200)
     
     # customize axes
-    ax.set_xlim(-0.05, 1.05)
-    ax.set_ylim(-0.05, 1.05)
+    # ax.set_xlim(-0.05, 1.05)
+    # ax.set_ylim(-0.05, 1.05)
     ax.set_aspect('equal')
     ax.set_ylabel('Predicted')
     ax.set_xlabel('True')
@@ -358,7 +358,7 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
         lh.set_alpha(1)
     
     if out_dir is not None:
-        fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
+        fig.savefig(out_dir/'correlation1.png', bbox_inches='tight')
 
 
 def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
