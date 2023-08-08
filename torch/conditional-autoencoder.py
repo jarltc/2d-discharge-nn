@@ -207,7 +207,6 @@ if __name__ == '__main__':
         if (epoch+1) % 10 == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
             torch.save(model.state_dict(), out_dir/f'{name}')
-            save_history_graph(epoch_loss, out_dir)
 
     print("\33[2KMLP training complete!")
     train_end = time.time()
@@ -228,5 +227,5 @@ if __name__ == '__main__':
     eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, 
                                            out_dir=out_dir, is_square=True, mode='prediction', resolution=resolution)
     write_metadata_ae(out_dir)
-    ae_correlation(test_res, decoded, out_dir)
+    ae_correlation(test_res, decoded, out_dir, minmax=False)
     train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='mlp')
