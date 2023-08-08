@@ -454,9 +454,10 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
                      nrows_ncols=(2, 5), axes_pad=0.0, label_mode="L", share_all=True,
                      cbar_location="right", cbar_mode="single", cbar_size="5%", cbar_pad='5%')
 
-    cbar_ranges = [(reference[0, i, :, :].min(),
-                    reference[0, i, :, :].max()) 
-                    for i in range(5)]
+    cbar_ranges = (min(reference[0].min(), prediction[0].min()),
+                    max(reference[0].max(), prediction[0].max()))
+    
+    # cbar_ranges = [(0, 1) for i in range(5)]
 
     with torch.no_grad():
         start = time.time_ns()
@@ -466,19 +467,23 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
 
     eval_time = round((end-start)/1e-6, 2)
 
+    vmax = cbar_ranges[1]  # need to tweak
+    vmin = 0
+
     # plot the figures
     for i, ax in enumerate(grid):
         if i <= 4:
             j = i
             org = ax.imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                            vmin=cbar_ranges[j][0], vmax=cbar_ranges[j][1], cmap='magma')
+                            vmin=vmin, vmax=vmax, cmap='magma')
             draw_apparatus(ax)
+            ax.set_ylabel('z [cm]', fontsize=8)
         else:
             j = i-5
             rec = ax.imshow(reconstruction[0, i-5, :, :], origin='lower', extent=extent, aspect='equal',
-                            vmin=cbar_ranges[j][0], vmax=cbar_ranges[j][1], cmap='magma')
+                            vmin=vmin, vmax=vmax, cmap='magma')
             draw_apparatus(ax)
-        grid.cbar_axes[0].colorbar(org)
+    grid.cbar_axes[0].colorbar(rec)
 
     # set font sizes and tick stuff
     for ax in grid:
