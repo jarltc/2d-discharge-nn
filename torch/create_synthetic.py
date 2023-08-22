@@ -1,5 +1,7 @@
 """  Create synthetic images used to train the autoencoder. Images will be synthesized by different operations between data sets.
 
+Parallelism performed using concurrent.futures (https://docs.python.org/3/library/concurrent.futures.html)
+
 created by jarl on 22 Aug 2023
 """
 
