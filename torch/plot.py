@@ -483,6 +483,12 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
             rec = ax.imshow(reconstruction[0, i-5, :, :], origin='lower', extent=extent, aspect='equal',
                             vmin=vmin, vmax=vmax, cmap='magma')
             draw_apparatus(ax)
+            ax.set_ylabel('z [cm]', fontsize=8)
+            ax.set_xlabel('r [cm]', fontsize=8)
+        # if i != 5:
+        #     ax.axes.get_xaxis().set_visible(False)
+        #     ax.axes.get_yaxis().set_visible(False)
+    
     grid.cbar_axes[0].colorbar(rec)
 
     # set font sizes and tick stuff
