@@ -36,7 +36,7 @@ def get_dataset_old(V, P, data_dir):
 def get_dataset(V, P, dataset:Path = nc_data):
     """Load the dataset for a pair of V, P from an nc file.
 
-    Uses interpolation_datasets/full_interpolation.nc by default.
+    Uses interpolation_datasets/full_interpolation.nc by default, and converts nans to zeros.
 
     Args:
         V (numeric): voltage
