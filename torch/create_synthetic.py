@@ -66,15 +66,15 @@ if __name__ == "__main__":
     # add a combination of ((v1, p1), (v2, p2)) to the input queue
     start_time = time.perf_counter()
     pairs = list(itertools.combinations(vps, 2))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
-        # submit tasks to the executor
-        future_to_task = {executor.submit(average_pair, pair[0], pair[1], ds): pair for pair in pairs}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:  # Future objects represent the result of an asynchronous task.
+        # submit tasks to the executor, performs average_pair() on a pair in the list initialized earlier.
+        future_to_task = {executor.submit(average_pair, pair[0], pair[1], ds): pair for pair in pairs}  # creates a dictionary of future: task, where a task serves
+                                                                                                        # as the key to a future.
 
         # wait for tasks to complete and retrieve results
         results = []
-        for future in concurrent.futures.as_completed(future_to_task):
-            task = future_to_task[future]
-            results.append(future.result())
+        for future in concurrent.futures.as_completed(future_to_task):  # iterates over Future objects as they complete. When a Future has finished, it yields that Future
+            results.append(future.result())  # get the result associated with a Future
 
     # combine images (xr.datasets) into one big dataset
     averaged_dataset = xr.concat(results, dim='image')
