@@ -2,6 +2,8 @@
 
 Parallelism performed using concurrent.futures (https://docs.python.org/3/library/concurrent.futures.html)
 
+The nc file created has 32C2 images (496) with 5 variables, and coordinates for y and x.
+
 created by jarl on 22 Aug 2023
 """
 
