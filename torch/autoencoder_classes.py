@@ -167,7 +167,7 @@ class A64_7(nn.Module):
             nn.ReLU()
         )
 
-    def forward(self, x):
+    def forward(self, x):        
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
         decoded = torchvision.transforms.functional.crop(
