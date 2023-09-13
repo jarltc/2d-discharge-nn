@@ -1,6 +1,7 @@
 """ Test loading of tensors without loading a whole pytorch tensor into memory """
 
 import time
+import sys
 from pathlib import Path
 from tqdm import tqdm
 
@@ -54,7 +55,7 @@ dataloader = DataLoader(customdataset, batch_size=32, shuffle=True)
 # sys.getsizeof() returns the size of an object in bytes
 
 # hyperparameters
-epochs = 100
+epochs = 10
 learning_rate = 1e-3
 model = A64_7().to(device)
 criterion = nn.MSELoss()
