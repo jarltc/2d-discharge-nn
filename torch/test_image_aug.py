@@ -14,8 +14,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
 
-from autoencoder_classes import A64_7
-from image_data_helpers import crop, downscale
+from autoencoder_classes import A64_6
+from image_data_helpers import crop, downscale, get_data
+from plot import plot_comparison_ae
 
 ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic_averaged.nc')
 ds = xr.open_dataset(ncfile, chunks={'images':62})
@@ -40,11 +41,8 @@ class CustomDataset(Dataset):
         # does the dataloader keep track of what data has already been used by tracking the indices?
         np_arrays = [self.data[variable].sel(image=index).values for variable in list(self.data.keys())]  # extract numpy array in each variable
         image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
-        if self.is_square:
-            tensor = crop(image_sample)  # crop to a square
-            tensor = downscale(tensor, resolution=64)
-        sample_tensor = torch.tensor(tensor, device=self.device, dtype=torch.float32)  # convert to pytorch tensor
-        return sample_tensor
+        tensor = torch.tensor(image_sample, device=self.device, dtype=torch.float32)  # convert to pytorch tensor
+        return tensor
 
 device = torch.device('mps' if torch.backends.mps.is_available() 
                       else 'cpu')
