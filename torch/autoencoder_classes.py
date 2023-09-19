@@ -209,6 +209,15 @@ class A64_6(nn.Module):
 
             nn.Conv2d(10, 5, kernel_size=1, stride=1),
             nn.ReLU()
+
+            # checkerboard patterns: https://distill.pub/2016/deconv-checkerboard/
+            # 1. subpixel convolution: use a kernel size that is divisible by the stride to avoid 
+            #       the overlap issue
+            # 2. separate out the upsampling from the convolution to compute features
+            #       for example, you might resize the image (using nearest neighbor ! or bilinear interpolation)
+            #       and then do a convolutional layer (resize-convolution is implicityly weight-tying in 
+            #       a way that discourages high frequency artifacts)
+            #       TRY: torch.nn.Upsample('https://pytorch.org/docs/stable/generated/torch.nn.Upsample.html)
         )
 
     def forward(self, x):
