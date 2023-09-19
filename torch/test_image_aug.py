@@ -70,7 +70,6 @@ class CustomDataset(Dataset):
     
 if __name__ == '__main__':
     ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
-    ds = xr.open_dataset(ncfile, chunks={'images':62})
     data_dir = ncfile.parent
     resolution = 64
 
@@ -85,7 +84,6 @@ if __name__ == '__main__':
     print(f'data loaded in {(end-start)*1e-6} ms')
 
     dataloader = DataLoader(customdataset, batch_size=32, shuffle=True)  # dataloader sends the data to the model
-    # sys.getsizeof() returns the size of an object in bytes
 
     # hyperparameters
     hp_dict = {'epochs': 500, 
