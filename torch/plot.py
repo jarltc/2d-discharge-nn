@@ -454,21 +454,17 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
                      nrows_ncols=(2, 5), axes_pad=0.0, label_mode="L", share_all=True,
                      cbar_location="right", cbar_mode="single", cbar_size="5%", cbar_pad='5%')
 
-    cbar_ranges = (min(reference[0].min(), prediction[0].min()),
-                    max(reference[0].max(), prediction[0].max()))
-    
-    # cbar_ranges = [(0, 1) for i in range(5)]
-
     with torch.no_grad():
         start = time.time_ns()
-        reconstruction = torchvision.transforms.functional.crop(
-            model.decoder(prediction), 0, 0, resolution, resolution).cpu().numpy() 
+        decoded = model.decoder(prediction).cpu().numpy()
+        reconstruction = decoded[:, :, :resolution, :resolution]  # assumes shape: (samples, channels, height, width)
         end = time.time_ns()
 
     eval_time = round((end-start)/1e-6, 2)
 
-    vmax = cbar_ranges[1]  # need to tweak
-    vmin = 0
+    # get the larger value between maxima of each dataset
+    cbar_ranges = (0, max(reference[0].max(), reconstruction[0].max()))
+    vmin, vmax = cbar_ranges
 
     # plot the figures
     for i, ax in enumerate(grid):
