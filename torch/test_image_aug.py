@@ -19,12 +19,17 @@ from image_data_helpers import crop, downscale
 
 ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic_averaged.nc')
 ds = xr.open_dataset(ncfile, chunks={'images':62})
+resolution = 64
 
 class CustomDataset(Dataset):
-    def __init__(self, ncds, device, square=True):
+    def __init__(self, directory, device, square=True, resolution=None):
         super().__init__()
-        self.data = ncds
+        if resolution is not None:
+            self.data = xr.open_dataset(directory/f'synthetic_averaged_s{resolution}.nc', chunks={'images': 62})
+        else:
+            self.data = xr.open_dataset(directory/'synthetic_averaged.nc', chunks={'images': 62})
         self.is_square = square
+        self.resolution = resolution
         self.device = device
     
     def __len__(self):
@@ -45,7 +50,7 @@ device = torch.device('mps' if torch.backends.mps.is_available()
                       else 'cpu')
 
 start = time.perf_counter_ns()
-customdataset = CustomDataset(ds, device)
+customdataset = CustomDataset(data_dir, device, resolution=resolution)
 end = time.perf_counter_ns()
 sample = customdataset[12]  # load a random image
 
