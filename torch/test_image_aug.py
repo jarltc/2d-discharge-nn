@@ -43,55 +43,71 @@ class CustomDataset(Dataset):
         image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
         tensor = torch.tensor(image_sample, device=self.device, dtype=torch.float32)  # convert to pytorch tensor
         return tensor
+    
+if __name__ == '__main__':
+    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
+    ds = xr.open_dataset(ncfile, chunks={'images':62})
+    data_dir = ncfile.parent
+    resolution = 64
 
-device = torch.device('mps' if torch.backends.mps.is_available() 
-                      else 'cpu')
+    device = torch.device('mps' if torch.backends.mps.is_available() 
+                        else 'cpu')
 
-start = time.perf_counter_ns()
-customdataset = CustomDataset(data_dir, device, resolution=resolution)
-end = time.perf_counter_ns()
-sample = customdataset[12]  # load a random image
+    start = time.perf_counter_ns()
+    customdataset = CustomDataset(data_dir, device, resolution=resolution)  # initialize dataset
+    end = time.perf_counter_ns()
+    sample = customdataset[12]  # load a random image
 
-print(f'data loaded in {(end-start)*1e-6} ms')
+    print(f'data loaded in {(end-start)*1e-6} ms')
 
-dataloader = DataLoader(customdataset, batch_size=32, shuffle=True)
-# sys.getsizeof() returns the size of an object in bytes
+    dataloader = DataLoader(customdataset, batch_size=32, shuffle=True, num_workers=2)  # dataloader sends the data to the model
+    # sys.getsizeof() returns the size of an object in bytes
 
-# hyperparameters
-epochs = 10
-learning_rate = 1e-3
-model = A64_7().to(device)
-criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
+    # hyperparameters
+    hp_dict = {'epochs': 10, 
+            'learning_rate': 1e-3, 
+            'model': A64_6(), 
+            'criterion': nn.MSELoss(),
+            'images': len(customdataset)}
 
-for epoch in loop:
-    for i, batch_data in enumerate(dataloader):
-        # get inputs
-        inputs = batch_data
-        optimizer.zero_grad()
+    epochs = hp_dict['epochs']
+    learning_rate = hp_dict['learning_rate']
+    model = hp_dict['model'].to(device)
+    criterion = hp_dict['criterion']
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    hp_dict['optimizer'] = 'Adam'
 
-        # record loss
-        running_loss = 0.0
+    loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
 
-        outputs = model(inputs)
-        loss = criterion(outputs, inputs)
-        loss.backward()
-        optimizer.step()
+    train_start = time.perf_counter()
+    for epoch in loop:
+        for i, batch_data in enumerate(dataloader):
+            # get inputs
+            inputs = batch_data
+            optimizer.zero_grad()
 
-        running_loss += loss.item()
-        loop.set_description(f'Epoch {epoch+1}/{epochs}')
+            # record loss
+            running_loss = 0.0
 
-# training finishes
-torch.save(model.state_dict(), data_dir/'synthetic_test')
+            outputs = model(inputs)
+            loss = criterion(outputs, inputs)
+            loss.backward()
+            optimizer.step()
 
-# load test set
-_, test_res = get_data((300, 60), 
-                       resolution=customdataset.resolution, 
-                       square=customdataset.is_square)
-model.eval()
-with torch.no_grad():
-    encoded = model.encoder(torch.tensor(test_res, device=device, dtype=torch.float32))
-    decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32)).cpu().numpy()
+            running_loss += loss.item()
+            loop.set_description(f'Epoch {epoch+1}/{epochs}')
 
-plot_comparison_ae(test_res, encoded, model, out_dir=data_dir, is_square=True, resolution=resolution)
+    # training finishes
+    torch.save(model.state_dict(), data_dir/'synthetic_test')
+    train_end = time.perf_counter()
+    write_metadata(data_dir)
+    # load test set
+    _, test_res = get_data((300, 60), 
+                        resolution=customdataset.resolution, 
+                        square=customdataset.is_square)
+    model.eval()
+    with torch.no_grad():
+        encoded = model.encoder(torch.tensor(test_res, device=device, dtype=torch.float32))
+        decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32)).cpu().numpy()
+
+    plot_comparison_ae(test_res, encoded, model, out_dir=data_dir, is_square=True, resolution=resolution)
