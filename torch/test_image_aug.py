@@ -80,3 +80,15 @@ for epoch in loop:
         loop.set_description(f'Epoch {epoch+1}/{epochs}')
 
 # training finishes
+torch.save(model.state_dict(), data_dir/'synthetic_test')
+
+# load test set
+_, test_res = get_data((300, 60), 
+                       resolution=customdataset.resolution, 
+                       square=customdataset.is_square)
+model.eval()
+with torch.no_grad():
+    encoded = model.encoder(torch.tensor(test_res, device=device, dtype=torch.float32))
+    decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32)).cpu().numpy()
+
+plot_comparison_ae(test_res, encoded, model, out_dir=data_dir, is_square=True, resolution=resolution)
