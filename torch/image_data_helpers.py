@@ -7,6 +7,7 @@ import cv2
 import xarray as xr
 import numpy as np
 import torch
+from torch.utils.data import Dataset
 import pandas as pd
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -135,7 +136,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=False)
         square (bool, optional): Crops to a square if True. Defaults to False.
 
     Returns:
-        [train, test, [validation]]: Minmax-scaled training and test images, and validation image if provided.
+        [train, test, [validation]]: Minmax-scaled training and test images (np.ndarrays), and validation image if provided.
     """
     
     global nc_data
@@ -166,3 +167,26 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=False)
         return [train_set, test_image, val_image]
     else:
         return [train_set, test_image]
+
+
+class AugmentationDataset(Dataset):
+    def __init__(self, directory, device, square=True, resolution=None):
+        super().__init__()
+        if resolution is not None:
+            self.data = xr.open_dataset(directory/f'synthetic_averaged_s{resolution}.nc', chunks={'images': 62})
+        else:
+            self.data = xr.open_dataset(directory/'synthetic_averaged.nc', chunks={'images': 62})
+        self.is_square = square
+        self.resolution = resolution
+        self.device = device
+    
+    def __len__(self):
+        return self.data.dims['image']
+    
+    def __getitem__(self, index):
+        """ Convert batches of data from xarray to numpy arrays then pytorch tensors """
+        # does the dataloader keep track of what data has already been used by tracking the indices?
+        np_arrays = [self.data[variable].sel(image=index).values for variable in list(self.data.keys())]  # extract numpy array in each variable
+        image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
+        tensor = torch.tensor(image_sample, device=self.device, dtype=torch.float32)  # convert to pytorch tensor
+        return tensor
