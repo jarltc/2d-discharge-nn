@@ -29,7 +29,7 @@ from sklearn.preprocessing import MinMaxScaler
 from autoencoder_classes import A300, A64_6, A64_6s, A300s
 from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
-from image_data_helpers import get_data, crop, downscale
+from image_data_helpers import get_data, AugmentationDataset
 
 
 def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
@@ -70,29 +70,6 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write(f'Resolution: {resolution}\n')
         f.write(f'Train time: {(train_end-train_start):.2f} seconds ({(train_end-train_start)/60:.2f} minutes)\n')
         f.write('\n***** end of file *****')
-
-
-class AugmentationDataset(Dataset):
-    def __init__(self, directory, device, square=True, resolution=None):
-        super().__init__()
-        if resolution is not None:
-            self.data = xr.open_dataset(directory/f'synthetic_averaged_s{resolution}.nc', chunks={'images': 62})
-        else:
-            self.data = xr.open_dataset(directory/'synthetic_averaged.nc', chunks={'images': 62})
-        self.is_square = square
-        self.resolution = resolution
-        self.device = device
-    
-    def __len__(self):
-        return self.data.dims['image']
-    
-    def __getitem__(self, index):
-        """ Convert batches of data from xarray to numpy arrays then pytorch tensors """
-        # does the dataloader keep track of what data has already been used by tracking the indices?
-        np_arrays = [self.data[variable].sel(image=index).values for variable in list(self.data.keys())]  # extract numpy array in each variable
-        image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
-        tensor = torch.tensor(image_sample, device=self.device, dtype=torch.float32)  # convert to pytorch tensor
-        return tensor
 
 
 class SimDataset(Dataset):
