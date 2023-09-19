@@ -132,7 +132,7 @@ if __name__ == '__main__':
     for epoch in loop:
         for i, batch_data in enumerate(trainloader):
             # get inputs
-            inputs = batch_data  # TODO: this used to be batch_data[0] for the simulation data
+            inputs = batch_data  # TODO: this used to be batch_data[0] when using TensorDataset()
             optimizer.zero_grad()
 
             # record loss
