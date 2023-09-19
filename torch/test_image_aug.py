@@ -14,14 +14,37 @@ torch.manual_seed(8095)
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
+from torchinfo import summary
 
 from autoencoder_classes import A64_6
 from image_data_helpers import crop, downscale, get_data
 from plot import plot_comparison_ae
 
-ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic_averaged.nc')
-ds = xr.open_dataset(ncfile, chunks={'images':62})
-resolution = 64
+def write_metadata(out_dir: Path):  # TODO: move to data module
+    # if is_square:
+    #     in_size = (1, 5, 200, 200)
+    # else:
+    #     in_size = (1, 5, 707, 200)
+    in_size = (1, 5, resolution, resolution)
+    images = hp_dict['images']
+
+    # in_size = batch_data[0].size()  # testing
+
+    # save model structure
+    file = out_dir/'train_log.txt'
+    with open(file, 'w') as f:
+        # f.write(f'Model {name}\n')
+        print(summary(model, input_size=in_size), file=f)
+        print("\n", file=f)
+        print(model, file=f)
+        f.write(f'\nEpochs: {epochs}\n')
+        f.write(f'Learning rate: {learning_rate}\n')
+        f.write(f'Resolution: {resolution}\n')
+        f.write('Seed: 8097\n')
+        f.write(f'Images: {images}\n')
+        f.write(f'Train time: {(train_end-train_start):.2f} s ({(train_end-train_start)/60:.2f} m)\n')
+        f.write('\n***** end of file *****')
+
 
 class CustomDataset(Dataset):
     def __init__(self, directory, device, square=True, resolution=None):
@@ -61,11 +84,11 @@ if __name__ == '__main__':
 
     print(f'data loaded in {(end-start)*1e-6} ms')
 
-    dataloader = DataLoader(customdataset, batch_size=32, shuffle=True, num_workers=2)  # dataloader sends the data to the model
+    dataloader = DataLoader(customdataset, batch_size=32, shuffle=True)  # dataloader sends the data to the model
     # sys.getsizeof() returns the size of an object in bytes
 
     # hyperparameters
-    hp_dict = {'epochs': 10, 
+    hp_dict = {'epochs': 500, 
             'learning_rate': 1e-3, 
             'model': A64_6(), 
             'criterion': nn.MSELoss(),
@@ -73,7 +96,8 @@ if __name__ == '__main__':
 
     epochs = hp_dict['epochs']
     learning_rate = hp_dict['learning_rate']
-    model = hp_dict['model'].to(device)
+    model = hp_dict['model']
+    model.to(device)
     criterion = hp_dict['criterion']
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
     hp_dict['optimizer'] = 'Adam'
@@ -103,6 +127,7 @@ if __name__ == '__main__':
     train_end = time.perf_counter()
     write_metadata(data_dir)
     # load test set
+    model.to(device)
     _, test_res = get_data((300, 60), 
                         resolution=customdataset.resolution, 
                         square=customdataset.is_square)
