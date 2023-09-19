@@ -10,6 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
+torch.manual_seed(8095)
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
