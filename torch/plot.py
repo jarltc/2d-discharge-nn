@@ -546,6 +546,8 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     """
     columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+
+    sliceres = 1000
     
     # load reference data
     ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
@@ -574,17 +576,17 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
         testP = scalers[1].transform(np.array([p]).reshape(-1, 1))
         
         # horizontal line
-        xhs = scalers[2].transform(np.linspace(0, 0.2, 1000).reshape(-1, 1))
+        xhs = scalers[2].transform(np.linspace(0, 0.2, sliceres).reshape(-1, 1))
         yh = scalers[3].transform(np.array([0.44]).reshape(-1, 1))  # m
         horizontal = np.array([np.array([testV.item(), testP.item(), xh.item(), yh.item()]) for xh in xhs])
-        xhs = np.linspace(0, 0.2, 1000)
+        xhs = np.linspace(0, 0.2, sliceres)
         yh = yh.item()
 
         # vertical line 
         xv = scalers[2].transform(np.array([0.115]).reshape(-1, 1))  # m
-        yvs = scalers[3].transform(np.linspace(0, 0.707, 1000).reshape(-1, 1))
+        yvs = scalers[3].transform(np.linspace(0, 0.707, sliceres).reshape(-1, 1))
         vertical = np.array([np.array([testV.item(), testP.item(), xv.item(), yv.item()]) for yv in yvs])
-        yvs = np.linspace(0, 0.707, 1000)
+        yvs = np.linspace(0, 0.707, sliceres)
         xv = xv.item()
 
         # create tensor of x, y points for both horizontal and vertical slices
