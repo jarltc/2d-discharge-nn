@@ -457,19 +457,20 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     # get the larger value between maxima of each dataset
     cbar_ranges = (0, max(reference[0].max(), reconstruction[0].max()))
     vmin, vmax = cbar_ranges
+    cbar = 'magma'
 
     # plot the figures
     for i, ax in enumerate(grid):
         if i <= 4:
             j = i
             org = ax.imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                            vmin=vmin, vmax=vmax, cmap='magma')
+                            vmin=vmin, vmax=vmax, cmap=cbar)
             draw_apparatus(ax)
             ax.set_ylabel('z [cm]', fontsize=8)
         else:
             j = i-5
             rec = ax.imshow(reconstruction[0, i-5, :, :], origin='lower', extent=extent, aspect='equal',
-                            vmin=vmin, vmax=vmax, cmap='magma')
+                            vmin=vmin, vmax=vmax, cmap=cbar)
             draw_apparatus(ax)
             ax.set_ylabel('z [cm]', fontsize=8)
             ax.set_xlabel('r [cm]', fontsize=8)
@@ -479,12 +480,16 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     
     grid.cbar_axes[0].colorbar(rec)
 
+    columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
+
     # set font sizes and tick stuff
-    for ax in grid:
-        ax.xaxis.set_major_locator(ticker.MaxNLocator(3))
+    for i, ax in enumerate(grid):
+        if i <= 4:
+            ax.set_title(columns[i%5])
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
 
-        ax.yaxis.set_major_locator(ticker.MaxNLocator(3))
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
         ax.tick_params(axis='both', labelsize=8)
 
