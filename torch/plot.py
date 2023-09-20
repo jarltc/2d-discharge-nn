@@ -8,21 +8,26 @@ from mpl_toolkits.axes_grid1 import ImageGrid
 from matplotlib import gridspec
 import matplotlib
 matplotlib.use('Agg')
-matplotlib.rcParams['font.family'] = 'Arial'
+try:
+    matplotlib.rcParams['font.family'] = 'Arial'
+except:
+    matplotlib.rcParams['font.family'] = 'Liberation Sans'
 
 import pandas as pd
 import numpy as np
+import xarray as xr
 
 import torch
 import torch.nn as nn
 import torchvision
 
 import time
+import pickle
 from pathlib import Path
 
 from sklearn.preprocessing import MinMaxScaler
 
-from data_helpers import mse
+from data_helpers import mse, get_data
 
 def triangulate(df: pd.DataFrame):   
     """
@@ -284,14 +289,9 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
             cax.colorbar(tri)
             draw_apparatus(ax)
             ax.set_title(titles[i])
-    
-    fig.subplots_adjust(left=0.05, right=0.95, wspace=0.8)       
+        
 
     if data_dir is not None:
-        if mesh:
-            fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
-        else:
-            fig.savefig(data_dir/'quickplot.png', bbox_inches='tight')
         if mesh:
             fig.savefig(data_dir/'quickplot_mesh.png', bbox_inches='tight')
         else:
@@ -300,8 +300,7 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
     return fig
 
 
-def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, 
-                out_dir=None, minmax=True):
+def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, scores_list=None, out_dir=None):
     """Plot correlation between true values and predictions.
 
     Args:
@@ -320,9 +319,8 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
     fig, ax = plt.subplots(dpi=200)
     
     # customize axes
-    if prediction.values.max() > 5.0:
-        ax.set_xlim(-0.05, 1.05)
-        ax.set_ylim(-0.05, 1.05)
+    ax.set_xlim(-0.05, 1.05)
+    ax.set_ylim(-0.05, 1.05)
     ax.set_aspect('equal')
     ax.set_ylabel('Predicted')
     ax.set_xlabel('True')
@@ -333,14 +331,10 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
 
     for i, column in enumerate(prediction.columns):
         # transform with minmax to normalize between (0, 1)
-        if minmax:
-            scaler = MinMaxScaler()
-            scaler.fit(targets[column].values.reshape(-1, 1))
-            scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
-            scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
-        else:
-            scaled_targets = targets[column].values.reshape(-1, 1)
-            scaled_predictions = prediction[column].values.reshape(-1, 1)
+        scaler = MinMaxScaler()
+        scaler.fit(targets[column].values.reshape(-1, 1))
+        scaled_targets = scaler.transform(targets[column].values.reshape(-1, 1))
+        scaled_predictions = scaler.transform(prediction[column].values.reshape(-1, 1))
 
         # get correlation score
         if scores is None:
@@ -349,19 +343,17 @@ def correlation(prediction: pd.DataFrame, targets: pd.DataFrame, scores=None, sc
             r2 = round(scores[column].iloc[3], 2)
 
         # set label
-        math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']  # math style labels
-        # label = f'{column.split()[0]}: {r2}'
-        label = f'{math[i]}: {r2}'
+        label = f'{column.split()[0]}: {r2}'
 
         ax.scatter(scaled_targets, scaled_predictions, s=1, marker='.',
                    color=colors[i], alpha=0.15, label=label)
 
-    legend = ax.legend(markerscale=4, fontsize='small', title='$r^2$ values')
+    legend = ax.legend(markerscale=4, fontsize='small')
     for lh in legend.legendHandles: 
         lh.set_alpha(1)
     
     if out_dir is not None:
-        fig.savefig(out_dir/'correlation1.png', bbox_inches='tight')
+        fig.savefig(out_dir/'correlation.png', bbox_inches='tight')
 
 
 def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_dir: Path):
@@ -527,6 +519,157 @@ def ae_correlation(reference, prediction, out_dir, minmax=True):
     ref_df = pd.DataFrame({k: v for k, v in zip(columns, reference_cols)})
     pred_df = pd.DataFrame({k: v for k, v in zip(columns, prediction_cols)})
 
-    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir, minmax=minmax)
+    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
 
     return scores
+
+
+def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
+    """Plot 1D profile at specific vertical and horizontal slices (x=115 mm, y=440 mm).
+
+    Args:
+        model (nn.Module): Model with weights loaded.
+        scaler_dir (Path): Path to scalers (model_dir/scalers)
+        kind (str, optional): Get slices of mesh models or images. Defaults to 'mesh'.
+        out_dir (Path, optional): Path to save the figure. Defaults to None.
+
+    Raises:
+        ValueError: If kind is not 'mesh' (I have to write the code for image slices)
+
+    Returns:
+        None: none
+    """
+    columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+    
+    # load reference data
+    ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
+
+    if kind == 'mesh':
+        xscalers_dir = sorted(scaler_dir.rglob('xscaler*.pkl'))  # order goes V, P, x, y
+        yscalers_dir = sorted(scaler_dir.rglob('yscaler*.pkl'))
+        scalers = []
+        yscalers = []
+
+        for i in range(len(xscalers_dir)):
+            with open(xscalers_dir[i], 'rb') as f:
+                ''' I would rename this to xscalers but there would be too many things to change'''
+                scaler = pickle.load(f)
+                scalers.append(scaler)
+        
+        for i in range(len(yscalers_dir)):
+            with open(yscalers_dir[i], 'rb') as f:
+                scaler = pickle.load(f)
+                yscalers.append(scaler)
+
+        # test v and p (scaled)
+        v = 300.0
+        p = 60.0
+        testV = scalers[0].transform(np.array([v]).reshape(-1, 1))
+        testP = scalers[1].transform(np.array([p]).reshape(-1, 1))
+        
+        # horizontal line
+        xhs = scalers[2].transform(np.linspace(0, 0.2, 1000).reshape(-1, 1))
+        yh = scalers[3].transform(np.array([0.44]).reshape(-1, 1))  # m
+        horizontal = np.array([np.array([testV.item(), testP.item(), xh.item(), yh.item()]) for xh in xhs])
+        xhs = np.linspace(0, 0.2, 1000)
+        yh = yh.item()
+
+        # vertical line 
+        xv = scalers[2].transform(np.array([0.115]).reshape(-1, 1))  # m
+        yvs = scalers[3].transform(np.linspace(0, 0.707, 1000).reshape(-1, 1))
+        vertical = np.array([np.array([testV.item(), testP.item(), xv.item(), yv.item()]) for yv in yvs])
+        yvs = np.linspace(0, 0.707, 1000)
+        xv = xv.item()
+
+        # create tensor of x, y points for both horizontal and vertical slices
+        horizontal = torch.FloatTensor(horizontal)
+        vertical = torch.FloatTensor(vertical)
+
+        # predict x, y points from model and plot
+        model.eval()
+        with torch.no_grad():
+            horizontal_prediction = pd.DataFrame(model(horizontal).numpy(), columns=columns)
+            horizontal_prediction['x'] = xhs*1000
+            horizontal_prediction.set_index('x', inplace=True)
+
+            vertical_prediction = pd.DataFrame(model(vertical).numpy(), columns=columns)
+            vertical_prediction['y'] = yvs*1000
+            vertical_prediction.set_index('y', inplace=True)
+
+        def scale_column(column_data):
+        # divide by the magnitude of the mean
+            mean_exp = round(np.log10(np.mean(column_data)), 0) - 1.0
+            if mean_exp <= 0.0: 
+                mean_exp = 0.0
+            
+            return column_data/(10**mean_exp)
+    
+        # horizontal plot
+        def horizontal_plot():
+            fig, ax = plt.subplots(figsize=(6,3), dpi=300)
+            for i, column in enumerate(columns):
+                # the dataset has x and y in mm
+                reference = ds[column].sel(V=300, P=60, y=0.44).values.reshape(-1, 1)
+                reference = scale_column(reference)
+                reference = yscalers[i].transform(reference)
+
+                horizontal_prediction[column].plot(ax=ax, color=colors[i], label=column)
+                ax.plot(reference, color=colors[i], alpha=0.3)
+                ax.grid()
+                ax.legend(fontsize='small')
+                ax.set_ylabel('Scaled magnitude')
+                ax.set_xlabel('x [mm]')
+
+            return fig
+
+
+        def vertical_plot():
+            fig, ax = plt.subplots(figsize=(3,6), dpi=300)
+            for i, column in enumerate(columns):
+                # the dataset has x and y in mm
+                reference = ds[column].sel(V=300, P=60, x=0.115, method='nearest').values.reshape(-1, 1)
+                reference = scale_column(np.nan_to_num(reference))
+                reference = yscalers[i].transform(reference)
+
+                ax.plot(vertical_prediction[column].values, vertical_prediction.index.values, color=colors[i], label=column)
+                ax.plot(reference, ds.y.values*1000, color=colors[i], alpha=0.3)
+                ax.grid()
+                ax.legend(fontsize='small')
+                ax.set_xlabel('Scaled magnitude')
+                ax.set_ylabel('y [mm]')
+
+            return fig
+    
+    else: raise ValueError('kind can only be mesh')
+    
+    hplot = horizontal_plot()
+    vplot = vertical_plot()
+
+    if out_dir is not None:
+        hplot.savefig(out_dir/'h_slices.png', bbox_inches='tight')
+        vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
+
+
+def plot_train_loss(losses, validation_losses=None, out_dir=None):
+
+    losses = np.array(losses)
+    fig, ax = plt.subplots()
+    ax.set_yscale('log')
+    ax.plot(losses, c='r', label='train')
+
+    try:  # im not sure what the original validation_losses is
+        validation_array = np.array(validation_losses)
+    except:
+        validation_array = validation_losses
+
+    if validation_losses is not None:
+        ax.plot(validation_array, c='r', ls=':', label='validation')
+        ax.legend()
+
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid()
+
+    if out_dir is not None:
+        fig.savefig(out_dir/'train_loss.png', bbox_inches='tight')
