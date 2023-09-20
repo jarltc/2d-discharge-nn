@@ -98,6 +98,7 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset):
 
     Values for the minmax scaling are obtained from the .nc file. 
     This also forces the minimum to be 0 instead of some crazy value that might mess with calculations.
+    This scheme scales an array to lie between 0 and 1 (the maximum value for the specific variable across the entire dataset).
     Args:
         image (np.ndarray): Image (channels, height, width) to be scaled.
 
