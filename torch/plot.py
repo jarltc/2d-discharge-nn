@@ -412,8 +412,8 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
     return fig
 
 
-def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn.Module, 
-                       out_dir=None, is_square=False, mode='reconstructing', resolution=32): 
+def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, 
+                       model:nn.Module, out_dir=None, is_square=False): 
     """Create plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
@@ -423,13 +423,16 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         out_dir (Path, optional): Output directory. Defaults to None.
         is_square (bool, optional): Switch for square image and full rectangle.
             Defaults to False.
-        mode (str, optional): Switch for 'reconstructing' or 'predicting' (plots title). 
-            Defaults to 'reconstructing'.
 
     Returns:
         float: Evaluation time.
         scores: List of reconstruction MSE
     """
+
+    resolution = reference.shape[2]
+    if prediction.shape[2] or prediction.shape[3] != resolution:
+        raise ValueError(f'Prediction is not cropped properly! size={resolution}')
+
     if is_square:
         figsize = (6, 3)
         extent = [0, 20, 35, 55]
@@ -460,21 +463,16 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     # plot the figures
     for i, ax in enumerate(grid):
         if i <= 4:
-            j = i
             org = ax.imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
                             vmin=vmin, vmax=vmax, cmap=cbar)
             draw_apparatus(ax)
             ax.set_ylabel('z [cm]', fontsize=8)
         else:
-            j = i-5
             rec = ax.imshow(reconstruction[0, i-5, :, :], origin='lower', extent=extent, aspect='equal',
                             vmin=vmin, vmax=vmax, cmap=cbar)
             draw_apparatus(ax)
             ax.set_ylabel('z [cm]', fontsize=8)
             ax.set_xlabel('r [cm]', fontsize=8)
-        # if i != 5:
-        #     ax.axes.get_xaxis().set_visible(False)
-        #     ax.axes.get_yaxis().set_visible(False)
     
     if cbar_reference == 'original':
         cb = grid.cbar_axes[0].colorbar(org) 
