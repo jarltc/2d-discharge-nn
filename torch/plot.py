@@ -752,3 +752,105 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
         vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
 
     return [hplot, vplot]
+
+
+def delta(reference: np.ndarray, reconstruction: np.ndarray, 
+                       out_dir=None, is_square=False): 
+    """Create difference plot comparing the reference data with its autoencoder reconstruction.
+
+    Args:
+        reference (np.ndarray): Reference dataset.
+        reconstruction (np.ndarray): Array of (cropped) prediction.
+        out_dir (Path, optional): Output directory. Defaults to None.
+        is_square (bool, optional): Switch between square image and full rectangle.
+
+    Returns:
+        plt.figure: Figure of absolute and relative differences.
+    """
+    resolution = reference.shape[2]
+    if reconstruction.shape[2] or reconstruction.shape[3] != resolution:
+        raise ValueError(f'Prediction is not cropped properly! size={resolution}')
+
+    if is_square:
+        figsize = (6, 2)
+        extent = [0, 20, 35, 55]
+    else:
+        figsize = (10, 5)
+        extent =[0, 20, 0, 70.7]
+
+    extent = [0, 20, 35, 55]
+
+    fig = plt.figure(dpi=300, figsize=figsize)
+    
+    topgrid = ImageGrid(fig, 211,  # similar to fig.add_subplot(142).
+                     nrows_ncols=(1, 5), axes_pad=0.0,
+                     cbar_location="right", cbar_mode="single", cbar_size="7%", cbar_pad='5%',
+                     cbar_set_cax=True)
+    
+    botgrid = ImageGrid(fig, 212,  # similar to fig.add_subplot(142).
+                     nrows_ncols=(1, 5), axes_pad=0.0, label_mode="L",
+                     cbar_location="right", cbar_mode="single", cbar_size="7%", cbar_pad='5%',
+                     cbar_set_cax=True)
+
+    absdelta = reconstruction - reference
+    reldelta = np.nan_to_num((reconstruction - reference)*(100/reference), posinf=500)
+
+    def absolute(arr):
+        # get the absolute largest magnitude of a dataset
+        arrmax = arr.flat[np.abs(arr).argmax()]
+        return np.abs(arrmax)
+
+    cbar = 'coolwarm'  # spectral also works
+    amax = absolute(absdelta)
+    rmax = 100  # fix it to 100 for now cause division by zero ruins everything
+
+    # plot the figures for each ImageGrid
+    for i, ax in enumerate(topgrid):
+        absim = ax.imshow(absdelta[0, i, :, :], origin='lower', extent=extent, aspect='auto',
+                          vmin=-amax, vmax=amax, cmap=cbar)
+        draw_apparatus(ax)
+        ax.set_ylabel('z [cm]', fontsize=8)
+
+    for i, ax in enumerate(botgrid):
+        relim = ax.imshow(reldelta[0, i, :, :], origin='lower', extent=extent, aspect='auto',
+                        vmin=-rmax, vmax=rmax, cmap=cbar)
+        draw_apparatus(ax)
+        ax.set_ylabel('z [cm]', fontsize=8)
+        ax.set_xlabel('r [cm]', fontsize=8)
+
+    # colorbar settings
+    cb1 = topgrid.cbar_axes[0].colorbar(absim, extend='both')
+    cb1.set_label('Absolute', rotation=270, fontsize=7, va='bottom', ha='center')
+    cb1.ax.tick_params(labelsize=7)
+
+    cb2 = botgrid.cbar_axes[0].colorbar(relim, extend='both')
+    cb2.set_label('Percent', rotation=270, fontsize=7, va='bottom', ha='center')
+    cb2.ax.tick_params(labelsize=7)
+
+    columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
+        
+    # set font sizes and tick stuff
+    for i, ax in enumerate(topgrid):
+        ax.set_title(columns[i%5])
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+        ax.tick_params(axis='both', labelsize=8)
+        ax.tick_params(bottom=False, labelbottom=False)
+    
+    for i, ax in enumerate(botgrid):
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+        ax.tick_params(axis='both', labelsize=8)
+
+    plt.subplots_adjust(hspace=0, wspace=0)  # not sure if this does something
+
+    plt.close()
+    if out_dir is not None:
+        fig.savefig(out_dir/'delta.png', bbox_inches='tight')
+
+    return fig
