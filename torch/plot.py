@@ -478,7 +478,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         #     ax.axes.get_xaxis().set_visible(False)
         #     ax.axes.get_yaxis().set_visible(False)
     
-    grid.cbar_axes[0].colorbar(rec)
+    cb.set_label('Minmax scaled magnitude', rotation=270, fontsize=8, va='bottom', ha='center')
 
     columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
 
