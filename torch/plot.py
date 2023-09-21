@@ -755,7 +755,7 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
 
 
 def delta(reference: np.ndarray, reconstruction: np.ndarray, 
-                       out_dir=None, is_square=False): 
+                       out_dir:Path=None, is_square=False): 
     """Create difference plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
