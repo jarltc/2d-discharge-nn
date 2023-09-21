@@ -191,3 +191,19 @@ class AugmentationDataset(Dataset):
         image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
         tensor = torch.tensor(image_sample, device=self.device, dtype=torch.float32)  # convert to pytorch tensor
         return tensor
+    
+
+def check_empty(image_set:np.ndarray, eps=0.001):
+    """ Check if a set of predictions contains an empty image.
+
+    Args:
+        image_set (np.ndarray): Image set to be checked.
+        eps (float, optional): Threshold value to consider 
+            if the image is empty or not. Defaults to 0.001.
+
+    Returns:
+        bool: True when the set contains an empty image. False otherwise.
+    """
+    means = np.array([image_set[:, i].mean() for i in range(5)])
+    return np.any(means < eps)
+    
