@@ -455,6 +455,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
     eval_time = round((end-start)/1e-6, 2)
 
     # get the larger value between maxima of each dataset
+    cbar_reference = 'original' if reference[0].max() > reconstruction[0].max() else 'prediction'
     cbar_ranges = (0, max(reference[0].max(), reconstruction[0].max()))
     vmin, vmax = cbar_ranges
     cbar = 'magma'
@@ -478,6 +479,11 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         #     ax.axes.get_xaxis().set_visible(False)
         #     ax.axes.get_yaxis().set_visible(False)
     
+    if cbar_reference == 'original':
+        cb = grid.cbar_axes[0].colorbar(org) 
+    else:
+        cb = grid.cbar_axes[0].colorbar(rec)
+        
     cb.set_label('Minmax scaled magnitude', rotation=270, fontsize=8, va='bottom', ha='center')
 
     columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
