@@ -430,8 +430,8 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     """
 
     resolution = reference.shape[2]
-    if prediction.shape[2] or prediction.shape[3] != resolution:
-        raise ValueError(f'Prediction is not cropped properly! size={resolution}')
+    # if prediction.shape[2] or prediction.shape[3] != resolution:
+    #     raise ValueError(f'Prediction is not cropped properly! size={resolution}')
 
     if is_square:
         figsize = (6, 3)
