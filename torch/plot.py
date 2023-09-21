@@ -683,3 +683,72 @@ def plot_train_loss(losses, validation_losses=None, out_dir=None):
 
     if out_dir is not None:
         fig.savefig(out_dir/'train_loss.png', bbox_inches='tight')
+
+
+def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=None):
+    """ Evaluate slices for images.
+
+        Vertical and horizontal slices allow us to see 1-dimensional performance of the model.
+        These assume fixed lines whose positions are controlled by y and x in hslice and vslice, 
+        respectively.
+    Args:
+        reference (np.ndarray): Array containing reference data.
+        prediction (np.ndarray): Array containing (cropped) predictions.
+        out_dir (Path, optional): Path where figures are saved. Defaults to None.
+
+    Returns:
+        list of plt.Figure: List containing [hplot, vplot]
+    """
+    columns = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+
+    resolution = reference.shape[2]
+    if prediction.shape[2] or prediction.shape[3] != resolution:
+        raise ValueError('prediction is not cropped properly!')
+
+    def hslice(y=44):
+        # horizontal slice (fixed y = 44 mm)
+        yidx = round(resolution*((y-35))/(55-35))  # convert y coordinate to pixel coordinate
+        fig, ax = plt.subplots(figsize=(6,3), dpi=300)
+        for i, column in enumerate(columns):
+            refslice = reference[0, i, yidx]
+            predslice = prediction[0, i, yidx]  
+
+            x = np.linspace(0, 20, resolution)
+
+            ax.plot(x, predslice, color=colors[i], label=column)
+            ax.plot(x, refslice, color=colors[i], alpha=0.3)
+            ax.grid()
+            ax.legend(fontsize='small')
+            ax.set_ylabel('Scaled magnitude')
+            ax.set_xlabel('x [cm]')
+        
+        return fig
+    
+    def vslice(x=115):
+        # vertical (fixed x = 115 mm)
+        xidx = round(resolution*(x/200))
+        fig, ax = plt.subplots(figsize=(3, 6), dpi=300)
+        for i, column in enumerate(columns):
+            refslice = reference[0, i, :, xidx]
+            predslice = prediction[0, i, :, xidx] + 0.01 
+
+            y = np.linspace(35, 55, resolution)
+
+            ax.plot(predslice, y, color=colors[i], label=column)
+            ax.plot(refslice, y, color=colors[i], alpha=0.3)
+            ax.grid()
+            ax.legend(fontsize='small')
+            ax.set_xlabel('Scaled magnitude')
+            ax.set_ylabel('y [cm]')
+
+        return fig
+    
+    hplot = hslice()
+    vplot = vslice()
+
+    if out_dir is not None:
+        hplot.savefig(out_dir/'h_slices.png', bbox_inches='tight')
+        vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
+
+    return [hplot, vplot]
