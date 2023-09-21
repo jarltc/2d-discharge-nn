@@ -29,6 +29,16 @@ from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import mse, get_data
 
+# global stuff 
+units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
+            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
+            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
+            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
+            'Te (eV)'          :' (eV)'}  # list of keys can be extracted using units.keys()
+columns_math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
+cat_rainbow = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+
+
 def triangulate(df: pd.DataFrame):   
     """
     Create triangulation of the mesh grid, which is passed to tricontourf.
@@ -367,24 +377,11 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
     """
     assert list(py.columns) == list(ty.columns)
 
-    # TODO: move elsewhere
-    units = {'potential (V)'    :' ($\mathrm{10 V}$)', 
-            'Ne (#/m^-3)'      :' ($10^{14}$ $\mathrm{m^{-3}}$)',
-            'Ar+ (#/m^-3)'     :' ($10^{14}$ $\mathrm{m^{-3}}$)', 
-            'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
-            'Te (eV)'          :' (eV)'}
-
     diff = 100 * ((py - ty) / np.abs(ty)) 
     titles = [column.split()[0] for column in diff.columns]
 
     tX['x'] = tX['x']*100
     tX['y'] = tX['y']*100
-
-    # ranges = {'potential (V)': (-5, 5), 
-    #           'Ne (#/m^-3)' : (-8, 8),
-    #           'Ar+ (#/m^-3)' : (-9, 9),
-    #           'Nm (#/m^-3)' : (-20, 50),
-    #           'Te (eV)' : (-50, 50)}
     
     cmap = plt.get_cmap('coolwarm')
 
@@ -486,12 +483,12 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
         
     cb.set_label('Minmax scaled magnitude', rotation=270, fontsize=8, va='bottom', ha='center')
 
-    columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
+    global columns_math
 
     # set font sizes and tick stuff
     for i, ax in enumerate(grid):
         if i <= 4:
-            ax.set_title(columns[i%5])
+            ax.set_title(columns_math[i%5])
         ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
 
@@ -514,13 +511,13 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
 def ae_correlation(reference, prediction, out_dir, minmax=True):
     from sklearn.metrics import r2_score
     scores = []
-    columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
+    global columns_math
     prediction_cols = []
     reference_cols = []
 
     prediction = prediction.cpu().numpy()
     
-    for i, column in enumerate(columns):
+    for i, column in enumerate(columns_math):
         ref_series = pd.Series(reference[0, i, :, :].flatten(), name=column)
         pred_series = pd.Series(prediction[0, i, :, :].flatten(), name=column)
         scores.append(r2_score(reference[0, i, :, :].flatten(), 
@@ -528,8 +525,8 @@ def ae_correlation(reference, prediction, out_dir, minmax=True):
         reference_cols.append(ref_series)
         prediction_cols.append(pred_series)
     
-    ref_df = pd.DataFrame({k: v for k, v in zip(columns, reference_cols)})
-    pred_df = pd.DataFrame({k: v for k, v in zip(columns, prediction_cols)})
+    ref_df = pd.DataFrame({k: v for k, v in zip(columns_math, reference_cols)})
+    pred_df = pd.DataFrame({k: v for k, v in zip(columns_math, prediction_cols)})
 
     correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
 
@@ -828,11 +825,11 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
     cb2.set_label('Percent', rotation=270, fontsize=7, va='bottom', ha='center')
     cb2.ax.tick_params(labelsize=7)
 
-    columns = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
+    global columns_math
         
     # set font sizes and tick stuff
     for i, ax in enumerate(topgrid):
-        ax.set_title(columns[i%5])
+        ax.set_title(columns_math[i%5])
         ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
 
