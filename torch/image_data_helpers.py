@@ -204,6 +204,6 @@ def check_empty(image_set:np.ndarray, eps=0.001):
     Returns:
         bool: True when the set contains an empty image. False otherwise.
     """
-    means = np.array([image_set[:, i].mean() for i in range(5)])
-    return np.any(means < eps)
+    means = np.array([image_set[:, i].mean() for i in range(5)])  # get the mean value for each channel
+    return np.any(means < eps)  # check if any of these are less than eps
     
