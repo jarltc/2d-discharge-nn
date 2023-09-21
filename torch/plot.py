@@ -510,6 +510,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, model:nn
 
     return eval_time, scores
 
+
 def ae_correlation(reference, prediction, out_dir, minmax=True):
     from sklearn.metrics import r2_score
     scores = []
