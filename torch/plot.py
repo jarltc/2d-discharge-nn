@@ -413,7 +413,7 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
 
 
 def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor, 
-                       model:nn.Module, out_dir=None, is_square=False): 
+                       model:nn.Module, out_dir=None, is_square=False, cbar='magma'): 
     """Create plot comparing the reference data with its autoencoder reconstruction.
 
     Args:
@@ -458,7 +458,6 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     cbar_reference = 'original' if reference[0].max() > reconstruction[0].max() else 'prediction'
     cbar_ranges = (0, max(reference[0].max(), reconstruction[0].max()))
     vmin, vmax = cbar_ranges
-    cbar = 'magma'
 
     # plot the figures
     for i, ax in enumerate(grid):
@@ -500,8 +499,12 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
         score = mse(reference[0, i, :, :], reconstruction[0, i, :, :])
         scores.append(score)
 
+    name = 'test_comparison'
+    if cbar != 'magma':
+        name = 'test_comparison_' + cbar
+
     if out_dir is not None:
-        fig.savefig(out_dir/f'test_comparison1.png', bbox_inches='tight')
+        fig.savefig(out_dir/f'{name}.png', bbox_inches='tight')
 
     return eval_time, scores
 
