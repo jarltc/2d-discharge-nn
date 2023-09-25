@@ -126,7 +126,7 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset):
     return scaled
 
 
-def get_data(test:tuple, validation:tuple = None, resolution=None, square=False):
+def get_data(test:tuple, validation:tuple = None, resolution=None, square=True):
     """Get train, test, and (optional) validation data from an .nc file.
 
     Assumes that test and validation sets are only single images. (This might change with a much larger dataset)
@@ -150,23 +150,25 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=False)
     train_images = []
     for vp in vps:
         image = get_dataset(vp[0], vp[1])  # load data
-        image = crop(image) if square else None
-        image = downscale(image, resolution) if resolution is not None else None
+        cropped = crop(image) if square else image
+        scaled = downscale(cropped, resolution) if resolution is not None else image
 
-        image = minmax_scale(image, ds)
+        mmax = minmax_scale(scaled, ds)
 
         if vp == test:
-            test_image = np.expand_dims(image, axis=0)
+            test_image = np.expand_dims(mmax, axis=0)
         elif vp == validation:
-            val_image = np.expand_dims(image, axis=0)
+            val_image = np.expand_dims(mmax, axis=0)
         else:
-            train_images.append(image)
+            train_images.append(mmax)
 
         train_set = np.stack(train_images)
 
     if validation is not None:
+        print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image, val_image]]}')
         return [train_set, test_image, val_image]
     else:
+        print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image]]}')
         return [train_set, test_image]
 
 
