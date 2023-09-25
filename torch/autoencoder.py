@@ -17,7 +17,7 @@ import xarray as xr
 from tqdm import tqdm
 
 import torch
-torch.manual_seed(8095)
+torch.manual_seed(2023)  # 911
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, TensorDataset, DataLoader
@@ -165,7 +165,7 @@ if __name__ == '__main__':
 
     torch.save(model.state_dict(), out_dir/f'{name}')
     train2db(out_dir, name, epochs, test_pair[0], test_pair[1], resolution, typ='autoencoder')
-    eval_time, scores = plot_comparison_ae(test, encoded, model, out_dir=out_dir, is_square=True, resolution=resolution)
+    eval_time, scores = plot_comparison_ae(test, encoded, model, out_dir=out_dir, is_square=True)
     r2 = ae_correlation(test, decoded, out_dir)
     plot_train_loss(epoch_loss, epoch_validation)
     write_metadata(out_dir)
