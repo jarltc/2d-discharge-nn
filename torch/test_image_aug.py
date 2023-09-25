@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import torch
-torch.manual_seed(8095)
+torch.manual_seed(8097)
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, DataLoader
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     dataloader = DataLoader(customdataset, batch_size=32, shuffle=True)  # dataloader sends the data to the model
 
     # hyperparameters
-    hp_dict = {'epochs': 500, 
+    hp_dict = {'epochs': 200, 
             'learning_rate': 1e-3, 
             'model': A64_6(), 
             'criterion': nn.MSELoss(),
@@ -134,4 +134,4 @@ if __name__ == '__main__':
         encoded = model.encoder(torch.tensor(test_res, device=device, dtype=torch.float32))
         decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32)).cpu().numpy()
 
-    plot_comparison_ae(test_res, encoded, model, out_dir=data_dir, is_square=True, resolution=resolution)
+    plot_comparison_ae(test_res, encoded, model, out_dir=data_dir, is_square=True)
