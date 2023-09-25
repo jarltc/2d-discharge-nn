@@ -699,8 +699,8 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
     colors = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
 
     resolution = reference.shape[2]
-    if prediction.shape[2] or prediction.shape[3] != resolution:
-        raise ValueError('prediction is not cropped properly!')
+    if (prediction.shape[2] or prediction.shape[3]) != resolution:
+        raise ValueError(f'prediction (shape {prediction.shape}) is not cropped properly!')
 
     def hslice(y=44):
         # horizontal slice (fixed y = 44 mm)
