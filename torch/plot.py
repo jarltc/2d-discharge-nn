@@ -740,14 +740,51 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
 
         return fig
     
+    def slices_reference(y=44, x=115):
+        global columns_math
+        extent = [0, 20, 35, 55]
+        fig = plt.figure(figsize=(6,2), dpi=300)
+        grid = ImageGrid(fig, 111,  # similar to fig.add_subplot(142).
+                     nrows_ncols=(1, 5), axes_pad=0.0, label_mode="L", share_all=True,
+                     cbar_location="right", cbar_mode="single", cbar_size="5%", cbar_pad='5%')
+
+        for i, ax in enumerate(grid):
+            column = columns_math[i]
+
+            ref = ax.imshow(reference[0, i], origin='lower', extent=extent, 
+                      aspect='equal', vmin=0, vmax=reference.max(), cmap='magma')
+
+            ax.set_ylabel('z [cm]')
+            ax.set_xlabel('r [cm]')
+
+            cb = grid.cbar_axes[0].colorbar(ref)
+
+            # vertical line
+            ax.axvline(x/10.0, 0, 1, color='r', alpha=0.6)
+
+            # horizontal line (raise it by 35 cause the crop is higher)
+            ax.axhline(y, 0, 1, color='r', alpha=0.6)
+
+            ax.set_title(columns_math[i%5])
+
+            ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
+            ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
+            ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+            draw_apparatus(ax)
+
+        return fig
+
     hplot = hslice()
     vplot = vslice()
+    refplot = slices_reference()
 
     if out_dir is not None:
         hplot.savefig(out_dir/'h_slices.png', bbox_inches='tight')
         vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
+        refplot.savefig(out_dir/'slices_ref.png', bbox_inches='tight')
 
-    return [hplot, vplot]
+    return [hplot, vplot, refplot]
 
 
 def delta(reference: np.ndarray, reconstruction: np.ndarray, 
