@@ -238,8 +238,7 @@ if __name__ == '__main__':
         decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32))
 
     eval_time, scores = plot_comparison_ae(test_res, encoded, model, 
-                                           out_dir=out_dir, is_square=is_square, 
-                                           cbar='viridis')
+                                           out_dir=out_dir, is_square=is_square)
     r2 = ae_correlation(test_res, decoded, out_dir.parents[0])
     hslice, vslice, refplot = image_slices(test_res, decoded.cpu().numpy()[:,:,:resolution,:resolution], out_dir)
     print(f'plots [comparison, correlation, hslice, vslice, refplot] have been saved in {out_dir}')
