@@ -29,7 +29,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae, save_history_graph, ae_correlation
+from plot import plot_comparison_ae, ae_correlation, image_slices
+from autoencoder_classes import A64_6
+from image_data_helpers import get_data
 
 # define model TODO: construct following input file/specification list
 
@@ -168,8 +170,6 @@ def write_metadata(out_dir):  # TODO: move to data module
         print(summary(model, input_size=in_size), file=f)
         print("\n", file=f)
         print(model, file=f)
-        f.write(f'\nEpochs: {epochs}\n')
-        f.write(f'Learning rate: {learning_rate}\n')
         f.write(f'Resolution: {resolution}\n')
         # f.write(f'Train time: {(train_end-train_start):.2f} s\n')
         # f.write(
@@ -215,52 +215,31 @@ if __name__ == '__main__':
     device = torch.device(
         'mps' if torch.backends.mps.is_available() else 'cpu')
 
-    model_dir = Path(input("Enter model directory: "))
+    model_folder = Path(input("Enter model directory: "))
+    model_dir = model_folder/model_folder.stem
     root = Path.cwd()
     is_square=True
 
-    out_dir = model_dir
+    out_dir = model_folder
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
-    image_ds = ImageDataset(root/'data'/'interpolation_datasets', is_square)
-    train = image_ds.train[0]  # import only features (2d profiles)
-    test = image_ds.test[0]  # import only features (2d profiles)
-
     # downscale train images
-    resolution = 32
-    # train_res = resize(train, resolution)
-    test_res = resize(test, resolution)
-    # test_res = normalize_test(test_res, scalers)
-
-    # with open(out_dir/'scalers.pkl', 'wb') as file:
-    #     pickle.dump(scalers, file)
-    # file.close()
-
-    # hyperparameters (class property?)
-    epochs = 200
-    learning_rate = 1e-3
-    model = SquareAE32()
+    resolution = 64
+    _, test_res = get_data((300, 60), resolution=resolution, square=True)
+    
+    model = A64_6()
     model.load_state_dict(torch.load(model_dir))  # use path directly to model
     model.to(device)  # move model to gpu
     model.eval()
 
-    # if is_square:
-    #     if resolution == 32:
-    #         model = SquareAE32()
-    #     elif resolution == 64:
-    #         model = SquareAE64()
-    #     # elif resolution == 200:
-    #     #     model = SquareAE()
-    #     else:
-    #         raise ValueError(f"Resolution {resolution} is invalid!")
-    # else:
-    #     model = Autoencoder()  # use full resolution model
-
     with torch.no_grad():
-        encoded = model.encoder(torch.tensor(test_res, device=device))
-        decoded = model(torch.tensor(test_res, device=device)).cpu().numpy()
+        encoded = model.encoder(torch.tensor(test_res, device=device, dtype=torch.float32))
+        decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32))
 
-    eval_time, scores = plot_comparison_ae(test_res, encoded, model, out_dir=out_dir.parents[0], is_square=is_square)
+    eval_time, scores = plot_comparison_ae(test_res, encoded, model, 
+                                           out_dir=out_dir, is_square=is_square, 
+                                           cbar='viridis')
     r2 = ae_correlation(test_res, decoded, out_dir.parents[0])
-    write_metadata(out_dir)
+    hslice, vslice, refplot = image_slices(test_res, decoded.cpu().numpy()[:,:,:resolution,:resolution], out_dir)
+    print(f'plots [comparison, correlation, hslice, vslice, refplot] have been saved in {out_dir}')
