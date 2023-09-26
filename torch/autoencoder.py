@@ -17,7 +17,7 @@ import xarray as xr
 from tqdm import tqdm
 
 import torch
-torch.manual_seed(2023)  # 911
+torch.manual_seed(131745)  # 911
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, TensorDataset, DataLoader
