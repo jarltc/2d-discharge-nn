@@ -30,7 +30,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
 from plot import plot_comparison_ae, ae_correlation, image_slices
-from autoencoder_classes import A64_6
+from autoencoder_classes import A64_6, A300
 from image_data_helpers import get_data
 
 # define model TODO: construct following input file/specification list
@@ -164,17 +164,11 @@ def write_metadata(out_dir):  # TODO: move to data module
     in_size = (1, 5, 32, 32)  # change
 
     # save model structure
-    file = out_dir/'train_log2.txt'
+    file = out_dir/'regr_metadata.txt'
     with open(file, 'w') as f:
-        # f.write(f'Model {name}\n')
-        print(summary(model, input_size=in_size), file=f)
-        print("\n", file=f)
         print(model, file=f)
         f.write(f'Resolution: {resolution}\n')
-        # f.write(f'Train time: {(train_end-train_start):.2f} s\n')
-        # f.write(
-        #     f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
-        f.write(f'Evaluation time: {(eval_time):.2f} s\n')
+        f.write(f'Evaluation time: {(eval_time*1e-6):.2f} ms\n')
         f.write(f'Scores (MSE): {scores}\n')
         f.write(f'Scores (r2): {r2}\n')
         f.write('\n***** end of file *****')
@@ -229,6 +223,7 @@ if __name__ == '__main__':
     _, test_res = get_data((300, 60), resolution=resolution, square=True)
     
     model = A64_6()
+    # model = A300()
     model.load_state_dict(torch.load(model_dir))  # use path directly to model
     model.to(device)  # move model to gpu
     model.eval()
@@ -238,7 +233,8 @@ if __name__ == '__main__':
         decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32))
 
     eval_time, scores = plot_comparison_ae(test_res, encoded, model, 
-                                           out_dir=out_dir, is_square=is_square)
+                                           out_dir=out_dir, is_square=is_square, cbar='viridis')
     r2 = ae_correlation(test_res, decoded, out_dir.parents[0])
-    hslice, vslice, refplot = image_slices(test_res, decoded.cpu().numpy()[:,:,:resolution,:resolution], out_dir)
+    hslice, vslice, refplot = image_slices(test_res, decoded.cpu().numpy()[:,:,:resolution,:resolution], out_dir, cmap='viridis')
     print(f'plots [comparison, correlation, hslice, vslice, refplot] have been saved in {out_dir}')
+    write_metadata(out_dir)
