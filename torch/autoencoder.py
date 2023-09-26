@@ -90,7 +90,7 @@ class SimDataset(Dataset):
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
-    resolution = 64
+    resolution = int(input('Resolution: '))
     device = torch.device(
         'mps' if torch.backends.mps.is_available() else 'cpu')
 
@@ -120,7 +120,10 @@ if __name__ == '__main__':
     # hyperparameters (class property?)
     epochs = 500
     learning_rate = 1e-3
-    model = A64_6().to(device)  # move model to gpu
+    if resolution == 32:
+        model = A300().to(device)
+    else:
+        model = A64_6().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
