@@ -101,6 +101,7 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset):
     This scheme scales an array to lie between 0 and 1 (the maximum value for the specific variable across the entire dataset).
     Args:
         image (np.ndarray): Image (channels, height, width) to be scaled.
+        ds (xr.Dataset): Dataset to reference for the maximum values of each parameter.
 
     Returns:
         np.ndarray: Minmax-scaled array.
