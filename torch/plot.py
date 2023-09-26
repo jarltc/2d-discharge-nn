@@ -516,7 +516,10 @@ def ae_correlation(reference, prediction, out_dir, minmax=True):
     prediction_cols = []
     reference_cols = []
 
-    prediction = prediction.cpu().numpy()
+    try:
+        prediction = prediction.cpu().numpy()
+    except:
+        prediction = prediction
     
     for i, column in enumerate(columns_math):
         ref_series = pd.Series(reference[0, i, :, :].flatten(), name=column)
