@@ -151,7 +151,7 @@ def minmax_label(V, P):
 def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, labeled=False):
     """Get train, test, and (optional) validation data from an .nc file.
 
-    Assumes that test and validation sets are only single images. (This might change with a much larger dataset)
+    Assumes that test and validation sets are only single images. If labeled=True, return (minmax-scaled)
     Args:
         test (tuple): Pair of V, P for the test set.
         validation (tuple, optional): Pair of V, P for the validation set. Defaults to None.
