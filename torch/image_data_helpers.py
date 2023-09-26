@@ -127,7 +127,28 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset):
     return scaled
 
 
-def get_data(test:tuple, validation:tuple = None, resolution=None, square=True):
+def minmax_label(V, P):
+    """Get minmax-scaled V and P based on the available simulation dataset.
+
+    Args:
+        V (float): Voltage to be scaled.
+        P (float): Pressure to be scaled.
+
+    Returns:
+        list of float: Scaled voltage and pressure.
+    """
+    global nc_data
+    ds = xr.open_dataset(nc_data)
+    vs = ds.V.values
+    ps = ds.P.values
+
+    scaled_v = (vs.max() - V)/vs.max()
+    scaled_p = (ps.max() - P)/ps.max()
+    
+    return [scaled_v, scaled_p]
+
+
+def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, labeled=False):
     """Get train, test, and (optional) validation data from an .nc file.
 
     Assumes that test and validation sets are only single images. (This might change with a much larger dataset)
@@ -138,7 +159,8 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True):
         square (bool, optional): Crops to a square if True. Defaults to False.
 
     Returns:
-        [train, test, [validation]]: Minmax-scaled training and test images (np.ndarrays), and validation image if provided.
+        [train, test, *validation]: Minmax-scaled training and test images (np.ndarrays), and validation image if provided.
+        [(train_images, train_labels), (test_image, test_label), *(val_set, val_label)] if labeled=True.
     """
     
     global nc_data
@@ -149,28 +171,40 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True):
     vps = [(v, p) for v in v_list for p in p_list]
 
     train_images = []
+    train_labels_list = []
     for vp in vps:
         image = get_dataset(vp[0], vp[1])  # load data
         cropped = crop(image) if square else image
         scaled = downscale(cropped, resolution) if resolution is not None else image
 
         mmax = minmax_scale(scaled, ds)
+        label = np.array(minmax_label(vp[0], vp[1]))  # shape = [2]
 
         if vp == test:
-            test_image = np.expand_dims(mmax, axis=0)
+            test_image = np.expand_dims(mmax, axis=0)  # get the image and add an extra axis to match shape into (1, channels, width, height)
+            test_label = np.expand_dims(label, axis=0)  # same thing here
         elif vp == validation:
             val_image = np.expand_dims(mmax, axis=0)
+            val_label = np.expand_dims(label, axis=0)
         else:
             train_images.append(mmax)
-
-        train_set = np.stack(train_images)
-
-    if validation is not None:
-        print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image, val_image]]}')
-        return [train_set, test_image, val_image]
+            train_labels_list.append(label)
+        
+    train_set = np.stack(train_images) 
+    train_labels = np.stack(train_labels_list)  # shape = (n_train_samples, 2)
+    
+    if not labeled:
+        if validation is not None:
+            print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image, val_image]]}')
+            return [train_set, test_image, val_image]
+        else:
+            print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image]]}')
+            return [train_set, test_image]
     else:
-        print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image]]}')
-        return [train_set, test_image]
+        if validation is not None:
+            return [(train_set, train_labels), (test_image, test_label), (val_image, val_label)]
+        else:
+            return [(train_set, train_labels), (test_image, test_label)]
 
 
 class AugmentationDataset(Dataset):
