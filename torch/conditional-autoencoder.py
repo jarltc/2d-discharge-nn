@@ -35,6 +35,7 @@ from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 import autoencoder_classes
 from mlp_classes import MLP, MLP1
+from image_data_helpers import get_data
 
 
 def resize(data: np.ndarray, scale=64) -> np.ndarray:
@@ -102,63 +103,73 @@ if __name__ == '__main__':
     root = Path.cwd()
 
     ##### things to change #####
-    model = autoencoder_classes.A64_6()
+
     # ----- #
     resolution = 64
-    encodedx = 40
-    encodedy = 8
-    encodedz = 8
+    if resolution == 32:
+        model = autoencoder_classes.A300()
+        encodedx = 20
+        encodedy = encodedz = 4
+    elif resolution == 64:
+        model = autoencoder_classes.A64_6()
+        encodedx = 40
+        encodedy = encodedz = 8
+    
     encoded_size = encodedx*encodedy*encodedz
+    model_dir = Path(input('Path to AE: '))
     # model_dir = Path(root/'created_models'/'autoencoder'/'64x64'/'A64-6'/'A64-6')
     # model_dir = Path(root/'created_models'/'autoencoder'/'32x32'/'A300'/'A300')
-    model_dir = model.path
+    
     # ----- #
-    epochs = 200
+    epochs = 500
     learning_rate = 1e-3
     dropout_prob = 0.5
     # ----- #
     mlp = MLP(2, encoded_size, dropout_prob=dropout_prob)
     label_minmax = True
     
-    # get data and important metadata
-    image_ds = ImageDataset(root/'data'/'interpolation_datasets', True)
-    train_features, train_labels = image_ds.train
-    test_features, test_labels = image_ds.test
-    v_used = np.array(list(image_ds.v_used))
-    p_used = np.array(list(image_ds.p_used))
+    # # get data and important metadata
+    # image_ds = ImageDataset(root/'data'/'interpolation_datasets', True)
+    # train_features, train_labels = image_ds.train
+    # test_features, test_labels = image_ds.test
+    # v_used = np.array(list(image_ds.v_used))
+    # p_used = np.array(list(image_ds.p_used))
 
-    # downscale train images
-    train_res = resize(train_features, resolution)
-    test_res = resize(test_features, resolution)
+    # # downscale train images
+    # train_res = resize(train_features, resolution)
+    # test_res = resize(test_features, resolution)
 
-    # scale the inputs to the MLP
-    scaler = MinMaxScaler()
-    scaled_labels = scaler.fit_transform(train_labels)
-    scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # ValueError: reshape(1, -1) if it contains a single sample
+    # # scale the inputs to the MLP
+    # scaler = MinMaxScaler()
+    # scaled_labels = scaler.fit_transform(train_labels)
+    # scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # ValueError: reshape(1, -1) if it contains a single sample
 
-    if label_minmax:
-        train_labels = scaled_labels
-        test_labels = scaled_labels_test
+    # if label_minmax:
+    #     train_labels = scaled_labels
+    #     test_labels = scaled_labels_test
 
     # split validation set
     # train_res, val = train_test_split(train_res, test_size=1, train_size=30)
     # val = torch.tensor(val, device=device)
 
-    # scale images if available
-    image_scalefile = model_dir.parents[0]/'scalers.pkl'
-    if image_scalefile.exists():
-        with open(image_scalefile, 'rb') as f:
-            imageScaler = pickle.load(f)
-        test_res = normalize_test(test_res, imageScaler)
-        train_res = normalize_test(train_res, imageScaler)
-        
+    # # scale images if available
+    # image_scalefile = model_dir.parents[0]/'scalers.pkl'
+    # if image_scalefile.exists():
+    #     with open(image_scalefile, 'rb') as f:
+    #         imageScaler = pickle.load(f)
+    #     test_res = normalize_test(test_res, imageScaler)
+    #     train_res = normalize_test(train_res, imageScaler)
+
+    train, test = get_data((300, 60), resolution=resolution, labeled=True)
+    train_images, train_labels = train
+    test_image, test_label = test
 
     out_dir = root/'created_models'/'conditional_autoencoder'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
-    dataset = TensorDataset(torch.tensor(train_res, device=device),
-                            torch.tensor(train_labels, device=device))
+    dataset = TensorDataset(torch.tensor(train_images, device=device, dtype=torch.float32),
+                            torch.tensor(train_labels, device=device, dtype=torch.float32))
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
     
     # load autoencoder model
@@ -193,7 +204,7 @@ if __name__ == '__main__':
 
             encoding = mlp(labels).reshape(1, encodedx, encodedy, encodedz)  # forward pass, get mlp prediction from (v, p) then reshape
             output = model.decoder(encoding)  # get output image from decoder
-            output = torchvision.transforms.functional.crop(output, 0, 0, 64, 64)
+            output = torchvision.transforms.functional.crop(output, 0, 0, resolution, resolution)
 
             loss = criterion(output, image)
             loss.backward()  # backward propagation
@@ -217,15 +228,15 @@ if __name__ == '__main__':
 
     # construct a fake encoding from a pair of (V, P) and reshape to the desired dimensions
     with torch.no_grad():
-        fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
+        fake_encoding = mlp(torch.tensor(test_label, device=device, dtype=torch.float32))  # mps does not support float64
         # reshape encoding from (1, xyz) to (1, x, y, z)
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
         decoded = model.decoder(fake_encoding)
         decoded = torchvision.transforms.functional.crop(decoded, 0, 0, resolution, resolution)
 
     # add resolution=64 for larger images
-    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, 
-                                           out_dir=out_dir, is_square=True, mode='prediction', resolution=resolution)
+    eval_time, scores = plot_comparison_ae(test_image, fake_encoding, model, 
+                                           out_dir=out_dir, is_square=True)
     write_metadata_ae(out_dir)
-    ae_correlation(test_res, decoded, out_dir, minmax=False)
-    train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='mlp')
+    ae_correlation(test_image, decoded, out_dir, minmax=False)
+    # train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='mlp')

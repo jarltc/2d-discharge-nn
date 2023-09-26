@@ -29,9 +29,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae, save_history_graph, ae_correlation
+from plot import plot_comparison_ae, save_history_graph, ae_correlation, image_slices
 import autoencoder_classes
 import mlp_classes
+from image_data_helpers import get_data
 
 # define model TODO: construct following input file/specification list
 
@@ -63,7 +64,6 @@ def normalize_test(dataset:np.ndarray, scalers:dict()):
     normalized_dataset = np.moveaxis(np.stack(normalized_variables), 0, 1)  # shape: (31, 5, x, x)
     return normalized_dataset
 
-
 if __name__ == '__main__':
     # set metal backend (apple socs)
     device = torch.device(
@@ -73,37 +73,30 @@ if __name__ == '__main__':
     is_square=True
 
     resolution = 64
-    encodedx = 40
-    encodedy = 8
-    encodedz = 8
-    encoded_size = encodedx*encodedy*encodedz
-    model = autoencoder_classes.A64_6()
+    if resolution == 32:
+        model = autoencoder_classes.A300()
+        encodedx = 20
+        encodedy = encodedz = 4
+    elif resolution == 64:
+        model = autoencoder_classes.A64_6()
+        encodedx = 40
+        encodedy = encodedz = 8
+    encoded_size = encodedx * encodedy * encodedz
     # model = autoencoder_classes.A300()
     mlp = mlp_classes.MLP(2, encoded_size, dropout_prob=0.5)
     
-    ae_dir = model.path
-    mlp_dir = mlp.path64
+    # ae_dir = Path(input('AE dir: '))
+    ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64_6new/A64_6new')
+    mlp_dir = Path('/Users/jarl/2d-discharge-nn/created_models/conditional_autoencoder/A64_new/A64_new')
 
     out_dir = mlp_dir.parents[0]
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
     image_ds = ImageDataset(root/'data'/'interpolation_datasets', is_square)
-    train_labels = image_ds.train[1]
-    test_features, test_labels = image_ds.test
-    test_res = resize(test_features, resolution)
+    _, test = get_data((300, 60), resolution=resolution, square=is_square, labeled=True)
+    test_image, test_label = test
 
-    image_scalefile = ae_dir.parents[0]/'scalers.pkl'
-    if image_scalefile.exists():
-        with open(image_scalefile, 'rb') as f:
-            imageScaler = pickle.load(f)
-        test_res = normalize_test(test_res, imageScaler)
-
-    scaler = MinMaxScaler()
-    scaled_labels = scaler.fit_transform(train_labels)
-    scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # check if scaled first
-
-    mlp.load_state_dict(torch.load(mlp_dir))
     model.load_state_dict(torch.load(ae_dir))  # use path directly to model
     mlp.load_state_dict(torch.load(mlp_dir))  # use path directly to model
     model.to(device)  # move model to gpu
@@ -112,9 +105,10 @@ if __name__ == '__main__':
     mlp.eval()
 
     with torch.no_grad():
-        fake_encoding = mlp(torch.tensor(scaled_labels_test, device=device, dtype=torch.float32))  # mps does not support float64
+        fake_encoding = mlp(torch.tensor(test_label, device=device, dtype=torch.float32))  # mps does not support float64
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
-        decoded = model.decoder(fake_encoding)
+        decoded = model.decoder(fake_encoding).cpu().numpy()[:, :, :64, :64]
 
-    eval_time, scores = plot_comparison_ae(test_res, fake_encoding, model, out_dir=out_dir, is_square=is_square, resolution=resolution)
-    r2 = ae_correlation(test_res, fake_encoding, out_dir)
+    eval_time, scores = plot_comparison_ae(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
+    r2 = ae_correlation(test_image, decoded, out_dir)
+    image_slices(test_image, decoded, out_dir=out_dir, cmap='viridis')
