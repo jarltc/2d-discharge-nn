@@ -40,6 +40,8 @@ class MLP(nn.Module):
 
 class MLP1(nn.Module):
     """MLP to recreate encodings from a pair of V and P.
+
+    dont use this yet lol
     """
     def __init__(self, input_size, output_size, dropout_prob) -> None:
         super(MLP1, self).__init__()
