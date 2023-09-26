@@ -425,7 +425,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
             Defaults to False.
 
     Returns:
-        float: Evaluation time.
+        float: Evaluation time (ns).
         scores: List of reconstruction MSE
     """
 
@@ -447,12 +447,12 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
                      cbar_location="right", cbar_mode="single", cbar_size="5%", cbar_pad='5%')
 
     with torch.no_grad():
-        start = time.time_ns()
+        start = time.perf_counter_ns()
         decoded = model.decoder(prediction).cpu().numpy()
         reconstruction = decoded[:, :, :resolution, :resolution]  # assumes shape: (samples, channels, height, width)
-        end = time.time_ns()
+        end = time.perf_counter_ns()
 
-    eval_time = round((end-start)/1e-6, 2)
+    eval_time = (end-start)
 
     # get the larger value between maxima of each dataset
     cbar_reference = 'original' if reference[0].max() > reconstruction[0].max() else 'prediction'
