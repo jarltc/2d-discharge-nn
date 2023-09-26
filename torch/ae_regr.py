@@ -234,7 +234,7 @@ if __name__ == '__main__':
 
     eval_time, scores = plot_comparison_ae(test_res, encoded, model, 
                                            out_dir=out_dir, is_square=is_square, cbar='viridis')
-    r2 = ae_correlation(test_res, decoded, out_dir.parents[0])
+    r2 = ae_correlation(test_res, decoded, out_dir)
     hslice, vslice, refplot = image_slices(test_res, decoded.cpu().numpy()[:,:,:resolution,:resolution], out_dir, cmap='viridis')
     print(f'plots [comparison, correlation, hslice, vslice, refplot] have been saved in {out_dir}')
     write_metadata(out_dir)
