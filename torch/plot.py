@@ -684,7 +684,7 @@ def plot_train_loss(losses, validation_losses=None, out_dir=None):
         fig.savefig(out_dir/'train_loss.png', bbox_inches='tight')
 
 
-def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=None):
+def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=None, cmap='magma'):
     """ Evaluate slices for images.
 
         Vertical and horizontal slices allow us to see 1-dimensional performance of the model.
@@ -720,7 +720,7 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
             ax.grid()
             ax.legend(fontsize='small')
             ax.set_ylabel('Scaled magnitude')
-            ax.set_xlabel('x [cm]')
+            ax.set_xlabel('r [cm]')
         
         return fig
     
@@ -739,7 +739,7 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
             ax.grid()
             ax.legend(fontsize='small')
             ax.set_xlabel('Scaled magnitude')
-            ax.set_ylabel('y [cm]')
+            ax.set_ylabel('z [cm]')
 
         return fig
     
@@ -755,7 +755,7 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
             column = columns_math[i]
 
             ref = ax.imshow(reference[0, i], origin='lower', extent=extent, 
-                      aspect='equal', vmin=0, vmax=reference.max(), cmap='magma')
+                      aspect='equal', vmin=0, vmax=reference.max(), cmap=cmap)
 
             ax.set_ylabel('z [cm]')
             ax.set_xlabel('r [cm]')
@@ -785,7 +785,11 @@ def image_slices(reference: np.ndarray, prediction: np.ndarray, out_dir:Path=Non
     if out_dir is not None:
         hplot.savefig(out_dir/'h_slices.png', bbox_inches='tight')
         vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
-        refplot.savefig(out_dir/'slices_ref.png', bbox_inches='tight')
+        name = 'slices_ref'
+        if cmap != 'magma': 
+            name = 'slices_ref_' + cmap
+        refplot.savefig(out_dir/(name + '.png'), bbox_inches='tight')
+        
 
     return [hplot, vplot, refplot]
 
