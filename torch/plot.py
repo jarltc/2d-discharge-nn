@@ -902,6 +902,7 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
 def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor, 
                        model:nn.Module, out_dir=None, is_square=False, cbar='magma'): 
     """Create plot comparing the reference data with its autoencoder reconstruction.
+    Each variable has its own colorbar scaling.
 
     Args:
         reference (np.ndarray): Reference dataset.
@@ -910,6 +911,7 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
         out_dir (Path, optional): Output directory. Defaults to None.
         is_square (bool, optional): Switch for square image and full rectangle.
             Defaults to False.
+        cbar (str): Colormap used for the images. Defaults to 'magma'.
 
     Returns:
         float: Evaluation time (ns).
@@ -917,19 +919,19 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     """
 
     resolution = reference.shape[2]
-    # if prediction.shape[2] or prediction.shape[3] != resolution:
-    #     raise ValueError(f'Prediction is not cropped properly! size={resolution}')
+    if (prediction.shape[2] != resolution) or (prediction.shape[3] != resolution):
+        raise ValueError(f'Prediction is not cropped properly! size={resolution}')
 
     if is_square:
-        figsize = (6, 3)
+        # figsize = (6, 3)
         extent = [0, 20, 35, 55]
     else:
-        figsize = (10, 5)
+        # figsize = (10, 5)
         extent =[0, 20, 0, 70.7]
 
     fig = plt.figure(figsize=(7,2), dpi=300, layout='constrained')
 
-    # give each column its colorbar
+    # create imagegrid for the original images (trugrid) and predicted ones (prdgrid)
     trugrid = ImageGrid(fig, 211, nrows_ncols=(1, 5), axes_pad=0.3, label_mode="L", share_all=True,
                      cbar_location="right", cbar_mode="each", cbar_size="5%", cbar_pad='0%')
     
@@ -944,21 +946,19 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
 
     eval_time = (end-start)
 
-    # get the larger value between maxima of each dataset
-    cbar_reference = 'original' if reference[0].max() > reconstruction[0].max() else 'prediction'
-    cbar_ranges = [(0, max(reference[0, i].max(), reconstruction[0, i].max())) for i in range(5)]  # select the maximum between the original and prediction to set as vmax
-    # vmin, vmax = cbar_ranges
+    # select the maximum between the original and prediction (for each variable) to set as vmax
+    cbar_ranges = [(0, max(reference[0, i].max(), reconstruction[0, i].max())) for i in range(5)]  # shape: (5, 2)
 
     global columns_math
 
-    # plot the figures
+    # plot the figures, vmax depends on which set (true or prediction) contains the higher values
     for i, ax in enumerate(trugrid):
         org = ax.imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
                         vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cbar)
         draw_apparatus(ax)
         ax.set_ylabel('z [cm]', fontsize=8)
         cb = trugrid.cbar_axes[i].colorbar(org)
-        ax.set_title(columns_math[i])
+        ax.set_title(columns_math[i])  # set title following math labels in columns_math
         cb.ax.tick_params(labelsize=6)
  
     for i, ax in enumerate(prdgrid):
@@ -981,9 +981,9 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
             ax.tick_params(axis='both', labelsize=8)
 
     for ax in trugrid:
-        ax.tick_params(labelbottom=False)
+        ax.tick_params(labelbottom=False)  # remove bottom labels on the upper set
 
-    plt.subplots_adjust(hspace=0)
+    plt.subplots_adjust(hspace=0)  # not sure if this does anything
 
     # record scores
     scores = []
