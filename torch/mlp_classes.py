@@ -107,3 +107,67 @@ class MLP64(nn.Module):
 
         return output
     
+
+class MLP2(nn.Module):
+    """MLP with no dropout
+    """
+    def __init__(self, input_size, output_size, dropout_prob) -> None:
+        super(MLP2, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.fc1 = nn.Linear(input_size, 40)
+        self.fc2 = nn.Linear(40, 80)
+        self.fc3 = nn.Linear(80, 160)
+        self.fc4 = nn.Linear(160, 320)
+        self.fc5 = nn.Linear(320, 640)
+        self.fc6 = nn.Linear(640, 1280)
+        self.fc7 = nn.Linear(1280, output_size)  # for output size of 2560, we halve the neurons per layer
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = F.relu(x)
+
+        x = self.fc2(x)
+        x = F.relu(x)
+
+        x = self.fc3(x)
+        x = F.relu(x)
+
+        x = self.fc4(x)
+        x = F.relu(x)
+
+        x = self.fc5(x)
+        x = F.relu(x)
+
+        x = self.fc6(x)
+        x = F.relu(x)
+
+        x = self.fc7(x)
+        output = F.relu(x)
+
+        return output
+    
+
+class MLP3(nn.Module):
+    """MLP1 with more nodes?
+    """
+    def __init__(self, input_size, output_size, dropout_prob) -> None:
+        super(MLP3, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.input = nn.Linear(input_size, 1024)
+        self.fc1 = nn.Linear(1024, 1024)
+        
+        self.output = nn.Linear(1024, output_size)
+        self.dropout = nn.Dropout(dropout_prob)
+
+    def forward(self, x):
+        x = F.relu(self.input(x))
+
+        for _ in range(6):
+            x = self.fc1(x)
+            x = F.relu(x)
+
+        output = F.relu(self.output(x))
+
+        return output
