@@ -64,6 +64,20 @@ def normalize_test(dataset:np.ndarray, scalers:dict()):
     normalized_dataset = np.moveaxis(np.stack(normalized_variables), 0, 1)  # shape: (31, 5, x, x)
     return normalized_dataset
 
+
+def write_metadata(out_dir):  # TODO: move to data module
+
+    file = out_dir/'regr_metadata.txt'
+    with open(file, 'w') as f:
+        print(model, file=f)
+        f.write(f'Resolution: {resolution}\n')
+        f.write(f'Evaluation time: {(eval_time*1e-6):.2f} ms\n')
+        f.write(f'Scores (MSE): {scores}\n')
+        f.write(f'Scores (r2): {r2}\n')
+        f.write('\n***** end of file *****')
+
+
+
 if __name__ == '__main__':
     # set metal backend (apple socs)
     device = torch.device(
