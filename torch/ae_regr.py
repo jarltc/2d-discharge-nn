@@ -29,7 +29,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae, ae_correlation, image_slices
+from plot import plot_comparison_ae, ae_correlation, image_slices, sep_comparison_ae
 from autoencoder_classes import A64_6, A300
 from image_data_helpers import get_data
 
@@ -234,6 +234,7 @@ if __name__ == '__main__':
 
     eval_time, scores = plot_comparison_ae(test_res, encoded, model, 
                                            out_dir=out_dir, is_square=is_square, cbar='viridis')
+    sep_comparison_ae(test_res, encoded, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
     r2 = ae_correlation(test_res, decoded, out_dir)
     hslice, vslice, refplot = image_slices(test_res, decoded.cpu().numpy()[:,:,:resolution,:resolution], out_dir, cmap='viridis')
     print(f'plots [comparison, correlation, hslice, vslice, refplot] have been saved in {out_dir}')
