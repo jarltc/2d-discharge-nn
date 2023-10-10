@@ -104,11 +104,16 @@ if __name__ == '__main__':
     model.eval()
     mlp.eval()
 
+    
     with torch.no_grad():
+        start = time.perf_counter_ns()
         fake_encoding = mlp(torch.tensor(test_label, device=device, dtype=torch.float32))  # mps does not support float64
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
         decoded = model.decoder(fake_encoding).cpu().numpy()[:, :, :64, :64]
-
-    eval_time, scores = plot_comparison_ae(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
+        end = time.perf_counter_ns()
+    
     r2 = ae_correlation(test_image, decoded, out_dir)
     image_slices(test_image, decoded, out_dir=out_dir, cmap='viridis')
+    delta(test_image, decoded, out_dir=out_dir, is_square=True)
+    eval_time = (end-start) # ms
+    write_metadata(out_dir)
