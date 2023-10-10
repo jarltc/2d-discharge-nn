@@ -811,8 +811,8 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
         plt.figure: Figure of absolute and relative differences.
     """
     resolution = reference.shape[2]
-    if reconstruction.shape[2] or reconstruction.shape[3] != resolution:
-        raise ValueError(f'Prediction is not cropped properly! size={resolution}')
+    if (reconstruction.shape[2] != resolution) or (reconstruction.shape[3] != resolution):
+        raise ValueError(f'Prediction is not cropped properly! size={reconstruction.shape} should match {resolution}')
 
     if is_square:
         figsize = (6, 2)
