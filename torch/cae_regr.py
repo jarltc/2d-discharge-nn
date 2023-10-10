@@ -29,7 +29,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae, save_history_graph, ae_correlation, image_slices
+from plot import plot_comparison_ae, save_history_graph, ae_correlation, image_slices, delta, sep_comparison_ae
 import autoencoder_classes
 import mlp_classes
 from image_data_helpers import get_data
@@ -112,6 +112,9 @@ if __name__ == '__main__':
         decoded = model.decoder(fake_encoding).cpu().numpy()[:, :, :64, :64]
         end = time.perf_counter_ns()
     
+
+    # _, scores = plot_comparison_ae(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
+    _, scores = sep_comparison_ae(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
     r2 = ae_correlation(test_image, decoded, out_dir)
     image_slices(test_image, decoded, out_dir=out_dir, cmap='viridis')
     delta(test_image, decoded, out_dir=out_dir, is_square=True)
