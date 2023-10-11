@@ -317,7 +317,10 @@ class SquareAE64(nn.Module):
     
 
 class A64_8(nn.Module):
-    """A64_6 with larger input kernels
+    """A64_6 with larger input kernels. 
+    I also separated the upsampling steps from the convolution steps.
+
+    by jarl @ 10 Oct 2023 18:00
     
     Input sizes are (5, 64, 64).
     """
