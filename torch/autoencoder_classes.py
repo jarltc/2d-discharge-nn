@@ -316,6 +316,58 @@ class SquareAE64(nn.Module):
         return decoded
     
 
+class A64_8(nn.Module):
+    """A64_6 with larger input kernels
+    
+    Input sizes are (5, 64, 64).
+    """
+    def __init__(self) -> None:
+        super(A64_8, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=9, stride=2, padding=4),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 20, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 40, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 40, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 20, kernel_size=5, padding=2, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
+
+            # checkerboard patterns: https://distill.pub/2016/deconv-checkerboard/
+            # 1. subpixel convolution: use a kernel size that is divisible by the stride to avoid 
+            #       the overlap issue
+            # 2. separate out the upsampling from the convolution to compute features
+            #       for example, you might resize the image (using nearest neighbor ! or bilinear interpolation)
+            #       and then do a convolutional layer (resize-convolution is implicityly weight-tying in 
+            #       a way that discourages high frequency artifacts)
+            #       TRY: torch.nn.Upsample('https://pytorch.org/docs/stable/generated/torch.nn.Upsample.html)
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        decoded = torchvision.transforms.functional.crop(
+            decoded, 0, 0, 64, 64)
+        return decoded
+    
+    
 class Autoencoder(nn.Module):
     def __init__(self):
         super(Autoencoder, self).__init__()
