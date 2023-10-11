@@ -34,7 +34,7 @@ from sklearn.preprocessing import MinMaxScaler
 from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 import autoencoder_classes
-from mlp_classes import MLP, MLP1
+from mlp_classes import MLP, MLP1, MLP2, MLP3
 from image_data_helpers import get_data
 
 
@@ -89,7 +89,7 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
         f.write(f'Train time: {(train_end-train_start):.2f} s\n')
         # f.write(
         #     f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
-        f.write(f'Evaluation time: {(eval_time):.2f} s\n')
+        f.write(f'Evaluation time: {(eval_time/1e6):.2f} ms\n')
         f.write(f'Scores (MSE): {scores}\n')
         f.write('\n***** end of file *****')
 
@@ -116,7 +116,8 @@ if __name__ == '__main__':
         encodedy = encodedz = 8
     
     encoded_size = encodedx*encodedy*encodedz
-    model_dir = Path(input('Path to AE: '))
+    # model_dir = Path(input('Path to AE: '))
+    model_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64_6new/A64_6new')
     # model_dir = Path(root/'created_models'/'autoencoder'/'64x64'/'A64-6'/'A64-6')
     # model_dir = Path(root/'created_models'/'autoencoder'/'32x32'/'A300'/'A300')
     
@@ -125,41 +126,9 @@ if __name__ == '__main__':
     learning_rate = 1e-3
     dropout_prob = 0.5
     # ----- #
-    mlp = MLP(2, encoded_size, dropout_prob=dropout_prob)
+    mlp = MLP3(2, encoded_size, dropout_prob=dropout_prob)
     label_minmax = True
     
-    # # get data and important metadata
-    # image_ds = ImageDataset(root/'data'/'interpolation_datasets', True)
-    # train_features, train_labels = image_ds.train
-    # test_features, test_labels = image_ds.test
-    # v_used = np.array(list(image_ds.v_used))
-    # p_used = np.array(list(image_ds.p_used))
-
-    # # downscale train images
-    # train_res = resize(train_features, resolution)
-    # test_res = resize(test_features, resolution)
-
-    # # scale the inputs to the MLP
-    # scaler = MinMaxScaler()
-    # scaled_labels = scaler.fit_transform(train_labels)
-    # scaled_labels_test = scaler.transform(test_labels.reshape(1, -1))  # ValueError: reshape(1, -1) if it contains a single sample
-
-    # if label_minmax:
-    #     train_labels = scaled_labels
-    #     test_labels = scaled_labels_test
-
-    # split validation set
-    # train_res, val = train_test_split(train_res, test_size=1, train_size=30)
-    # val = torch.tensor(val, device=device)
-
-    # # scale images if available
-    # image_scalefile = model_dir.parents[0]/'scalers.pkl'
-    # if image_scalefile.exists():
-    #     with open(image_scalefile, 'rb') as f:
-    #         imageScaler = pickle.load(f)
-    #     test_res = normalize_test(test_res, imageScaler)
-    #     train_res = normalize_test(train_res, imageScaler)
-
     train, test = get_data((300, 60), resolution=resolution, labeled=True)
     train_images, train_labels = train
     test_image, test_label = test
