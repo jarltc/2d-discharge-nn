@@ -150,9 +150,6 @@ if __name__ == '__main__':
     # epoch_validation = []
     # epoch_times = []
 
-    loop = tqdm(range(epochs))
-
-    mlp.to(device)
     optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
     epoch_loss = []
