@@ -92,7 +92,7 @@ if __name__ == '__main__':
         encodedx = 20
         encodedy = encodedz = 4
     elif resolution == 64:
-        model = autoencoder_classes.A64_6()
+        model = autoencoder_classes.A64_8()
         encodedx = 40
         encodedy = encodedz = 8
     encoded_size = encodedx * encodedy * encodedz
@@ -100,7 +100,7 @@ if __name__ == '__main__':
     mlp = mlp_classes.MLP3(2, encoded_size, dropout_prob=0.5)
     
     # ae_dir = Path(input('AE dir: '))
-    ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64_6new/A64_6new')
+    ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8')
     mlp_dir = Path(input('Path to MLP: '))
 
     out_dir = mlp_dir.parents[0]
