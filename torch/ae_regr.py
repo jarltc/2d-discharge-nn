@@ -30,7 +30,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
 from plot import plot_comparison_ae, ae_correlation, image_slices, sep_comparison_ae
-from autoencoder_classes import A64_6, A300
+from autoencoder_classes import A64_8, A300
 from image_data_helpers import get_data
 
 # define model TODO: construct following input file/specification list
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     resolution = 64
     _, test_res = get_data((300, 60), resolution=resolution, square=True)
     
-    model = A64_6()
+    model = A64_8()
     # model = A300()
     model.load_state_dict(torch.load(model_dir))  # use path directly to model
     model.to(device)  # move model to gpu
