@@ -77,6 +77,8 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
     # save model structure
     file = out_dir/'train_log.txt'
     with open(file, 'w') as f:
+        if message is not None:
+            f.write(f'Message: {message}\n')
         f.write(f'Model {name}\n')
         print(summary(model, input_size=in_size), file=f)
         print("\n", file=f)
@@ -100,6 +102,7 @@ if __name__ == '__main__':
         'mps' if torch.backends.mps.is_available() else 'cpu')
     
     name = input("Model name: ") or "CAE_test"
+    message = input("Leave a note?: ") or None
     root = Path.cwd()
 
     ##### things to change #####
@@ -111,15 +114,13 @@ if __name__ == '__main__':
         encodedx = 20
         encodedy = encodedz = 4
     elif resolution == 64:
-        model = autoencoder_classes.A64_6()
+        model = autoencoder_classes.A64_8()
         encodedx = 40
         encodedy = encodedz = 8
     
     encoded_size = encodedx*encodedy*encodedz
     # model_dir = Path(input('Path to AE: '))
-    model_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64_6new/A64_6new')
-    # model_dir = Path(root/'created_models'/'autoencoder'/'64x64'/'A64-6'/'A64-6')
-    # model_dir = Path(root/'created_models'/'autoencoder'/'32x32'/'A300'/'A300')
+    model_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8')  # path to autoencoder model
     
     # ----- #
     epochs = 500
@@ -127,7 +128,6 @@ if __name__ == '__main__':
     dropout_prob = 0.5
     # ----- #
     mlp = MLP3(2, encoded_size, dropout_prob=dropout_prob)
-    label_minmax = True
     
     train, test = get_data((300, 60), resolution=resolution, labeled=True)
     train_images, train_labels = train
@@ -167,15 +167,14 @@ if __name__ == '__main__':
 
         for i, batch_data in enumerate(trainloader):
             image, labels = batch_data  # feed in images and labels (V, P)
-            # target = model.encoder(image).view(1, -1)  # generate encoding from image, shape: (1, 20, 4, 4): view(1, -1) flattens it
 
             optimizer.zero_grad()  # reset gradients
 
             encoding = mlp(labels).reshape(1, encodedx, encodedy, encodedz)  # forward pass, get mlp prediction from (v, p) then reshape
             output = model.decoder(encoding)  # get output image from decoder
-            output = torchvision.transforms.functional.crop(output, 0, 0, resolution, resolution)
+            output = torchvision.transforms.functional.crop(output, 0, 0, resolution, resolution)  # crop to match shape
 
-            loss = criterion(output, image)
+            loss = criterion(output, image)  # get the loss between input image and model output
             loss.backward()  # backward propagation
             optimizer.step()  # apply changes to network
 
