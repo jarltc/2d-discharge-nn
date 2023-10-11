@@ -97,11 +97,11 @@ if __name__ == '__main__':
         encodedy = encodedz = 8
     encoded_size = encodedx * encodedy * encodedz
     # model = autoencoder_classes.A300()
-    mlp = mlp_classes.MLP(2, encoded_size, dropout_prob=0.5)
+    mlp = mlp_classes.MLP3(2, encoded_size, dropout_prob=0.5)
     
     # ae_dir = Path(input('AE dir: '))
     ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64_6new/A64_6new')
-    mlp_dir = Path('/Users/jarl/2d-discharge-nn/created_models/conditional_autoencoder/A64_new/A64_new')
+    mlp_dir = Path(input('Path to MLP: '))
 
     out_dir = mlp_dir.parents[0]
     if not out_dir.exists():
