@@ -509,7 +509,7 @@ def plot_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     return eval_time, scores
 
 
-def ae_correlation(reference, prediction, out_dir, minmax=True):
+def ae_correlation(reference, prediction, out_dir=None, minmax=True):
     from sklearn.metrics import r2_score
     scores = []
     global columns_math
@@ -531,8 +531,9 @@ def ae_correlation(reference, prediction, out_dir, minmax=True):
     
     ref_df = pd.DataFrame({k: v for k, v in zip(columns_math, reference_cols)})
     pred_df = pd.DataFrame({k: v for k, v in zip(columns_math, prediction_cols)})
-
-    correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
+    
+    if out_dir is not None:
+        correlation(pred_df, ref_df, scores_list=scores, out_dir=out_dir)
 
     return scores
 
