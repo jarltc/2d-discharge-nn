@@ -47,7 +47,7 @@ def train_autoencoder():
     model = A64_8().to(device)
 
     # hyperparameters
-    epochs = 500
+    epochs = 2
     learning_rate = 1e-3
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -80,17 +80,19 @@ def train_autoencoder():
 def train_mlp(test_set, ae_model):
     global device
 
+    # ----- #
     encodedx = 40
     encodedy = encodedz = 8
     encoded_size = encodedx*encodedy*encodedz
-    # ----- #
-    epochs = 500
-    learning_rate = 1e-3
     dropout_prob = 0.5
-    optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
-    criterion = nn.MSELoss()
     # ----- #
     mlp = MLP3(2, encoded_size, dropout_prob=dropout_prob)  # dropout_prob doesnt do anything in MLP3
+    mlp.to(device)
+    # ----- #
+    epochs = 2
+    learning_rate = 1e-3
+    optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
+    criterion = nn.MSELoss()
 
     # get data
     train, test = get_data(test=test_set, resolution=64, labeled=True)
@@ -128,7 +130,7 @@ def train_mlp(test_set, ae_model):
         fake_encoding = mlp(torch.tensor(test_label, device=device, dtype=torch.float32))  # mps does not support float64
         # reshape encoding from (1, xyz) to (1, x, y, z)
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
-        decoded = ae_model.decoder(fake_encoding).cpu().numpy()[:, :, 64, 64]
+        decoded = ae_model.decoder(fake_encoding).cpu().numpy()[:, :, :64, :64]
 
     return test_image, decoded
 
@@ -145,17 +147,17 @@ if __name__ == "__main__":
     if not out_dir.exists():
         out_dir.mkdir()
 
-    loop = tqdm(vps, desc=f'testing v={vps[0]}, p={vps[1]}', unit='k', colour='#7dc4e4')
-    today = dt.datetime.now().strftime('%Y-%m-%dd %H:%M:%S')
-    filename = today + '.txt'
+    loop = tqdm(vps, desc='Testing', colour='#7dc4e4')
+    now = dt.datetime.now().strftime('%Y-%m-%d_%H%M')
+    filename = now + '.txt'
 
     with open(out_dir/filename, 'a') as file:
-        file.write(f'k-fold validation for k = {len(vps)}')
-        file.write('variables are (potential, electron density, ion density, \
-                   metastable density, electron temperature)')
+        file.write(f'k-fold validation for k = {len(vps)}\n')
+        file.write('variables are (potential, electron density, ion density, metastable density, electron temperature)\n')
         for vp in loop:
-            print(f'test case {vp}')
-            file.write(f'training for excluded set {vp}:')
+            description = f'test case {vp}'
+            loop.set_description(description)
+            file.write(f'results for excluded set {vp}:\n')
             
             print(f'Training autoencoder: ')
             ae_model = train_autoencoder()
@@ -164,10 +166,10 @@ if __name__ == "__main__":
             original, prediction = train_mlp(vp, ae_model)
             
             # compute scores
-            rsquare = [ae_correlation(original[0, i], prediction[0, i]) for i in range(5)]
-            file.write(rsquare)
+            rsquare = ae_correlation(original, prediction)
+            file.write('r2: '+ str(rsquare)+ '\n')
             meansquareerror = [mse(original[0,i], prediction[0,i]) for i in range(5)]
-            file.write(meansquareerror)
+            file.write('mse: ' + str(meansquareerror) + '\n')
             file.write('\n')
             
 
