@@ -322,7 +322,7 @@ class A64_8(nn.Module):
 
     by jarl @ 10 Oct 2023 18:00
     
-    Input sizes are (5, 64, 64).
+    Input sizes are (5, 64, 64), encoded size is (40, 8, 8)
     """
     def __init__(self) -> None:
         super(A64_8, self).__init__()
