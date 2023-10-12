@@ -16,6 +16,7 @@ from pathlib import Path
 import itertools
 from tqdm import tqdm
 import datetime as dt
+import numpy as np
 
 import torch
 from torch.utils.data import Dataset, TensorDataset, DataLoader
@@ -23,6 +24,7 @@ torch.manual_seed(131745)  # 911
 import torch.nn as nn
 import torch.optim as optim
 import torchvision
+
 from image_data_helpers import get_data, AugmentationDataset
 from data_helpers import mse
 from plot import ae_correlation
@@ -41,6 +43,9 @@ def train_autoencoder():
     augdataset = AugmentationDataset(ncfile.parent, device, resolution=resolution)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
 
+    # initialize model
+    model = A64_8().to(device)
+
     # hyperparameters
     epochs = 500
     learning_rate = 1e-3
@@ -48,9 +53,6 @@ def train_autoencoder():
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
     loop = tqdm(range(epochs), desc='Training AE...', unit='epoch', colour='#7dc4e4')
-
-    # initialize model
-    model = A64_8().to(device)
 
     # model training
     for epoch in loop:
@@ -156,15 +158,15 @@ if __name__ == "__main__":
             file.write(f'training for excluded set {vp}:')
             
             print(f'Training autoencoder: ')
-            ae_model = train_autoencoder(vp)
+            ae_model = train_autoencoder()
             
             print(f'Training MLP: ')
             original, prediction = train_mlp(vp, ae_model)
             
             # compute scores
-            r2 = r2(original, prediction)
-            file.write(r2)
-            meansquareerror = mse(original, prediction)
+            rsquare = [ae_correlation(original[0, i], prediction[0, i]) for i in range(5)]
+            file.write(rsquare)
+            meansquareerror = [mse(original[0,i], prediction[0,i]) for i in range(5)]
             file.write(meansquareerror)
             file.write('\n')
             
