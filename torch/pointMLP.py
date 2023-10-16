@@ -80,9 +80,9 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
         if message is not None:
             f.write(f'Message: {message}\n')
         f.write(f'Model {name}\n')
-        print(summary(model, input_size=in_size), file=f)
+        print(summary(ae_model, input_size=in_size), file=f)
         print("\n", file=f)
-        print(model, file=f)
+        print(ae_model, file=f)
         print(summary(mlp, input_size=(1, 2)), file=f)
         print("\n")
         f.write(f'\nEpochs: {epochs}\n')
@@ -110,11 +110,11 @@ if __name__ == '__main__':
     # ----- #
     resolution = 64
     if resolution == 32:
-        model = autoencoder_classes.A300()
+        ae_model = autoencoder_classes.A300()
         encodedx = 20
         encodedy = encodedz = 4
     elif resolution == 64:
-        model = autoencoder_classes.A64_8()
+        ae_model = autoencoder_classes.A64_8()
         encodedx = 40
         encodedy = encodedz = 8
     
@@ -142,9 +142,9 @@ if __name__ == '__main__':
     trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
     
     # load autoencoder model
-    model.to(device)
-    model.load_state_dict(torch.load(model_dir))
-    model.eval()  # inference mode, disables training
+    ae_model.load_state_dict(torch.load(model_dir))
+    ae_model.to(device)
+    ae_model.eval()  # inference mode, disables training
     
     #### train MLP ####
     # epoch_validation = []
@@ -168,7 +168,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()  # reset gradients
 
             encoding = mlp(labels).reshape(1, encodedx, encodedy, encodedz)  # forward pass, get mlp prediction from (v, p) then reshape
-            output = model.decoder(encoding)  # get output image from decoder
+            output = ae_model.decoder(encoding)  # get output image from decoder
             output = torchvision.transforms.functional.crop(output, 0, 0, resolution, resolution)  # crop to match shape
 
             loss = criterion(output, image)  # get the loss between input image and model output
@@ -182,7 +182,7 @@ if __name__ == '__main__':
         epoch_loss.append(loss.item())
         if (epoch+1) % 10 == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
-            torch.save(model.state_dict(), out_dir/f'{name}')
+            torch.save(ae_model.state_dict(), out_dir/f'{name}')
 
     print("\33[2KMLP training complete!")
     train_end = time.time()
@@ -196,11 +196,11 @@ if __name__ == '__main__':
         fake_encoding = mlp(torch.tensor(test_label, device=device, dtype=torch.float32))  # mps does not support float64
         # reshape encoding from (1, xyz) to (1, x, y, z)
         fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
-        decoded = model.decoder(fake_encoding)
+        decoded = ae_model.decoder(fake_encoding)
         decoded = torchvision.transforms.functional.crop(decoded, 0, 0, resolution, resolution)
 
     # add resolution=64 for larger images
-    eval_time, scores = plot_comparison_ae(test_image, fake_encoding, model, 
+    eval_time, scores = plot_comparison_ae(test_image, fake_encoding, ae_model, 
                                            out_dir=out_dir, is_square=True)
     write_metadata_ae(out_dir)
     ae_correlation(test_image, decoded, out_dir, minmax=False)
