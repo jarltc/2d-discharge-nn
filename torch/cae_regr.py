@@ -97,7 +97,7 @@ if __name__ == '__main__':
         encodedy = encodedz = 8
     encoded_size = encodedx * encodedy * encodedz
     # model = autoencoder_classes.A300()
-    mlp = mlp_classes.MLP3(2, encoded_size, dropout_prob=0.5)
+    mlp = mlp_classes.MLP4(2, encoded_size, dropout_prob=0.5)
     
     # ae_dir = Path(input('AE dir: '))
     ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8')

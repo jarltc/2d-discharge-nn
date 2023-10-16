@@ -171,3 +171,33 @@ class MLP3(nn.Module):
         output = F.relu(self.output(x))
 
         return output
+    
+
+class MLP4(nn.Module):
+    """MLP3 with LESS nodes?
+    """
+    def __init__(self, input_size, output_size, dropout_prob) -> None:
+        super(MLP4, self).__init__()
+        self.input_size = input_size
+        self.output_size = output_size
+        self.input = nn.Linear(input_size, 20)
+
+        self.fc1 = nn.Linear(20, 40)
+        self.fc2 = nn.Linear(40, 80)
+        self.fc3 = nn.Linear(80, 100)
+        self.fc4 = nn.Linear(100, 120)
+        
+        self.output = nn.Linear(120, output_size)
+
+    def forward(self, x):
+        x = F.relu(self.input(x))
+
+        # hidden layers
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        x = F.relu(self.fc4(x))
+
+        output = F.relu(self.output(x))
+
+        return output

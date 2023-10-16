@@ -127,7 +127,7 @@ if __name__ == '__main__':
     learning_rate = 1e-3
     dropout_prob = 0.5
     # ----- #
-    mlp = MLP3(2, encoded_size, dropout_prob=dropout_prob)
+    mlp = mlp_classes.MLP4(2, encoded_size, dropout_prob=dropout_prob)
     
     train, test = get_data((300, 60), resolution=resolution, labeled=True)
     train_images, train_labels = train
