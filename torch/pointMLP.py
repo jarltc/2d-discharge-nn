@@ -34,7 +34,7 @@ from sklearn.preprocessing import MinMaxScaler
 from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 import autoencoder_classes
-from mlp_classes import MLP, MLP1, MLP2, MLP3
+import mlp_classes
 from image_data_helpers import get_data
 
 
@@ -105,8 +105,6 @@ if __name__ == '__main__':
     message = input("Leave a note?: ") or None
     root = Path.cwd()
 
-    ##### things to change #####
-
     # ----- #
     resolution = 64
     if resolution == 32:
@@ -119,7 +117,8 @@ if __name__ == '__main__':
         encodedy = encodedz = 8
     
     encoded_size = encodedx*encodedy*encodedz
-    # model_dir = Path(input('Path to AE: '))
+
+    ##### things to change #####
     model_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8')  # path to autoencoder model
     
     # ----- #
@@ -128,6 +127,7 @@ if __name__ == '__main__':
     dropout_prob = 0.5
     # ----- #
     mlp = mlp_classes.MLP4(2, encoded_size, dropout_prob=dropout_prob)
+    mlp.to(device)
     
     train, test = get_data((300, 60), resolution=resolution, labeled=True)
     train_images, train_labels = train
@@ -147,9 +147,6 @@ if __name__ == '__main__':
     ae_model.eval()  # inference mode, disables training
     
     #### train MLP ####
-    # epoch_validation = []
-    # epoch_times = []
-
     optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
     epoch_loss = []
