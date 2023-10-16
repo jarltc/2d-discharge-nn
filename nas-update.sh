@@ -31,4 +31,4 @@ message="Transferred $num_t files ($num_s)"
 terminal-notifier -group 'rsync-backup' -title '2d-discharge-nn sync' -subtitle 'Backup complete' -message $message -execute "open $LOG_FILE" -sound Funk
 rsync -azP $LOG_FILE ~/.NAS/Public_HamaLab/Data/22_jarl/2d-discharge-nn/backup_log.txt
 
-umount ~/NAS
+umount ~/.NAS
