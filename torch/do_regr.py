@@ -181,7 +181,7 @@ class PredictionDataset:
             print("Prediction result already calculated.")
             return self.prediction_result
 
-    def get_scores(self):
+    def get_scores(self, output=True):
         scores_df = calculate_scores(self.targets, self.prediction_result)
         self.scores = scores_df
         
@@ -194,12 +194,15 @@ class PredictionDataset:
                 print(f'R2\t\t= {scores_df[column].iloc[3]}', file=out)
                 print(file=out)
 
-        print_scores_core(sys.stdout)
-        plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)
+        if output:
+            print_scores_core(sys.stdout)
+            plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)
 
-        scores_file = regr_dir/'scores.txt'
-        with open(scores_file, 'w') as f:
-            print_scores_core(f)
+            scores_file = regr_dir/'scores.txt'
+            with open(scores_file, 'w') as f:
+                print_scores_core(f)
+        else:
+            return scores_df
 
         
 
@@ -312,11 +315,12 @@ def calculate_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
         y_true = reference_df[column].values
         y_pred = prediction_df[column].values
 
+        mse = mean_squared_error(y_true, y_pred)
         mae = mean_absolute_error(y_true, y_pred)
         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
         r2 = r2_score(y_true, y_pred)
         ratio = rmse/mae
-        scores.append(np.array([[mae], [rmse], [ratio], [r2]]))
+        scores.append(np.array([[mae], [rmse], [ratio], [r2], [mse]]))
     
     scores = np.hstack(scores)
     scores_df = pd.DataFrame(scores, columns=list(reference_df.columns))
