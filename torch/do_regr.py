@@ -181,7 +181,7 @@ class PredictionDataset:
             print("Prediction result already calculated.")
             return self.prediction_result
 
-    def get_scores(self, output=True):
+    def get_scores(self, output=False):
         scores_df = calculate_scores(self.targets, self.prediction_result)
         self.scores = scores_df
         
@@ -195,14 +195,15 @@ class PredictionDataset:
                 print(file=out)
 
         if output:
+            return scores_df
+        else:
             print_scores_core(sys.stdout)
             plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)
 
             scores_file = regr_dir/'scores.txt'
             with open(scores_file, 'w') as f:
                 print_scores_core(f)
-        else:
-            return scores_df
+            
 
         
 

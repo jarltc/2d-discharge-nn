@@ -72,7 +72,7 @@ def model_eval(model, data_excluded):
     metadata = {'scaling': True, 'is_target_scaled':True, 'name': 'kfold'}
     regr_df = PredictionDataset(data_excluded, model, metadata)
     prediction = regr_df.prediction
-    scores = regr_df.get_scores()  # dataframe of scores: rows are mae, rmse, rmse/mae, and r2
+    scores = regr_df.get_scores(output=True)  # dataframe of scores: rows are mae, rmse, rmse/mae, and r2
     mse = [scores.iloc[4, column] for column in range(5)]
     r2 = [scores.loc[3, column] for column in range(5)]
 
