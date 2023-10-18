@@ -8,11 +8,10 @@ import xarray as xr
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-import pandas as pd
 from pathlib import Path
-import matplotlib.pyplot as plt
 
-nc_data = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/full_interpolation.nc')
+root = Path.cwd().parent
+nc_data = root/'data'/'interpolation_datasets'/'full_interpolation.nc'
 
 def get_dataset_old(V, P, data_dir):
     """(old) function to load data from a pair of V, P
