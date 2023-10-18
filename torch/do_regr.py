@@ -147,12 +147,12 @@ class PredictionDataset:
     get_scores():
         Computes scores, outputs to sys.stdout and saves to a txt file.
     """
-    def __init__(self, reference_df, model, metadata) -> None:
+    def __init__(self, reference_df, model, metadata, excluded=(300, 60)) -> None:
         self.original_df = reference_df
         self.model = model
         self.model_name = metadata['name']
-        self.v_excluded = 300  # [V]
-        self.p_excluded = 60  # [Pa]
+        self.v_excluded = excluded[0]  # [V]
+        self.p_excluded = excluded[1]  # [Pa]
         self.minmax_y = metadata['is_target_scaled']
         self.lin = metadata['scaling']
         self.scale_exp = metadata['parameter_exponents']
@@ -208,6 +208,21 @@ class PredictionDataset:
         
 
 def process_data(df: pd.DataFrame, data_excluded: tuple):
+    """Construct a DataFrame containing excluded data.
+
+    DataFrame constructed by reusing the grid points and inserting new columns for 'V' and 'P'.
+    Grid labels 'X' and 'Y' are renamed to their lowercase counterparts.
+
+    * docstring added on 18 Oct 2023 (8 months after this code was written 
+        (I don't remember what this does anymore))
+    Args:
+        df (pd.DataFrame): DataFrame of reference data for a single pair (V, P)
+        data_excluded (tuple): Pair of voltage and pressure to be excluded.
+
+    Returns:
+        list of df, features, labels: Returns the original input df, and separate dfs
+        for features and labels.
+    """
     v_excluded, p_excluded = data_excluded
     df['V'] = v_excluded
     df['P'] = p_excluded
