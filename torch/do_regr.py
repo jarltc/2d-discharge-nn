@@ -223,7 +223,10 @@ def process_data(df: pd.DataFrame, data_excluded: tuple):
         list of df, features, labels: Returns the original input df, and separate dfs
         for features and labels.
     """
+    feature_names = ['V', 'P', 'x', 'y']
+    label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     v_excluded, p_excluded = data_excluded
+    
     df['V'] = v_excluded
     df['P'] = p_excluded
     df.rename(columns={'X':'x', 'Y':'y'}, inplace=True)
