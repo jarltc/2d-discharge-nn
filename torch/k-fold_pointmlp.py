@@ -13,35 +13,54 @@ import pandas as pd
 
 from MLP import MLP
 from data_helpers import get_data, scale_all, data_preproc
-from do_regr import PredictionDataset
+from do_regr import process_data, scale_features
+from time import sleep
+
+from sklearn.metrics import mean_squared_error, r2_score
+
+
+def scores(original:pd.DataFrame, prediction:pd.DataFrame):
+    # get the MSE between each column of original and predicted dataframes
+    global label_names
+
+    orig_labels = original[label_names]
+    pred_labels = prediction[label_names]
+
+    mse = []
+    r2 = []
+
+    for column in label_names:
+        y_true = orig_labels[column].values
+        y_pred = pred_labels[column].values
+
+        mse.append(mean_squared_error(y_true, y_pred))
+        r2.append(r2_score(y_true, y_pred))
+    
+    return mse, r2
 
 
 def load_data(test_pair:tuple):
-    global root, hps, feature_names, label_names
+    global root, hps, feature_names, label_names, scale_exp
     batch_size = hps['batch_size']
-    
+
+    # this data is not yet scaled
     data_used, data_excluded = get_data(root, voltages, pressures, test_pair, xy=True)
     
     # why the hell do I have to do so much
-    scaler_dir = 100  # TODO: fix this
     # scale features and labels
-    scale_exp = []
-    features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
+    features = scale_all(data_used[feature_names], 'x').astype('float64')
     labels = data_preproc(data_used[label_names], scale_exp).astype('float64')
-    labels = scale_all(labels, 'y', scaler_dir)
+    labels = scale_all(labels, 'y')
 
-    alldf = pd.concat([features, labels], axis=1)  # TODO: consider removing this
-    dataset_size = len(alldf)
-
-    features = torch.tensor(features.to_numpy())
-    labels = torch.tensor(labels.to_numpy())
+    features = torch.tensor(features.to_numpy(), dtype=torch.float64)
+    labels = torch.tensor(labels.to_numpy(), dtype=torch.float64)
     dataset = TensorDataset(features, labels)
     trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     return trainloader, data_excluded
 
 
-def train_mlp(train_data):
+def train_mlp(train_data:DataLoader):
     global hps
     name = hps['name']
     epochs = hps['epochs']
@@ -50,32 +69,47 @@ def train_mlp(train_data):
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    # actually train the model
-    model.train()  # is this even needed?
-    for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
-        for batch_data in enumerate(train_data):
-            inputs, labels = batch_data
+    print('Training model...')
+    sleep(5)
+    # # actually train the model
+    # model.train()  # is this even needed?
+    # for epoch in tqdm(range(epochs), desc='Training...', colour='#7dc4e4'):
+    #     loop = tqdm(train_data, unit='batch', colour='#f5a97f')
+    #     for i, batch_data in enumerate(loop):
+    #         inputs, labels = batch_data
+    #         loop.set_description(f'batch {i} of {len(loop)}')
 
-            optimizer.zero_grad()  # zero the parameter gradients
+    #         optimizer.zero_grad()  # zero the parameter gradients
             
-            outputs = model(inputs)  # forward pass
-            loss = criterion(outputs, labels)  # compute score
-            loss.backward()  # compute gradients 
-            optimizer.step()  # apply changes to network
+    #         outputs = model(inputs)  # forward pass
+    #         loss = criterion(outputs, labels)  # compute score
+    #         loss.backward()  # compute gradients 
+    #         optimizer.step()  # apply changes to network
 
     return model
 
 
-def model_eval(model, data_excluded):
-    global feature_names, label_names
+def model_eval(model, data_excluded, test_pair):
+    global feature_names, label_names, scale_exp
     model.eval()
-    metadata = {'scaling': True, 'is_target_scaled':True, 'name': 'kfold'}
-    regr_df = PredictionDataset(data_excluded, model, metadata)
-    prediction = regr_df.prediction
-    scores = regr_df.get_scores(output=True)  # dataframe of scores: rows are mae, rmse, rmse/mae, and r2
-    mse = [scores.iloc[4, column] for column in range(5)]
-    r2 = [scores.loc[3, column] for column in range(5)]
 
+    # load dummy data (only grid points and labels, no v, p)
+    reference_df = data_excluded
+    regr_df, features_df, _ = process_data(reference_df, test_pair)
+
+    # scale features then convert into a tensor TODO: add model dir to get scaler files
+    features_tensor = scale_features(features_df, model_dir)
+    
+    # feed features to model and get tensor of outputs
+    with torch.no_grad:  # i wonder if this speeds it up somewhat
+        result = pd.DataFrame(model(features_tensor).detach().numpy(),
+                            columns=label_names)
+    
+    # combine old features into results dataframe
+    prediction_df = pd.concat([result, features_df], axis=1)
+
+    # compare scaled labels and outputs by getting mse and r2
+    mse, r2 = scores(regr_df, prediction_df)
     return mse, r2
     
 
@@ -86,9 +120,9 @@ if __name__ == "__main__":
     feature_names = ['V', 'P', 'x', 'y']
     label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
 
-
-    # hyperparameters
-    hps = {'name':'kfold', 'epochs':100, 'batch_size':128, 'learning_rate': 1e-3}
+    # hyperparameters TODO: change
+    scale_exp = []
+    hps = {'name':'kfold', 'epochs':1, 'batch_size':256, 'learning_rate': 1e-3}
 
     root = Path.cwd()
     out_dir = root/'kfold'
@@ -109,6 +143,5 @@ if __name__ == "__main__":
             file.write(f'results for excluded set {vp}:\n')
 
             data, data_excluded = load_data(vp)
-            model = train_mlp(vp)
-            r2, mse = model_eval(model, data_excluded)
-
+            model = train_mlp(data)
+            r2, mse = model_eval(model, data_excluded, vp)
