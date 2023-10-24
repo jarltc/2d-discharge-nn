@@ -35,8 +35,9 @@ from mlp_classes import MLP3
 
 
 def train_autoencoder():
-    global device
-    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
+    global device, root
+
+    ncfile = root/'data'/'interpolation_datasets'/'synthetic'/'synthetic_averaged.nc'
     resolution = 64
 
     # load data and send to device (cpu or gpu)
@@ -47,7 +48,7 @@ def train_autoencoder():
     model = A64_8().to(device)
 
     # hyperparameters
-    epochs = 2
+    epochs = 500
     learning_rate = 1e-3
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -89,7 +90,7 @@ def train_mlp(test_set, ae_model):
     mlp = MLP3(2, encoded_size, dropout_prob=dropout_prob)  # dropout_prob doesnt do anything in MLP3
     mlp.to(device)
     # ----- #
-    epochs = 2
+    epochs = 500
     learning_rate = 1e-3
     optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
     criterion = nn.MSELoss()
@@ -142,7 +143,7 @@ if __name__ == "__main__":
     # k = 10
 
     device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
-    root = Path.cwd()
+    root = Path.cwd().parent
     out_dir = root/'kfold'
     if not out_dir.exists():
         out_dir.mkdir()
@@ -151,6 +152,12 @@ if __name__ == "__main__":
     now = dt.datetime.now().strftime('%Y-%m-%d_%H%M')
     filename = now + '.txt'
 
+    # load pretrained autoencoder
+    ae_model = A64_8().to(device)
+    ae_model_dir = root/'created_models'/'autoencoder'/'64x64'/'A64-8'/'A64-8.pt'
+    ae_model.load_state_dict(torch.load(ae_model_dir, map_location=device))
+    ae_model.eval()
+
     with open(out_dir/filename, 'a') as file:
         file.write(f'k-fold validation for k = {len(vps)}\n')
         file.write('variables are (potential, electron density, ion density, metastable density, electron temperature)\n')
@@ -158,9 +165,6 @@ if __name__ == "__main__":
             description = f'test case {vp}'
             loop.set_description(description)
             file.write(f'results for excluded set {vp}:\n')
-            
-            print(f'Training autoencoder: ')
-            ae_model = train_autoencoder()
             
             print(f'Training MLP: ')
             original, prediction = train_mlp(vp, ae_model)
