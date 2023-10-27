@@ -26,7 +26,7 @@ from torchinfo import summary
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from autoencoder_classes import A300, A64_6, A64_8
+import autoencoder_classes as AE
 from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 from image_data_helpers import get_data, AugmentationDataset
@@ -121,7 +121,7 @@ if __name__ == '__main__':
     epochs = 500
     learning_rate = 1e-3
     if resolution == 32:
-        model = A300().to(device)
+        model = AE.A300().to(device)
     else:
         model = AE.A64_9().to(device)
     criterion = nn.MSELoss()
