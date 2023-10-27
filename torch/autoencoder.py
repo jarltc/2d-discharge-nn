@@ -51,19 +51,17 @@ def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot modul
 
 
 def write_metadata(out_dir):  # TODO: move to data module
-    # if is_square:
-    #     in_size = (1, 5, 200, 200)
-    # else:
-    #     in_size = (1, 5, 707, 200)
-
-    in_size = batch_data[0].size()  # testing
+    # in_size = batch_data[0].size()  # broken
+    in_size = (1, 5, resolution, resolution)
 
     # save model structure
     file = out_dir/'train_log.txt'
     with open(file, 'w') as f:
         f.write(f'Model {name}\n')
-        print(summary(model, input_size=in_size), file=f)
+        f.write('***** layer behavior *****\n')
+        print(summary(model, input_size=in_size, device='mps'), file=f)
         print("\n", file=f)
+        f.write('***** autoencoder architecture *****\n')
         print(model, file=f)
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
