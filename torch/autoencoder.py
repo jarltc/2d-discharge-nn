@@ -105,17 +105,16 @@ if __name__ == '__main__':
     test_pair = (300, 60)
     val_pair = (400, 45)
     is_square = True
+    dtype = torch.float32
 
     # get augmentation data
     ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
 
     train, test, val = get_data(test_pair, val_pair, resolution, square=is_square)
 
-    # dataset = TensorDataset(torch.tensor(train, device=device, dtype=torch.float32))
-    # dataset = SimDataset(train, device)
     augdataset = AugmentationDataset(ncfile.parent, device, resolution=resolution)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
-    val_tensor = torch.tensor(val, device=device, dtype=torch.float32)
+    val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
     # hyperparameters (class property?)
     epochs = 500
@@ -163,8 +162,8 @@ if __name__ == '__main__':
     train_end = time.perf_counter()
 
     with torch.no_grad():
-        encoded = model.encoder(torch.tensor(test, device=device, dtype=torch.float32))
-        decoded = model(torch.tensor(test, device=device, dtype=torch.float32))
+        encoded = model.encoder(torch.tensor(test, device=device, dtype=dtype))
+        decoded = model(torch.tensor(test, device=device, dtype=dtype))
 
     torch.save(model.state_dict(), out_dir/f'{name}')
     # train2db(out_dir, name, epochs, test_pair[0], test_pair[1], resolution, typ='autoencoder')
