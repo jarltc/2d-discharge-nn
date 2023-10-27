@@ -370,6 +370,53 @@ class A64_8(nn.Module):
             decoded, 0, 0, 64, 64)
         return decoded
     
+class A64_9(nn.Module):
+    """A64_8 with all 3x3 kernels and MaxPool layers in the encoder.
+
+    by jarl @ 25 Oct 2023 15:14
+    
+    This network takes longer to train due to 3x3 kernels and smaller strides.
+    """
+    def __init__(self) -> None:
+        super(A64_9, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 20, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 40, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 40, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 20, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        decoded = torchvision.transforms.functional.crop(
+            decoded, 0, 0, 64, 64)
+        return decoded
+    
     
 class Autoencoder(nn.Module):
     def __init__(self):

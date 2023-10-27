@@ -123,7 +123,7 @@ if __name__ == '__main__':
     if resolution == 32:
         model = A300().to(device)
     else:
-        model = A64_8().to(device)
+        model = AE.A64_9().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
