@@ -108,7 +108,7 @@ if __name__ == '__main__':
     # get augmentation data
     ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
 
-    train, test, val = get_data(test_pair, val_pair, resolution, square=is_square)
+    _, test, val = get_data(test_pair, val_pair, resolution, square=is_square)
 
     augdataset = AugmentationDataset(ncfile.parent, device, resolution=resolution)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
