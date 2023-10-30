@@ -183,7 +183,7 @@ if __name__ == '__main__':
 
         if (epoch+1) % epochs == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
-            torch.save(model.state_dict(), out_dir/f'{name}')
+            torch.save(model.state_dict(), out_dir/f'{name}') 
             save_history_graph(epoch_loss, out_dir)
 
     train_end = time.perf_counter()
