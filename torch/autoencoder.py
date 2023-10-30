@@ -128,6 +128,12 @@ if __name__ == '__main__':
     epoch_validation = []
     loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
 
+    patience = 30
+    best_loss = 100
+    best_epoch = -1
+    eps = 1e-5  # threshold to consider if the change is significant
+    epochs_since_best = 0
+
     train_start = time.perf_counter()
     for epoch in loop:
         for i, batch_data in enumerate(trainloader):
@@ -151,6 +157,29 @@ if __name__ == '__main__':
 
         epoch_validation.append(val_loss)
         epoch_loss.append(running_loss)
+
+        # -----  EARLY STOPPPING ----- #
+        # check if the current loss is smaller than the best loss 
+        if (val_loss < best_loss):
+            # update the best epoch and loss
+            best_epoch = epoch  
+
+            if (abs(val_loss - best_loss) < eps):
+                # if change is insignificant, keep waiting
+                epochs_since_best += 1
+
+                if epochs_since_best >= patience:
+                    # save model when best result is reached and model has not improved a number of times
+                    epochs = best_epoch + 1
+                    torch.save(model.state_dict(), out_dir/f'{name}')
+                    save_history_graph(epoch_loss, out_dir)
+                    break
+            else:
+                # if loss significantly decreases, reset progress
+                epochs_since_best = 0
+            
+            best_loss = val_loss  # update the loss after comparisons have been made
+
 
         if (epoch+1) % epochs == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
