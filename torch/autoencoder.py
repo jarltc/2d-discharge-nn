@@ -114,13 +114,13 @@ if __name__ == '__main__':
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
-    # hyperparameters (class property?)
     epochs = 500
     learning_rate = 1e-3
     if resolution == 32:
         model = AE.A300().to(device)
-    else:
+    elif resolution == 64:
         model = AE.A64_9().to(device)
+    else: model = AE.FullAE1().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
