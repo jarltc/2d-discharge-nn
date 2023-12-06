@@ -6,6 +6,14 @@ from image_data_helpers import get_data
 from autoencoder_classes import FullAE1, A64_8
 
 def speedtest(resolution=None):
+    """Get a trained model and evaluate its reconstruction speed.
+
+    Args:
+        resolution (int, optional): Resolution of the image. Defaults to None (full image).
+
+    Returns:
+        float: Time to reconstruct an image in ms.
+    """
     device = torch.device("mps")
     if resolution == 64:
         square = True
@@ -33,6 +41,15 @@ def speedtest(resolution=None):
     return (end-start)/1e6
 
 def regr(in_pair: tuple, resolution=None):
+    """Get regression image for a given pair.
+
+    I wrote this cause I got lazy to modify the existing cae_regr to accommodate full images.
+    Uses plot_comparison_ae in plot.py.
+
+    Args:
+        in_pair (tuple): Input pair of V and P (not scaled).
+        resolution (int, optional): Image resolution. Defaults to None (full image).
+    """
     from plot import plot_comparison_ae
 
     device = torch.device("mps")
