@@ -1,280 +1,176 @@
-"""
-Conditional autoencoder to reproduce 2d plasma profiles from a pair of V, P
+"""Autoencoder for predicting 2d plasma profiles
 
-* Train autoencoder
-* Take encoder and encode labeled profiles (square images)
-* 
+This uses the full rectangular simulation image.
 """
 
 import os
 import time
+import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-import cv2
 import numpy as np
-import pandas as pd
-import xarray as xr
 from tqdm import tqdm
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
-import torchvision
-from torchvision.transforms.functional import crop
-from torch.utils.data import TensorDataset, DataLoader
+from torch.utils.data import DataLoader
 from torchinfo import summary
 
-from sklearn.model_selection import train_test_split
-
-from data_helpers import ImageDataset
-from plot import draw_apparatus, save_history_graph
-
-class Autoencoder(nn.Module):
-    def __init__(self):
-        super(Autoencoder, self).__init__()
-        self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(10, 20, kernel_size=5, stride=2, padding=1),
-            nn.ReLU(),
-            nn.Conv2d(20, 25, kernel_size=3, stride=2, padding=1),
-            nn.ReLU()
-        )
-
-        self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(25, 20, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(20, 15, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(15, 10, kernel_size=3, stride=2),
-            nn.Conv2d(10, 5, kernel_size=3, stride=1, padding=1),
-        )
-
-    def forward(self, x):
-        encoded = self.encoder(x)
-        decoded = self.decoder(encoded)
-        decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 707, 200)
-        return decoded
-    
-
-class MLP(nn.Module):
-    """MLP to recreate encodings from a pair of V and P.
-    """
-    def __init__(self, input_size, output_size, dropout_prob) -> None:
-        super(MLP, self).__init__()
-        self.input_size = input_size
-        self.output_size = output_size
-        self.fc1 = nn.Linear(input_size, 512)
-        self.fc2 = nn.Linear(512, 1024)
-        self.fc3 = nn.Linear(1024, 2048)
-        self.fc4 = nn.Linear(2048, output_size)
-        self.dropout = nn.Dropout(dropout_prob)
-
-    def forward(self, x):
-        x = self.fc1(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc2(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc3(x)
-        x = F.relu(x)
-        x = self.dropout(x)
-
-        x = self.fc4(x)
-
-        output = F.relu(x)
-        return output
+import autoencoder_classes as AE
+from plot import plot_comparison_ae, save_history_graph, ae_correlation
+from image_data_helpers import get_data, AugmentationDataset
 
 
-def resize(data: np.ndarray, scale=64) -> np.ndarray:
-    """Resize square images to 64x64 resolution by downscaling.
+def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
 
-    Args:
-        data (np.ndarray): Input data.
+    losses = np.array(losses)
+    fig, ax = plt.subplots()
+    ax.set_yscale('log')
+    ax.plot(losses, c='r', label='train')
 
-    Returns:
-        np.ndarray: Downscaled input data.
-    """
+    if validation_losses is not None:
+        ax.plot(validation_losses, c='r', ls=':', label='validation')
+        ax.legend()
 
-    data = np.stack([cv2.resize((np.moveaxis(image, 0, -1)), (scale, scale)) for image in data])
-    data = np.moveaxis(data, -1, 1)
-    return data
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid()
 
-def write_metadata_ae(out_dir):  # TODO: move to data module
-    # if is_square:
-    #     in_size = (1, 5, 200, 200)
-    # else:
-    #     in_size = (1, 5, 707, 200)
+    fig.savefig(out_dir/'train_loss.png')
 
-    in_size = batch_data[0].size()  # testing
+
+def write_metadata(out_dir):  # TODO: move to data module
+    # in_size = batch_data[0].size()  # broken
+    if resolution is not None:
+        in_size = (1, 5, resolution, resolution)
+    else:
+        in_size = (1, 5, 707, 200)
 
     # save model structure
     file = out_dir/'train_log.txt'
     with open(file, 'w') as f:
         f.write(f'Model {name}\n')
-        print(summary(model, input_size=in_size), file=f)
+        f.write('***** layer behavior *****\n')
+        print(summary(model, input_size=in_size, device='mps'), file=f)
         print("\n", file=f)
+        f.write('***** autoencoder architecture *****\n')
         print(model, file=f)
-        print(summary(mlp, input_size=(1, 2)), file=f)
-        print("\n")
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
-        f.write(f'Resolution: full\n')
-        f.write(f'Train time: {(train_end-train_start):.2f} s\n')
-        # f.write(
-        #     f'Average time per epoch: {np.array(epoch_times).mean():.2f} s\n')
-        f.write(f'Evaluation time: {(eval_time):.2f} s\n')
+        f.write(f'Resolution: {resolution}\n')
+        f.write(f'Train time: {(train_end-train_start):.2f} seconds ({(train_end-train_start)/60:.2f} minutes)\n')
         f.write('\n***** end of file *****')
 
-
-def plot_comparison_ae(reference: np.ndarray, name=None, 
-                       out_dir=None, is_square=False) -> float:  # TODO: move to plot module
-    """Create plot comparing the reference data with its autoencoder reconstruction.
-
-    Args:
-        reference (np.ndarray): Reference dataset.
-        name (str, optional): Model name. Defaults to None.
-        out_dir (Path, optional): Output directory. Defaults to None.
-
-    Returns:
-        float: Evaluation time.
-    """
-    if is_square:
-        figsize = (10, 5)
-        extent = [0, 20, 35, 55]
-    else:
-        figsize = (10, 7)
-        extent =[0, 20, 0, 70.7]
-
-    fig = plt.figure(figsize=figsize, dpi=200, layout='constrained')
-    subfigs = fig.subfigures(nrows=2, wspace=0.4)
-
-    axs1 = subfigs[0].subplots(nrows=1, ncols=5)
-    axs2 = subfigs[1].subplots(nrows=1, ncols=5)
-
-    subfigs[1].suptitle('Prediction from MLP to AE')
-    subfigs[0].suptitle('Original (300V, 60Pa)')
-
-    cbar_ranges = [(reference[0, i, :, :].min(),
-                    reference[0, i, :, :].max()) for i in range(5)]
-
-    with torch.no_grad():
-        fake_encoding = mlp(torch.tensor(test_labels, device=device, dtype=torch.float32))  # mps does not support float64
-        # reshape encoding from (1, 320) to (1, 20, 4, 4)
-        # fake_encoding = fake_encoding.reshape(1, 20, 4, 4)
-        fake_encoding = fake_encoding.reshape(1, 25, 88, 25)  # TODO automatically infer somehow
-        start = time.time()
-        reconstruction = model.decoder(fake_encoding).cpu().numpy()
-        end = time.time()
-
-    for i in range(5):
-        org = axs1[i].imshow(reference[0, i, :, :], origin='lower', aspect='equal',
-                             extent=extent, cmap='Greys_r')
-        draw_apparatus(axs1[i])
-        plt.colorbar(org)
-
-        rec = axs2[i].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                             vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap='Greys_r')
-        draw_apparatus(axs2[i])
-        plt.colorbar(rec)
-
-    if out_dir is not None:
-        fig.savefig(out_dir/f'test_comparison.png')
-
-    return end-start
-
+        
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
+    resolution = None
     device = torch.device(
         'mps' if torch.backends.mps.is_available() else 'cpu')
-    
-    name = input("Model name: ") or "CAE_test"
+
+    # name = input("Enter model name: ")
+    name = 'fullAE-1'
     root = Path.cwd()
-    
-    image_ds = ImageDataset(root/'data'/'interpolation_datasets', False)
-    train_features, train_labels = image_ds.train
-    test_features, test_labels = image_ds.test
 
-    # split validation set
-    # train_res, val = train_test_split(train_res, test_size=1, train_size=30)
-    # val = torch.tensor(val, device=device)
-
-    model_dir = root/'created_models'/'autoencoder'/'A105'  # Path(input('Autoencoder model directory: '))
-
-    out_dir = root/'created_models'/'conditional_autoencoder'/name
+    out_dir = root/'created_models'/'autoencoder'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
 
-    dataset = TensorDataset(torch.tensor(train_features, device=device), 
-                            torch.tensor(train_labels, device=device))
-    trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
+    test_pair = (300, 60)
+    val_pair = (400, 45)
+    is_square = True
+    dtype = torch.float32
 
-    # load autoencoder model (A105)
-    model = Autoencoder()
-    model.to(device)
-    model.load_state_dict(torch.load(model_dir/'A105'))
-    model.encoder.eval()  # inference mode
-    
-    #### train MLP ####
-    # epoch_validation = []
-    # epoch_times = []
+    # get augmentation data
+    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
+
+    _, test, val = get_data(test_pair, val_pair, square=False)
+
+    augdataset = AugmentationDataset(ncfile.parent, device)
+    trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
+    val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
     epochs = 100
     learning_rate = 1e-3
-    dropout_prob = 0.5
-    loop = tqdm(range(epochs))
+    model = AE.FullAE1().to(device)
+    # criterion = nn.MSELoss()
+    criterion = nn.L1Loss()
+    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
-    encoded_size = 25*88*25  # TODO calculate this from architecture
-
-    mlp = MLP(2, encoded_size, dropout_prob=dropout_prob)
-    mlp.to(device)
-    optimizer = optim.Adam(mlp.parameters(), lr=learning_rate)
-    criterion = nn.MSELoss()
     epoch_loss = []
+    epoch_validation = []
+    loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
 
-    dataset = TensorDataset(torch.tensor(train_features, device=device), 
-                            torch.tensor(train_labels, device=device))
-    trainloader = DataLoader(dataset, batch_size=1, shuffle=True)
+    patience = 30
+    best_loss = 100
+    best_epoch = -1
+    eps = 1e-5  # threshold to consider if the change is significant
+    epochs_since_best = 0
 
-    # begin training MLP
-    print("Training MLP...\r", end="")
-    train_start = time.time()
-    for epoch in range(epochs):
-        loop = tqdm(trainloader)
-        running_loss = 0.0  # record losses
+    train_start = time.perf_counter()
+    for epoch in loop:
+        for i, batch_data in enumerate(trainloader):
+            # get inputs
+            inputs = batch_data  
+            optimizer.zero_grad()
 
-        for i, batch_data in enumerate(loop):
-            image, labels = batch_data  # feed in images and labels (V, P)
-            target = model.encoder(image).view(1, -1)  # flattens the image
+            # record loss
+            running_loss = 0.0
 
-            optimizer.zero_grad()  # reset gradients
+            outputs = model(inputs)
+            loss = criterion(outputs, inputs)
+            loss.backward()
+            optimizer.step()
 
-            output = mlp(labels)  # forward pass
-            loss = criterion(output, target)
-            loss.backward()  # backward propagation
-            optimizer.step()  # apply changes to network
-
-            # print statistics
-            loop.set_description(f"Epoch {epoch+1}/{epochs}")
             running_loss += loss.item()
+            loop.set_description(f"Epoch {epoch+1}/{epochs}")
 
-        epoch_loss.append(loss.item())
+        with torch.no_grad():
+            val_loss = criterion(model(val_tensor), val_tensor).item()
+
+        epoch_validation.append(val_loss)
+        epoch_loss.append(running_loss)
+
+        # -----  EARLY STOPPPING ----- #
+        # check if the current loss is smaller than the best loss 
+        # if (val_loss < best_loss):
+        #     # update the best epoch and loss
+        #     best_epoch = epoch  
+
+        #     if (abs(val_loss - best_loss) < eps):
+        #         # if change is insignificant, keep waiting
+        #         epochs_since_best += 1
+
+        #         if epochs_since_best >= patience:
+        #             # save model when best result is reached and model has not improved a number of times
+        #             epochs = best_epoch + 1
+        #             torch.save(model.state_dict(), out_dir/f'{name}')
+        #             save_history_graph(epoch_loss, out_dir)
+        #             break
+        #     else:
+        #         # if loss significantly decreases, reset progress
+        #         epochs_since_best = 0
+            
+        #     best_loss = val_loss  # update the loss after comparisons have been made
+
+
         if (epoch+1) % epochs == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
-            torch.save(model.state_dict(), out_dir/f'{name}')
-            save_history_graph(epoch_loss, out_dir)
+            torch.save(model.state_dict(), out_dir/f'{name}') 
 
-    print("\33[2KMLP training complete!")
-    train_end = time.time()
+    train_end = time.perf_counter()
+
+    with torch.no_grad():
+        encoded = model.encoder(torch.tensor(test, device=device, dtype=dtype))
+        decoded = model(torch.tensor(test, device=device, dtype=dtype))
+
     torch.save(model.state_dict(), out_dir/f'{name}')
-    save_history_graph(epoch_loss, out_dir)
-
-    mlp.eval()
-    eval_time = plot_comparison_ae(test_features, out_dir=out_dir, is_square=True)
-    write_metadata_ae(out_dir)
+    # train2db(out_dir, name, epochs, test_pair[0], test_pair[1], resolution, typ='autoencoder')
+    eval_time, scores = plot_comparison_ae(test, encoded, model, out_dir=out_dir, is_square=False)
+    r2 = ae_correlation(test, decoded, out_dir)
+    plot_train_loss(epoch_loss, epoch_validation)
+    write_metadata(out_dir)
