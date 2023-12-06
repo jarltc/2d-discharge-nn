@@ -438,31 +438,43 @@ class FullAE1(nn.Module):
             nn.MaxPool2d(2, 2),
             nn.ReLU(),
 
-            nn.Conv2d(20, 40, kernel_size=3, stride=1, padding='same'),
+            nn.Conv2d(20, 20, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 20, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 20, kernel_size=3, stride=1, padding='same'),
             nn.MaxPool2d(2, 2),
             nn.ReLU(),
         )
 
         self.decoder = nn.Sequential(
+            nn.Conv2d(20, 20, kernel_size=3, stride=1, padding='same'),
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.Conv2d(40, 40, kernel_size=3, padding=1, stride=1),
             nn.ReLU(),
 
+            nn.Conv2d(20, 20, kernel_size=3, stride=1, padding='same'),
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.Conv2d(40, 20, kernel_size=3, padding=1, stride=1),
             nn.ReLU(),
 
+            nn.Conv2d(20, 20, kernel_size=3, stride=1, padding='same'),
             nn.UpsamplingBilinear2d(scale_factor=2),
-            nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
             nn.ReLU(),
 
-            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.Conv2d(20, 10, kernel_size=3, stride=1, padding='same'),
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=3, stride=1, padding='same'),
+            nn.UpsamplingBilinear2d(size=(707, 200)),  # force output shape
             nn.ReLU()
         )
 
     def forward(self, x):
         encoded = self.encoder(x)
         decoded = self.decoder(encoded)
-        decoded = torchvision.transforms.functional.crop(
-            decoded, 0, 0, 707, 200)
+
         return decoded
