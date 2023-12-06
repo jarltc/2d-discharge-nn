@@ -418,22 +418,46 @@ class A64_9(nn.Module):
         return decoded
     
     
-class Autoencoder(nn.Module):
+class FullAE1(nn.Module):
+    """Autoencoder for a whole 707x200 image.
+
+    The objective is to reduce the number of data points 
+    in the latent space to about ~2000.
+
+    Args:
+        nn (nn.Module): _description_
+    """
     def __init__(self):
-        super(Autoencoder, self).__init__()
+        super(FullAE1, self).__init__()
         self.encoder = nn.Sequential(
-            nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
+            nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
+            nn.MaxPool2d(2, 2),
             nn.ReLU(),
-            nn.Conv2d(10, 20, kernel_size=3, stride=2, padding=1),
+
+            nn.Conv2d(10, 20, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
             nn.ReLU(),
-            nn.Conv2d(20, 40, kernel_size=3, stride=2, padding=1),
-            nn.ReLU()
+
+            nn.Conv2d(20, 40, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
         )
 
         self.decoder = nn.Sequential(
-            nn.ConvTranspose2d(40, 20, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(20, 10, kernel_size=3, stride=2),
-            nn.ConvTranspose2d(10, 5, kernel_size=5, stride=2)
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 40, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 20, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
         )
 
     def forward(self, x):
