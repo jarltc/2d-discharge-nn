@@ -997,3 +997,48 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
         fig.savefig(out_dir/f'{name}.png', bbox_inches='tight')
 
     return eval_time, scores
+
+
+def plot_imageset(image, v=300.0, p=60.0, cmap='viridis', out_dir=None):
+    """
+    Plot a set of images for each plasma parameter.
+
+    Based on sep_test_comparison code.
+    """
+
+    resolution = image.shape[2]
+    # if is_square:
+    extent = [0, 20, 35, 55]
+    columns_math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
+
+    fig = plt.figure(figsize=(7,2), dpi=300, layout='constrained')
+
+    # create imagegrid for the original images (trugrid) and predicted ones (prdgrid)
+    grid = ImageGrid(fig, 111, nrows_ncols=(1, 5), axes_pad=0.3, label_mode="L", share_all=True,
+                     cbar_location="right", cbar_mode="each", cbar_size="5%", cbar_pad='0%')
+    
+    cbar_ranges = [(0, image[0, i].max()) for i in range(5)]  # shape: (5, 2)
+
+    # plot the figures, vmax depends on which set (true or prediction) contains the higher values
+    for i, ax in enumerate(grid):
+        org = ax.imshow(image[0, i, :, :], origin='lower', extent=extent, aspect='equal',
+                        vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cmap)
+        draw_apparatus(ax)
+        ax.set_ylabel('z [cm]', fontsize=8)
+        ax.set_xlabel('r [cm]', fontsize=8)
+        cb = grid.cbar_axes[i].colorbar(org)
+        ax.set_title(columns_math[i])  # set title following math labels in columns_math
+        cb.ax.tick_params(labelsize=6)
+
+        # ax tick stuff
+        ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
+        ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+        ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
+        ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
+        ax.tick_params(axis='both', labelsize=8)
+
+    fig.suptitle(f'({v}, {p})')
+
+    return fig
+
