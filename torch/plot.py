@@ -973,7 +973,7 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     # set font sizes and tick stuff
     for grid in [trugrid, prdgrid]:
         for j, ax in enumerate(grid):
-            ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
+            ax.xaxis.set_major_locator(ticker.MultipleLocator(10))
             ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
 
             ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
