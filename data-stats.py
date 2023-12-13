@@ -12,6 +12,12 @@ import numpy as np
 cat_rainbow = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
 
 def print_statistics(variable, file=None):
+    """Create a dictionary of important stats for a single var.
+
+    Args:
+        variable (str): Variable to analyze. 
+        file (Path, optional): Filepath to save statistics. Defaults to None.
+    """
     stats_dict = dict(mean = ds[variable].mean().item(),
                       minimum = ds[variable].min().item(),
                       maximum = ds[variable].max().item(),
@@ -26,7 +32,12 @@ def print_statistics(variable, file=None):
     print("\n", file=file)
 
 
-def stats2file(file_path):
+def stats2file(file_path:Path):
+    """Perform print_statistics for all variables and save.
+
+    Args:
+        file_path (Path): Path to output file.
+    """
     with open(file_path/"stats.txt", 'w') as file:
         for variable in list(ds.keys()):
             print_statistics(variable, file)
@@ -35,6 +46,14 @@ def stats2file(file_path):
 
 
 def data_histplot(ds:xr.Dataset):
+    """Create a histogram for each variable in the dataset.
+
+    Args:
+        ds (xr.Dataset): Reference dataset containing training data.
+
+    Returns:
+        fig: Figure containing 5 histograms for each variable.
+    """
     variables = list(ds.keys())
     columns_math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
     units = {'potential (V)'    :'($\mathrm{10 V}$)', 
