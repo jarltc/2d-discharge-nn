@@ -233,6 +233,7 @@ class AugmentationDataset(Dataset):
         np_arrays = [self.data[variable].sel(image=index).values for variable in list(self.data.keys())]  # extract numpy array in each variable
         image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
         tensor = torch.tensor(image_sample, device=self.device, dtype=self.dtype)  # convert to pytorch tensor
+        self.data.close()
         return tensor
     
 
