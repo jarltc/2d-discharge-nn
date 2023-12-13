@@ -212,7 +212,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
 
 
 class AugmentationDataset(Dataset):
-    def __init__(self, directory, device, square=True, resolution=None):
+    def __init__(self, directory, device, square=True, resolution=None, dtype=torch.float32):
         super().__init__()
         if resolution is not None:
             self.data = xr.open_dataset(directory/f'synthetic_averaged_s{resolution}.nc', chunks={'images': 62})
@@ -221,6 +221,7 @@ class AugmentationDataset(Dataset):
         self.is_square = square
         self.resolution = resolution
         self.device = device
+        self.dtype = dtype
     
     def __len__(self):
         return self.data.dims['image']
@@ -230,7 +231,7 @@ class AugmentationDataset(Dataset):
         # does the dataloader keep track of what data has already been used by tracking the indices?
         np_arrays = [self.data[variable].sel(image=index).values for variable in list(self.data.keys())]  # extract numpy array in each variable
         image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
-        tensor = torch.tensor(image_sample, device=self.device, dtype=torch.float32)  # convert to pytorch tensor
+        tensor = torch.tensor(image_sample, device=self.device, dtype=self.dtype)  # convert to pytorch tensor
         return tensor
     
 
