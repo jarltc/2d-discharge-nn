@@ -1,3 +1,8 @@
+""" Code to analyze the interpolation dataset.
+
+This dataset is obtained by linear interpolation from an 
+irregular mesh to a rectangular mesh."""
+
 import xarray as xr
 from pathlib import Path
 import matplotlib.pyplot as plt
