@@ -50,7 +50,7 @@ def regr(in_pair: tuple, resolution=None):
         in_pair (tuple): Input pair of V and P (not scaled).
         resolution (int, optional): Image resolution. Defaults to None (full image).
     """
-    from plot import plot_comparison_ae
+    from plot import plot_comparison_ae, sep_comparison_ae
 
     device = torch.device("mps")
     if resolution == 64:
@@ -59,7 +59,7 @@ def regr(in_pair: tuple, resolution=None):
         model = A64_8() 
     else:
         square = False
-        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/100ep_MSE/fullAE-1")
+        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/weighted/fullAE-1")
         model = FullAE1()
 
     _, test = get_data(in_pair, square=square, resolution=resolution)
@@ -75,7 +75,8 @@ def regr(in_pair: tuple, resolution=None):
     prediction = model.encoder(sim)
     out_dir = model_dir.parent
 
-    plot_comparison_ae(test, prediction, model, out_dir=out_dir, is_square=square)
+    # plot_comparison_ae(test, prediction, model, out_dir=out_dir, is_square=square)
+    sep_comparison_ae(test, prediction, model, out_dir=out_dir, is_square=square, cbar='viridis')
     print(f"file saved in {out_dir}")
 
 
@@ -86,4 +87,4 @@ if __name__ == "__main__":
     # return decode speed
     # print(f"Full AE speed: {full_time} ms")
     # print(f"64x64 speed: {small_time} ms")
-    regr((500, 80))  # this shows metastable density more clearly
+    regr((300, 60))  # this shows metastable density more clearly
