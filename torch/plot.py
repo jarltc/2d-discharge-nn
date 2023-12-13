@@ -939,8 +939,8 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     with torch.no_grad():
         start = time.perf_counter_ns()
         decoded = model.decoder(prediction).cpu().numpy()
-        reconstruction = decoded[:, :, :resolution, :resolution]  # assumes shape: (samples, channels, height, width)
         end = time.perf_counter_ns()
+        reconstruction = decoded[:, :, :resolution, :resolution]  # assumes shape: (samples, channels, height, width)
 
     eval_time = (end-start)
 
