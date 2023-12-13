@@ -97,9 +97,10 @@ if __name__ == '__main__':
     epochs = 100
     learning_rate = 1e-3
     model = AE.FullAE1().to(device)
-    # criterion = nn.MSELoss()
-    criterion = nn.L1Loss()
+    criterion = nn.MSELoss()
+    # criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    weight_tensor = torch.tensor([1, 1, 1, 10, 1], dtype=dtype, device=device).view(1, -1, 1, 1)
 
     epoch_loss = []
     epoch_validation = []
@@ -115,7 +116,7 @@ if __name__ == '__main__':
     for epoch in loop:
         for i, batch_data in enumerate(trainloader):
             # get inputs
-            inputs = batch_data  
+            inputs = batch_data * weight_tensor
             optimizer.zero_grad()
 
             # record loss
