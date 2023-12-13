@@ -10,8 +10,9 @@ import torch
 from torch.utils.data import Dataset
 from pathlib import Path
 
-root = Path.cwd().parent
+root = Path.cwd()
 nc_data = root/'data'/'interpolation_datasets'/'full_interpolation.nc'
+nc_data1 = root.parent/'data'/'interpolation_datasets'/'full_interpolation.nc'
 
 def get_dataset_old(V, P, data_dir):
     """(old) function to load data from a pair of V, P
@@ -136,8 +137,12 @@ def minmax_label(V, P):
     Returns:
         list of float: Scaled voltage and pressure.
     """
-    global nc_data
-    ds = xr.open_dataset(nc_data)
+    global nc_data, ncdata1
+    if nc_data.exists():
+        ds = xr.open_dataset(nc_data)
+    else:
+        ds = xr.open_dataset(nc_data1)
+
     vs = ds.V.values
     ps = ds.P.values
 
