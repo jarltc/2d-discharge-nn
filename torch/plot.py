@@ -921,19 +921,21 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
 
     resolution = reference.shape[2]
     if is_square:
-        # figsize = (6, 3)
+        figsize = (7, 2)
         extent = [0, 20, 35, 55]
+        axes_pad = 0.3
     else:
-        # figsize = (10, 5)
+        figsize = (7, 6)
         extent =[0, 20, 0, 70.7]
+        axes_pad = 0.4
 
-    fig = plt.figure(figsize=(7,2), dpi=300, layout='constrained')
+    fig = plt.figure(figsize=figsize, dpi=300, layout='constrained')
 
     # create imagegrid for the original images (trugrid) and predicted ones (prdgrid)
-    trugrid = ImageGrid(fig, 211, nrows_ncols=(1, 5), axes_pad=0.3, label_mode="L", share_all=True,
+    trugrid = ImageGrid(fig, 211, nrows_ncols=(1, 5), axes_pad=axes_pad, label_mode="L", share_all=True,
                      cbar_location="right", cbar_mode="each", cbar_size="5%", cbar_pad='0%')
     
-    prdgrid = ImageGrid(fig, 212, nrows_ncols=(1, 5), axes_pad=0.3, label_mode="L", share_all=True,
+    prdgrid = ImageGrid(fig, 212, nrows_ncols=(1, 5), axes_pad=0.4, label_mode="L", share_all=True,
                      cbar_location="right", cbar_mode="each", cbar_size="5%", cbar_pad='0%')
 
     with torch.no_grad():
