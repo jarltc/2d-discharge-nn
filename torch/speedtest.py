@@ -43,8 +43,8 @@ def speedtest(resolution=None):
 def regr(in_pair: tuple, resolution=None):
     """Get regression image for a given pair.
 
-    I wrote this cause I got lazy to modify the existing cae_regr to accommodate full images.
-    Uses plot_comparison_ae in plot.py.
+    I wrote this cause I got lazy to modify the existing ae_regr to accommodate full images.
+    Uses sep_comparison_ae in plot.py.
 
     Args:
         in_pair (tuple): Input pair of V and P (not scaled).
