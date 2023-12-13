@@ -10,24 +10,16 @@ from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-import cv2
 import numpy as np
-import pandas as pd
-import xarray as xr
 from tqdm import tqdm
 
 import torch
-torch.manual_seed(131745)  # 911
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import Dataset, TensorDataset, DataLoader
 from torchinfo import summary
 
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MinMaxScaler
-
 import autoencoder_classes as AE
-from data_helpers import ImageDataset, train2db
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 from image_data_helpers import get_data, AugmentationDataset
 
