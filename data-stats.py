@@ -13,7 +13,7 @@ def print_statistics(variable, file=None):
                       q1 = ds[variable].quantile(0.25).item(),
                       q2 = ds[variable].median().item(),
                       q3 = ds[variable].quantile(0.75).item(),
-                      P95 = ds[variable].quantile(0.95).item()
+                      P99 = ds[variable].quantile(0.99).item()
     )
     print(f"***** {variable} *****", file=file)
     for key in stats_dict:
@@ -59,6 +59,12 @@ def data_histplot(ds:xr.Dataset):
 
         ax[i].set_xlim(left=0)
         ax[i].set_xlabel(f"{columns_math[i]} {units[variable]}")
+
+        # annotate 99th percentile
+        p99 = np.quantile(data, 0.99)
+        ax[i].axvline(x=p99, linewidth=1.2, color='r')
+        ax[i].text(p99, 0.7, '$P_{99}$', transform=ax[i].get_xaxis_text1_transform(0)[0], 
+                   fontsize=10, ha='left', va='center', color='r')
     
     file_path = ds_path.parent/"hist.png"
     fig.savefig(file_path, bbox_inches='tight')
