@@ -215,9 +215,10 @@ class AugmentationDataset(Dataset):
     def __init__(self, directory, device, square=True, resolution=None, dtype=torch.float32):
         super().__init__()
         if resolution is not None:
-            self.data = xr.open_dataset(directory/f'synthetic_averaged_s{resolution}.nc', chunks={'images': 62})
+            self.data = xr.open_dataset(directory/f'synthetic_averaged_s{resolution}.nc', chunks='auto')
         else:
-            self.data = xr.open_dataset(directory/'synthetic_averaged.nc', chunks={'images': 62})
+            self.data = xr.open_dataset(directory/'synthetic_averaged_minmax.nc', chunks='auto')
+
         self.is_square = square
         self.resolution = resolution
         self.device = device
