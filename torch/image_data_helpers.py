@@ -212,12 +212,9 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
 
 
 class AugmentationDataset(Dataset):
-    def __init__(self, directory, device, square=True, resolution=None, dtype=torch.float32):
+    def __init__(self, ncfile, directory, device, square=True, resolution=None, dtype=torch.float32):
         super().__init__()
-        if resolution is not None:
-            self.data = xr.open_dataset(directory/f'synthetic_averaged_s{resolution}.nc', chunks='auto')
-        else:
-            self.data = xr.open_dataset(directory/'synthetic_averaged_minmax.nc', chunks='auto')
+        self.data = xr.open_dataset(ncfile, chunks='auto')
 
         self.is_square = square
         self.resolution = resolution
