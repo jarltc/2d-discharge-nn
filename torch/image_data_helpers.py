@@ -224,11 +224,10 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
 
 
 class AugmentationDataset(Dataset):
-    def __init__(self, ncfile, directory, device, square=True, resolution=None, dtype=torch.float32):
+    def __init__(self, ncfile, device, resolution=None, dtype=torch.float32):
         super().__init__()
         self.data = xr.open_dataset(ncfile, chunks='auto')
 
-        self.is_square = square
         self.resolution = resolution
         self.device = device
         self.dtype = dtype
