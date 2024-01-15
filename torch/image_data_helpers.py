@@ -93,7 +93,7 @@ def downscale(image_stack: np.ndarray, resolution: int) -> np.ndarray:
     return np.moveaxis(data, -1, 1)  # revert moveaxis operation
 
 
-def minmax_scale(image:np.ndarray, ds:xr.Dataset):
+def minmax_scale(image:np.ndarray, ds:xr.Dataset, max_value='true'):
     """Perform minmax scaling on some input image with shape (channels, height, width)
 
     Values for the minmax scaling are obtained from the .nc file. 
@@ -109,11 +109,19 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset):
 
     scaled_arrays = []
 
+    if max_value not in ['true', '99', '999']:
+        raise ValueError("Invalid max value. Supported schemes are 'true', '99' (99th percentile), and '999' (99.9th percentile).")
+
     for i, variable in enumerate(list(ds.keys())):
 
         var_data = np.nan_to_num(ds[variable].values)
         a = 0.0  # force 0 minimum
-        b = var_data.max()
+        if max_value == 'true':
+            b = var_data.max()
+        elif max_value == '99':
+            b = np.quantile(var_data, 0.99)
+        elif max_value == '999':
+            b = np.quantile(var_data, 0.999)
 
         data_array = image[i, :, :]
 
@@ -152,7 +160,8 @@ def minmax_label(V, P):
     return [scaled_v, scaled_p]
 
 
-def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, labeled=False):
+def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, labeled=False,
+             minmax_scheme='true'):
     """Get train, test, and (optional) validation data from an .nc file.
 
     Assumes that test and validation sets are only single images. If labeled=True, return (minmax-scaled)
@@ -161,12 +170,15 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
         validation (tuple, optional): Pair of V, P for the validation set. Defaults to None.
         resolution (int, optional): Perform downscaling if specified. Defaults to None.
         square (bool, optional): Crops to a square if True. Defaults to False.
+        labeled (bool, optional): Returns labeled data alongside the other requested data.
+        minmax_scheme (str, optional): Select a minmax scheme. Supported schemes are true minmax ('true') or 99.9th percentile ('999') 
+            Defaults to True.
 
     Returns:
         [train, test, *validation]: Minmax-scaled training and test images (np.ndarrays), and validation image if provided.
         [(train_images, train_labels), (test_image, test_label), *(val_set, val_label)] if labeled=True.
     """
-    
+
     global nc_data
     ds = xr.open_dataset(nc_data)
     v_list = list(ds.V.values)
@@ -181,7 +193,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
         cropped = crop(image) if square else image
         scaled = downscale(cropped, resolution) if resolution is not None else image
 
-        mmax = minmax_scale(scaled, ds)
+        mmax = minmax_scale(scaled, ds, minmax_scheme)
         label = np.array(minmax_label(vp[0], vp[1]))  # shape = [2]
 
         if vp == test:
