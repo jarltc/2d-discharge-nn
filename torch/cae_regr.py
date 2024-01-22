@@ -55,7 +55,7 @@ def normalize_test(dataset:np.ndarray, scalers:dict()):
     normalized_variables = []
 
     for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
-        x = dataset[:, i, :, :]
+        x = dataset[:, i, :, :]  # plot the figures, vmax depends on which set (true or prediction) contains the higher values
         xMin, xMax = scalers[var]
         scaledx = (x-xMin) / (xMax-xMin)  # shape: (31, x, x)
         normalized_variables.append(scaledx)
