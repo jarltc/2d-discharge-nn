@@ -85,12 +85,14 @@ if __name__ == '__main__':
     is_square = True
     dtype = torch.float32
 
-    # get augmentation data
-    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
+    # specify dataset to load
+    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged999.nc')
 
-    _, test, val = get_data(test_pair, val_pair, square=False)
+    # use helper function to load test and validation data (using the specified ncfile)
+    _, test, val = get_data(test_pair, val_pair, square=False, minmax_scheme='999')
 
-    augdataset = AugmentationDataset(ncfile.parent, device)
+    # load synthetic data for training autoencoders
+    augdataset = AugmentationDataset(ncfile, device)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
@@ -116,7 +118,7 @@ if __name__ == '__main__':
     for epoch in loop:
         for i, batch_data in enumerate(trainloader):
             # get inputs
-            inputs = batch_data * weight_tensor
+            inputs = batch_data  # * weight_tensor
             optimizer.zero_grad()
 
             # record loss

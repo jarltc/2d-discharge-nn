@@ -62,7 +62,7 @@ def regr(in_pair: tuple, resolution=None):
         model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/weighted/fullAE-1")
         model = FullAE1()
 
-    _, test = get_data(in_pair, square=square, resolution=resolution)
+    _, test = get_data(in_pair, square=square, resolution=resolution, minmax_scheme='999')  # change minmax scheme 
 
     # convert to tensor
     sim = torch.tensor(test, dtype=torch.float32, device=device)
