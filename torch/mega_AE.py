@@ -20,7 +20,7 @@ from torch.utils.data import DataLoader
 from torchinfo import summary
 
 import autoencoder_classes as AE
-from plot import plot_comparison_ae, save_history_graph, ae_correlation
+from plot import plot_comparison_ae, save_history_graph, ae_correlation, sep_comparison_ae
 from image_data_helpers import get_data, AugmentationDataset
 
 
@@ -96,23 +96,25 @@ if __name__ == '__main__':
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
-    epochs = 100
+    seed = 95622  # 95622 works
+    epochs = 500
     learning_rate = 1e-3
+    torch.manual_seed(seed)
     model = AE.FullAE1().to(device)
     criterion = nn.MSELoss()
     # criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    weight_tensor = torch.tensor([1, 1, 1, 10, 1], dtype=dtype, device=device).view(1, -1, 1, 1)
+    # weight_tensor = torch.tensor([1, 1, 1, 10, 1], dtype=dtype, device=device).view(1, -1, 1, 1)
 
     epoch_loss = []
     epoch_validation = []
     loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
 
-    patience = 30
-    best_loss = 100
-    best_epoch = -1
-    eps = 1e-5  # threshold to consider if the change is significant
-    epochs_since_best = 0
+    # patience = 30
+    # best_loss = 100
+    # best_epoch = -1
+    # eps = 1e-5  # threshold to consider if the change is significant
+    # epochs_since_best = 0
 
     train_start = time.perf_counter()
     for epoch in loop:
