@@ -260,7 +260,8 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
         axes_pad=0.5, label_mode="L", share_all=True,
         cbar_location="right", cbar_mode="each", cbar_size="7%", cbar_pad="5%")
 
-    titles = [column.split()[0] for column in df.columns]
+    # titles = [column.split()[0] for column in df.columns]
+    titles = ['$\phi$', '$n_e$',  '$n_i$', '$n_m$', '$T_e$']
 
     if mesh:
         for i, column in enumerate(df.columns):
@@ -276,6 +277,8 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
             draw_apparatus(ax)
             ax.set_xlim(0,20)
             ax.set_ylim(0,70.9)
+            ax.set_xlabel('r [cm]')
+            ax.set_ylabel('z [cm]')
             ax.set_title(titles[i])
 
     else:
@@ -288,6 +291,8 @@ def quickplot(df:pd.DataFrame, data_dir=None, triangles=None, nodes=None, mesh=F
                                     cmap=cmap, vmin=cmin, vmax=cmax)
             cax.colorbar(tri)
             draw_apparatus(ax)
+            ax.set_xlabel('r [cm]')
+            ax.set_ylabel('z [cm]')
             ax.set_title(titles[i])
         
 
@@ -374,8 +379,12 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
             'Nm (#/m^-3)'      :' ($10^{16}$ $\mathrm{m^{-3}}$)',
             'Te (eV)'          :' (eV)'}
 
-    diff = 100 * ((py - ty) / np.abs(ty)) 
+    # diff = 100 * ((py - ty) / np.abs(ty)) 
+    diff = py - ty  # absolute difference, predicted - true
+    absmax = abs(diff.values.max())
     titles = [column.split()[0] for column in diff.columns]
+
+    titles_math = ['$\phi$', '$n_e$',  '$n_i$', '$n_m$', '$T_e$']
 
     tX['x'] = tX['x']*100
     tX['y'] = tX['y']*100
@@ -396,19 +405,22 @@ def difference_plot(tX: pd.DataFrame, py: pd.DataFrame, ty: pd.DataFrame, out_di
         ax = fig.add_subplot(gs[0, i])
         sc = ax.scatter(tX['x'], tX['y'], c=diff[column], cmap=cmap, 
                         #    norm=colors.Normalize(vmin=ranges[column][0], vmax=ranges[column][1]), 
-                           norm=colors.Normalize(vmin=-100, vmax=100),
+                        #    norm=colors.Normalize(vmin=-absmax, vmax=absmax),
+                           norm=colors.SymLogNorm(0.025, vmin=-absmax, vmax=absmax),
                            s=0.2) 
         draw_apparatus(ax)
-        ax.set_title(titles[i])
+        ax.set_title(titles_math[i])
         ax.set_aspect('equal')
         ax.set_xlim(0,20)
         ax.set_ylim(0,70.9)
+        ax.set_xlabel('r [cm]')
+        ax.set_ylabel('z [cm]')
         draw_apparatus(ax)
     
     cax = fig.add_subplot(gs[0, 5])
     cbar = plt.colorbar(sc, extend='both', cax=cax)
     cbar.ax.tick_params(labelsize=8)
-    cbar.set_label(r'% difference', size=8)
+    cbar.set_label(r'Absolute difference', size=8)
 
     fig.savefig(out_dir/'difference.png', bbox_inches='tight')
 
@@ -563,15 +575,15 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
         testP = scalers[1].transform(np.array([p]).reshape(-1, 1))
         
         # horizontal line
-        xhs = scalers[2].transform(np.linspace(0, 0.2, 1000).reshape(-1, 1))
-        yh = scalers[3].transform(np.array([0.44]).reshape(-1, 1))  # m
+        xhs = scalers[2].transform(np.linspace(0, 0.2, 1000).reshape(-1, 1))  # generate range of x
+        yh = scalers[3].transform(np.array([0.44]).reshape(-1, 1))  # [m], constant y=0.44
         horizontal = np.array([np.array([testV.item(), testP.item(), xh.item(), yh.item()]) for xh in xhs])
         xhs = np.linspace(0, 0.2, 1000)
         yh = yh.item()
 
         # vertical line 
-        xv = scalers[2].transform(np.array([0.115]).reshape(-1, 1))  # m
-        yvs = scalers[3].transform(np.linspace(0, 0.707, 1000).reshape(-1, 1))
+        xv = scalers[2].transform(np.array([0.115]).reshape(-1, 1))  # [m], constant x=0.115
+        yvs = scalers[3].transform(np.linspace(0.35, 0.55, 1000).reshape(-1, 1))  # change y range here
         vertical = np.array([np.array([testV.item(), testP.item(), xv.item(), yv.item()]) for yv in yvs])
         yvs = np.linspace(0, 0.707, 1000)
         xv = xv.item()
@@ -608,12 +620,12 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
                 reference = scale_column(reference)
                 reference = yscalers[i].transform(reference)
 
-                horizontal_prediction[column].plot(ax=ax, color=colors[i], label=column)
-                ax.plot(reference, color=colors[i], alpha=0.3)
+                ax.plot(np.linspace(0, 20, 1000), horizontal_prediction[column].values, color=colors[i], label=column)
+                ax.plot(np.linspace(0, 20, 200), reference, color=colors[i], alpha=0.3)
                 ax.grid()
                 ax.legend(fontsize='small')
                 ax.set_ylabel('Scaled magnitude')
-                ax.set_xlabel('x [mm]')
+                ax.set_xlabel('r [cm]')
 
             return fig
 
@@ -622,16 +634,22 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
             fig, ax = plt.subplots(figsize=(3,6), dpi=300)
             for i, column in enumerate(columns):
                 # the dataset has x and y in mm
-                reference = ds[column].sel(V=300, P=60, x=0.115, method='nearest').values.reshape(-1, 1)
+                reference = ds[column].sel(V=300, P=60, x=0.115, y=slice(0.35, 0.55)).values.reshape(-1, 1)  # slice gets a subset of y
                 reference = scale_column(np.nan_to_num(reference))
                 reference = yscalers[i].transform(reference)
 
-                ax.plot(vertical_prediction[column].values, vertical_prediction.index.values, color=colors[i], label=column)
-                ax.plot(reference, ds.y.values*1000, color=colors[i], alpha=0.3)
+                y = ds.y.values
+
+                y_trunc = y[(y>=0.35) & (y<=0.55)]
+
+                # vertical_prediction.index.values
+
+                ax.plot(vertical_prediction[column].values, np.linspace(35, 55, 1000), color=colors[i], label=column)
+                ax.plot(reference, y_trunc*100, color=colors[i], alpha=0.3)
                 ax.grid()
                 ax.legend(fontsize='small')
                 ax.set_xlabel('Scaled magnitude')
-                ax.set_ylabel('y [mm]')
+                ax.set_ylabel('z [cm]')
 
             return fig
     
@@ -642,7 +660,7 @@ def slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
 
     if out_dir is not None:
         hplot.savefig(out_dir/'h_slices.png', bbox_inches='tight')
-        vplot.savefig(out_dir/'v_slices.png', bbox_inches='tight')
+        vplot.savefig(out_dir/'v_slices_alt.png', bbox_inches='tight')
 
 
 def plot_train_loss(losses, validation_losses=None, out_dir=None):

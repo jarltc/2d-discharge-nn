@@ -173,7 +173,7 @@ class PredictionDataset:
                                             .detach().numpy(), 
                                             columns=list(self.labels.columns))
             
-            result = reverse_minmax(result, model_dir)
+            # result = reverse_minmax(result, model_dir)
             print("\33[2KPrediction complete!")
             self.prediction_result = result
             return result
@@ -290,6 +290,13 @@ def scale_targets(data_table: pd.DataFrame, scale_exp=[1.0, 14.0, 14.0, 16.0, 0.
 
     return scaled_df
 
+def minmax_scale(target_df: pd.DataFrame):
+    # get the max of each column
+    # div(vector, axis=1)
+    fulldf = pd.read_feather(Path('/Users/jarl/2d-discharge-nn/data/avg_data.feather'), columns=list(target_df.columns))
+    vector = [fulldf[col].max() for col in fulldf.columns]
+    return target_df.div(vector, axis=1)
+
 
 def reverse_minmax(df: pd.DataFrame, model_dir: Path):
     """Reverse minmax scaling on data.
@@ -367,7 +374,9 @@ if __name__ == '__main__':
         metadata = {'scaling': True, 'is_target_scaled':True, 'name':model_dir.name}
 
     # import model
-    model = MLP(4, 5)
+    # model = MLP(4, 5)  # data augmentation
+    model = MLP2(4, 5)  # original
+
     model.load_state_dict(torch.load(model_dir/f'{name}'))
     print('\nLoaded model ' + name)
 
@@ -379,8 +388,11 @@ if __name__ == '__main__':
     prediction = regr_df.prediction  # make a prediction
     regr_df.get_scores()  # get scores and make correlation plot
 
-    triangles = plot.triangulate(regr_df.features[['x', 'y']])
-    plot.quickplot(prediction, regr_dir, triangles=triangles, mesh=False)
-    plot.quickplot(prediction, regr_dir, nodes=regr_df.features[['x', 'y']]*100, mesh=True)
-    plot.difference_plot(regr_df.features, prediction, regr_df.targets, out_dir=regr_dir)
+    # triangles = plot.triangulate(regr_df.features[['x', 'y']])
+    # plot.quickplot(prediction, regr_dir, triangles=triangles, mesh=False)
+    # plot.quickplot(prediction, regr_dir, nodes=regr_df.features[['x', 'y']]*100, mesh=True)
+    plot.difference_plot(regr_df.features, prediction, minmax_scale(regr_df.labels), out_dir=regr_dir)
+    # minmax of prediction OK
+    # minmax of targets OK
+    # plot.slices(model, regr_dir.parent/'scalers', 'mesh', regr_dir)
     
