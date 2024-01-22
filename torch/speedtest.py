@@ -1,11 +1,11 @@
-# load model
+# regr code for fullAE (autoencoder)
 import time
 import torch
 from pathlib import Path
 from image_data_helpers import get_data
 from autoencoder_classes import FullAE1, A64_8
 
-def speedtest(resolution=None):
+def speedtest(model_dir, resolution=None):
     """Get a trained model and evaluate its reconstruction speed.
 
     Args:
@@ -59,7 +59,8 @@ def regr(in_pair: tuple, resolution=None):
         model = A64_8() 
     else:
         square = False
-        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/weighted/fullAE-1")
+        # model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/weighted/fullAE-1")
+        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
         model = FullAE1()
 
     _, test = get_data(in_pair, square=square, resolution=resolution, minmax_scheme='999')  # change minmax scheme 
@@ -81,10 +82,11 @@ def regr(in_pair: tuple, resolution=None):
 
 
 if __name__ == "__main__":
-    # full_time = speedtest()
+    model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
+    full_time = speedtest(model_dir)
     # small_time = speedtest(64)
      
     # return decode speed
-    # print(f"Full AE speed: {full_time} ms")
+    print(f"Full AE speed: {full_time} ms")
     # print(f"64x64 speed: {small_time} ms")
     regr((300, 60))  # this shows metastable density more clearly
