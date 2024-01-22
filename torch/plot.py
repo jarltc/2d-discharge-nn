@@ -826,27 +826,22 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
 
     fig = plt.figure(dpi=300, figsize=figsize)
     
-    topgrid = ImageGrid(fig, 211,  # similar to fig.add_subplot(142).
+    topgrid = ImageGrid(fig, 111,
                      nrows_ncols=(1, 5), axes_pad=0.0,
                      cbar_location="right", cbar_mode="single", cbar_size="7%", cbar_pad='5%',
                      cbar_set_cax=True)
-    
-    botgrid = ImageGrid(fig, 212,  # similar to fig.add_subplot(142).
-                     nrows_ncols=(1, 5), axes_pad=0.0, label_mode="L",
-                     cbar_location="right", cbar_mode="single", cbar_size="7%", cbar_pad='5%',
-                     cbar_set_cax=True)
 
-    absdelta = reconstruction - reference
-    reldelta = np.nan_to_num((reconstruction - reference)*(100/reference), posinf=500)
+    absdelta = reconstruction - reference  # absolute difference
+    # reldelta = np.nan_to_num((reconstruction - reference)*(100/reference), posinf=500)  # consider removing this
 
     def absolute(arr):
         # get the absolute largest magnitude of a dataset
         arrmax = arr.flat[np.abs(arr).argmax()]
         return np.abs(arrmax)
 
-    cbar = 'coolwarm'  # spectral also works
+    cbar = 'coolwarm'  # Spectral or coolwarm work
     amax = absolute(absdelta)
-    rmax = 100  # fix it to 100 for now cause division by zero ruins everything
+    # rmax = 100  # fix it to 100 for now cause division by zero ruins everything
 
     # plot the figures for each ImageGrid
     for i, ax in enumerate(topgrid):
@@ -854,22 +849,23 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
                           vmin=-amax, vmax=amax, cmap=cbar)
         draw_apparatus(ax)
         ax.set_ylabel('z [cm]', fontsize=8)
-
-    for i, ax in enumerate(botgrid):
-        relim = ax.imshow(reldelta[0, i, :, :], origin='lower', extent=extent, aspect='auto',
-                        vmin=-rmax, vmax=rmax, cmap=cbar)
-        draw_apparatus(ax)
-        ax.set_ylabel('z [cm]', fontsize=8)
         ax.set_xlabel('r [cm]', fontsize=8)
 
+    # for i, ax in enumerate(botgrid):
+    #     relim = ax.imshow(reldelta[0, i, :, :], origin='lower', extent=extent, aspect='auto',
+    #                     vmin=-rmax, vmax=rmax, cmap=cbar)
+    #     draw_apparatus(ax)
+    #     ax.set_ylabel('z [cm]', fontsize=8)
+    #     ax.set_xlabel('r [cm]', fontsize=8)
+
     # colorbar settings
-    cb1 = topgrid.cbar_axes[0].colorbar(absim, extend='both')
-    cb1.set_label('Absolute', rotation=270, fontsize=7, va='bottom', ha='center')
+    cb1 = topgrid.cbar_axes[0].colorbar(absim)
+    cb1.set_label('Absolute error', rotation=270, fontsize=7, va='bottom', ha='center')
     cb1.ax.tick_params(labelsize=7)
 
-    cb2 = botgrid.cbar_axes[0].colorbar(relim, extend='both')
-    cb2.set_label('Percent', rotation=270, fontsize=7, va='bottom', ha='center')
-    cb2.ax.tick_params(labelsize=7)
+    # cb2 = botgrid.cbar_axes[0].colorbar(relim, extend='both')
+    # cb2.set_label('Percent', rotation=270, fontsize=7, va='bottom', ha='center')
+    # cb2.ax.tick_params(labelsize=7)
 
     global columns_math
         
@@ -878,20 +874,22 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
         ax.set_title(columns_math[i%5])
         ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
         ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
-
-        ax.tick_params(axis='both', labelsize=8)
-        ax.tick_params(bottom=False, labelbottom=False)
-    
-    for i, ax in enumerate(botgrid):
         ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
         ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
 
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
-        ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
-
         ax.tick_params(axis='both', labelsize=8)
+        # ax.tick_params(bottom=False, labelbottom=False)
+    
+    # for i, ax in enumerate(botgrid):
+    #     ax.xaxis.set_major_locator(ticker.MaxNLocator(3, steps=[10], prune='upper'))
+    #     ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
 
-    plt.subplots_adjust(hspace=0, wspace=0)  # not sure if this does something
+    #     ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
+    #     ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+    #     ax.tick_params(axis='both', labelsize=8)
+
+    # plt.subplots_adjust(hspace=0, wspace=0)  # not sure if this does something
 
     plt.close()
     if out_dir is not None:
