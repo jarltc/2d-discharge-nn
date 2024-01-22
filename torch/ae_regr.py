@@ -29,7 +29,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae, ae_correlation, image_slices, sep_comparison_ae
+from plot import plot_comparison_ae, ae_correlation, image_slices, sep_comparison_ae_v2
 import autoencoder_classes as AE
 from image_data_helpers import get_data
 
@@ -222,7 +222,7 @@ if __name__ == '__main__':
     resolution = 64
     _, test_res = get_data((300, 60), resolution=resolution, square=True)
     
-    model = AE.A64_9()
+    model = AE.A64_8()
     # model = A300()
     model.load_state_dict(torch.load(model_dir))  # use path directly to model
     model.to(device)  # move model to gpu
@@ -232,9 +232,9 @@ if __name__ == '__main__':
         encoded = model.encoder(torch.tensor(test_res, device=device, dtype=torch.float32))
         decoded = model(torch.tensor(test_res, device=device, dtype=torch.float32))
 
-    eval_time, scores = plot_comparison_ae(test_res, encoded, model, 
-                                           out_dir=out_dir, is_square=is_square, cbar='viridis')
-    sep_comparison_ae(test_res, encoded, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
+    # eval_time, scores = plot_comparison_ae(test_res, encoded, model, 
+    #                                        out_dir=out_dir, is_square=is_square, cbar='viridis')
+    eval_time, scores = sep_comparison_ae_v2(test_res, encoded, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
     r2 = ae_correlation(test_res, decoded, out_dir)
     hslice, vslice, refplot = image_slices(test_res, decoded.cpu().numpy()[:,:,:resolution,:resolution], out_dir, cmap='viridis')
     print(f'plots [comparison, correlation, hslice, vslice, refplot] have been saved in {out_dir}')

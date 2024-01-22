@@ -50,7 +50,7 @@ def regr(in_pair: tuple, resolution=None):
         in_pair (tuple): Input pair of V and P (not scaled).
         resolution (int, optional): Image resolution. Defaults to None (full image).
     """
-    from plot import plot_comparison_ae, sep_comparison_ae
+    from plot import plot_comparison_ae, sep_comparison_ae, sep_comparison_ae_v2
 
     device = torch.device("mps")
     if resolution == 64:
@@ -76,7 +76,7 @@ def regr(in_pair: tuple, resolution=None):
     out_dir = model_dir.parent
 
     # plot_comparison_ae(test, prediction, model, out_dir=out_dir, is_square=square)
-    sep_comparison_ae(test, prediction, model, out_dir=out_dir, is_square=square, cbar='viridis')
+    sep_comparison_ae_v2(test, prediction, model, out_dir=out_dir, is_square=square, cbar='viridis')
     print(f"file saved in {out_dir}")
 
 

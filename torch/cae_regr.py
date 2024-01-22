@@ -29,7 +29,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae, save_history_graph, ae_correlation, image_slices, delta, sep_comparison_ae
+from plot import plot_comparison_ae, save_history_graph, ae_correlation, image_slices, delta, sep_comparison_ae_v2
 import autoencoder_classes
 import mlp_classes
 from image_data_helpers import get_data
@@ -117,7 +117,6 @@ if __name__ == '__main__':
     mlp.to(device)
     model.eval()
     mlp.eval()
-
     
     with torch.no_grad():
         start = time.perf_counter_ns()
@@ -128,7 +127,7 @@ if __name__ == '__main__':
     
 
     # _, scores = plot_comparison_ae(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
-    _, scores = sep_comparison_ae(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
+    _, scores = sep_comparison_ae_v2(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis', unscale=True)
     r2 = ae_correlation(test_image, decoded, out_dir)
     image_slices(test_image, decoded, out_dir=out_dir, cmap='viridis')
     delta(test_image, decoded, out_dir=out_dir, is_square=True)
