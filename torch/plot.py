@@ -923,7 +923,7 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     if is_square:
         figsize = (7, 2)
         extent = [0, 20, 35, 55]
-        axes_pad = 0.3
+        axes_pad = 0.4
     else:
         figsize = (7, 6)
         extent =[0, 20, 0, 70.7]
@@ -932,11 +932,13 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     fig = plt.figure(figsize=figsize, dpi=300, layout='constrained')
 
     # create imagegrid for the original images (trugrid) and predicted ones (prdgrid)
+    # 211 = 2x1 grid, 1st plot
     trugrid = ImageGrid(fig, 211, nrows_ncols=(1, 5), axes_pad=axes_pad, label_mode="L", share_all=True,
-                     cbar_location="right", cbar_mode="each", cbar_size="5%", cbar_pad='0%')
+                     cbar_location="right", cbar_mode="each", cbar_size="10%", cbar_pad='0%')
     
+    # 212 = 2x1 grid, 2nd plot
     prdgrid = ImageGrid(fig, 212, nrows_ncols=(1, 5), axes_pad=0.4, label_mode="L", share_all=True,
-                     cbar_location="right", cbar_mode="each", cbar_size="5%", cbar_pad='0%')
+                     cbar_location="right", cbar_mode="each", cbar_size="10%", cbar_pad='0%')
 
     with torch.no_grad():
         start = time.perf_counter_ns()
@@ -958,7 +960,7 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
         draw_apparatus(ax)
         ax.set_ylabel('z [cm]', fontsize=8)
         cb = trugrid.cbar_axes[i].colorbar(org)
-        ax.set_title(columns_math[i])  # set title following math labels in columns_math
+        ax.set_title(columns_math[i], fontsize=10)  # set title following math labels in columns_math
         cb.ax.tick_params(labelsize=6)
  
     for i, ax in enumerate(prdgrid):
@@ -983,7 +985,7 @@ def sep_comparison_ae(reference: np.ndarray, prediction: torch.tensor,
     for ax in trugrid:
         ax.tick_params(labelbottom=False)  # remove bottom labels on the upper set
 
-    plt.subplots_adjust(hspace=0)  # not sure if this does anything
+    # plt.subplots_adjust(hspace=0)  # not sure if this does anything
 
     # record scores
     scores = []
@@ -1044,3 +1046,131 @@ def plot_imageset(image, v=300.0, p=60.0, cmap='viridis', out_dir=None):
 
     return fig
 
+
+def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor, 
+                       model:nn.Module, out_dir=None, is_square=False, cbar='magma', unscale=False): 
+    """Create plot comparing the reference data with its autoencoder reconstruction.
+    Each variable has its own colorbar scaling.
+
+    Args:
+        reference (np.ndarray): Reference dataset.
+        prediction (torch.tensor): Tensor reshaped to match the encoding shape.
+        model (nn.Module): Autoencoder model whose decoder used to make predictions.
+        out_dir (Path, optional): Output directory. Defaults to None.
+        is_square (bool, optional): Switch for square image and full rectangle.
+            Defaults to False.
+        cbar (str): Colormap used for the images. Defaults to 'magma'.
+
+    Returns:
+        float: Evaluation time (ns).
+        scores: List of reconstruction MSE
+    """
+
+    matplotlib.rcParams["font.size"] = 7
+
+    resolution = reference.shape[2]
+    if is_square:
+        figsize = (9, 2)
+        extent = [0, 20, 35, 55]
+        axes_pad = 0.3
+    else:
+        figsize = (13, 4)
+        extent =[0, 20, 0, 70.7]
+        axes_pad = 0.4
+
+    fig = plt.figure(figsize=figsize, dpi=300, layout='constrained')
+
+    # create imagegrid for each parameter containing the original and prediction
+    def create_imagegrid(location:int):
+        if is_square:
+            return ImageGrid(fig, location, nrows_ncols=(2, 1), axes_pad=0.0, label_mode="L", share_all=True,
+                  cbar_location="right", cbar_mode="single", cbar_size="4%", cbar_pad='3%')
+        else:
+            return ImageGrid(fig, location, nrows_ncols=(1, 2), axes_pad=0.0, label_mode="L", share_all=True,
+                  cbar_location="right", cbar_mode="single", cbar_size="7%", cbar_pad='3%')
+    
+    phi_grid = create_imagegrid(151) 
+    ne_grid = create_imagegrid(152) 
+    ni_grid = create_imagegrid(153) 
+    nm_grid = create_imagegrid(154)
+    te_grid = create_imagegrid(155)
+    
+    with torch.no_grad():
+        start = time.perf_counter_ns()
+        decoded = model.decoder(prediction).cpu().numpy()
+        end = time.perf_counter_ns()
+        reconstruction = decoded[:, :, :resolution, :resolution]  # assumes shape: (samples, channels, height, width)
+
+    eval_time = (end-start)  # measures decode time
+
+    # get the maximum of every parameter
+    if unscale:
+        data_dir = Path.cwd()/'data'/'interpolation_datasets'/'synthetic'  # TODO: fix this
+        ds = xr.open_dataset(data_dir/'synthetic_averaged.nc')  # SPECIFY MINMAX SCALE
+        vars = list(ds.keys())
+
+        def get_max(variable):
+            var_data = np.nan_to_num(ds[variable].values)
+            return var_data.max()
+
+        maxima = np.array([get_max(var) for var in vars]).reshape(5, 1, 1)
+
+        # output = (np.array(maxima).reshape(5, 1, 1) * a[0]).reshape(1, 5, 64, 64)
+
+        # unscale the arrays
+        reference = reference * maxima
+        reconstruction = reconstruction * maxima
+
+    # select the maximum between the original and prediction (for each variable) to set as vmax
+    cbar_ranges = [(0, max(reference[0, i].max(), reconstruction[0, i].max())) for i in range(5)]  # shape: (5, 2)
+
+    global columns_math
+    units_list = [' (V)',
+                  ' ($\mathrm{m^{-3}}$)',
+                  ' ($\mathrm{m^{-3}}$)',
+                  ' ($\mathrm{m^{-3}}$)',
+                  ' (eV)']
+
+    # plot the figures, vmax depends on which set (true or prediction) contains the higher values
+    for i, grid in enumerate([phi_grid, ne_grid, ni_grid, nm_grid, te_grid]):
+        org = grid[0].imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
+                        vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cbar)
+        
+        rec = grid[1].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
+                        vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cbar)
+        
+        if unscale:
+            title = columns_math[i] + units_list[i]
+            grid[0].set_title(title, fontsize=9)
+        else:
+            grid[0].set_title(columns_math[i], fontsize=9)
+        cb = grid.cbar_axes[0].colorbar(org)
+        cb.ax.tick_params(labelsize=6)
+        for ax in grid:
+            draw_apparatus(ax)
+
+    # set font sizes and tick stuff
+    for grid in [phi_grid, ne_grid, ni_grid, nm_grid, te_grid]:
+        for j, ax in enumerate(grid):
+            ax.xaxis.set_major_locator(ticker.MultipleLocator(10))
+            ax.xaxis.set_minor_locator(ticker.MultipleLocator(2))
+
+            ax.yaxis.set_major_locator(ticker.MultipleLocator(10))
+            ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
+            ax.tick_params(axis='both', labelsize=7)
+
+    # record scores
+    scores = []
+    for i in range(5):
+        score = mse(reference[0, i, :, :], reconstruction[0, i, :, :])
+        scores.append(score)
+
+    name = 'sep_test_comparison_v2'
+    if cbar != 'magma':
+        name = 'sep_test_comparison_v2_' + cbar
+
+    if out_dir is not None:
+        fig.savefig(out_dir/f'{name}.png', bbox_inches='tight')
+        # fig.savefig(out_dir/f'{name}.svg', bbox_inches='tight')
+
+    return eval_time, scores
