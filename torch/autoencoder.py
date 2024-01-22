@@ -80,14 +80,21 @@ class SimDataset(Dataset):
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
-    resolution = int(input('Resolution: '))
+    # in_resolution = int(input('Resolution: ') or "1000")
+    in_resolution = 64
+    if in_resolution == 1000:
+        resolution = None  # (707, 200)
+    else:
+        resolution = (in_resolution, in_resolution)  # use a square image 
+
     device = torch.device(
         'mps' if torch.backends.mps.is_available() else 'cpu')
 
-    name = input("Enter model name: ")
+    # name = input("Enter model name: ")
+    name = 'test'
     root = Path.cwd()
 
-    out_dir = root/'created_models'/'autoencoder'/f'{resolution}x{resolution}'/name
+    out_dir = root/'created_models'/'autoencoder'/f'{resolution[0]}x{resolution[0]}'/name
     # out_dir = root/'created_models'/'autoencoder'/'32x32'/name
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
@@ -100,17 +107,17 @@ if __name__ == '__main__':
     # get augmentation data
     ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
 
-    _, test, val = get_data(test_pair, val_pair, resolution, square=is_square)
+    _, test, val = get_data(test_pair, val_pair, in_resolution, square=is_square)
 
-    augdataset = AugmentationDataset(ncfile.parent, device, resolution=resolution)
+    augdataset = AugmentationDataset(ncfile.parent, device, resolution=in_resolution)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
-    epochs = 500
+    epochs = 5
     learning_rate = 1e-3
-    if resolution == 32:
+    if in_resolution == 32:
         model = AE.A300().to(device)
-    elif resolution == 64:
+    elif in_resolution == 64:
         model = AE.A64_9().to(device)
     else: model = AE.FullAE1().to(device)
     criterion = nn.MSELoss()
@@ -185,8 +192,7 @@ if __name__ == '__main__':
         decoded = model(torch.tensor(test, device=device, dtype=dtype))
 
     torch.save(model.state_dict(), out_dir/f'{name}')
-    # train2db(out_dir, name, epochs, test_pair[0], test_pair[1], resolution, typ='autoencoder')
     eval_time, scores = plot_comparison_ae(test, encoded, model, out_dir=out_dir, is_square=True)
     r2 = ae_correlation(test, decoded, out_dir)
     plot_train_loss(epoch_loss, epoch_validation)
-    write_metadata(out_dir)
+    # write_metadata(out_dir)
