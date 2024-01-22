@@ -85,8 +85,12 @@ def data_histplot(ds:xr.Dataset):
         ax[i].set_xlabel(f"{columns_math[i]} {units[variable]}")
 
         # annotate 99th percentile
+        mean = np.mean(data)
         p99 = np.quantile(data, 0.99)
+        ax[i].axvline(x=mean, linewidth=1.0, color='k', linestyle=':')
         ax[i].axvline(x=p99, linewidth=1.2, color='r')
+        ax[i].text(mean, 0.7, 'mean', transform=ax[i].get_xaxis_text1_transform(0)[0], 
+                   fontsize=10, ha='left', va='center', color='k')
         ax[i].text(p99, 0.7, '$P_{99}$', transform=ax[i].get_xaxis_text1_transform(0)[0], 
                    fontsize=10, ha='left', va='center', color='r')
     
