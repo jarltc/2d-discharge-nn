@@ -300,6 +300,7 @@ if __name__ == '__main__':
         dataset = TensorDataset(features, labels)
 
         generator = torch.Generator().manual_seed(8097)  # make reproducible with fixed seed
+        torch.manual_seed(8097)  # hopefully reproduce layer weight initialization, I dont know if this works
         val_set, dataset = random_split(dataset, [validation_split, (1-validation_split)], generator=generator)
 
         trainloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -386,7 +387,7 @@ if __name__ == '__main__':
         print('NN training history has been saved.\n')
 
         # plot train losses
-        plot.plot_train_loss(epoch_loss, val_loss, out_dir=out_dir)
+        plot.plot_train_loss(epoch_loss, epoch_validation, out_dir=out_dir)
 
         # save metadata
         metadata = {'name' : name,  # str

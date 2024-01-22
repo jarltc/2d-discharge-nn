@@ -1,6 +1,6 @@
 #!/bin/bash
 
-search_string="test_set.nc"
+search_string="validation_loss"
 
 # Loop through all the files in the current directory
 for file in *; do

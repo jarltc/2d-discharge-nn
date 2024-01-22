@@ -147,12 +147,12 @@ class PredictionDataset:
     get_scores():
         Computes scores, outputs to sys.stdout and saves to a txt file.
     """
-    def __init__(self, reference_df, model, metadata) -> None:
+    def __init__(self, reference_df, model, metadata, excluded=(300, 60)) -> None:
         self.original_df = reference_df
         self.model = model
         self.model_name = metadata['name']
-        self.v_excluded = 300  # [V]
-        self.p_excluded = 60  # [Pa]
+        self.v_excluded = excluded[0]  # [V]
+        self.p_excluded = excluded[1]  # [Pa]
         self.minmax_y = metadata['is_target_scaled']
         self.lin = metadata['scaling']
         self.scale_exp = metadata['parameter_exponents']
@@ -181,7 +181,7 @@ class PredictionDataset:
             print("Prediction result already calculated.")
             return self.prediction_result
 
-    def get_scores(self):
+    def get_scores(self, output=False):
         scores_df = calculate_scores(self.targets, self.prediction_result)
         self.scores = scores_df
         
@@ -194,17 +194,39 @@ class PredictionDataset:
                 print(f'R2\t\t= {scores_df[column].iloc[3]}', file=out)
                 print(file=out)
 
-        print_scores_core(sys.stdout)
-        plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)
+        if output:
+            return scores_df
+        else:
+            print_scores_core(sys.stdout)
+            plot.correlation(self.targets, self.prediction_result, self.scores, out_dir=regr_dir)
 
-        scores_file = regr_dir/'scores.txt'
-        with open(scores_file, 'w') as f:
-            print_scores_core(f)
+            scores_file = regr_dir/'scores.txt'
+            with open(scores_file, 'w') as f:
+                print_scores_core(f)
+            
 
         
 
 def process_data(df: pd.DataFrame, data_excluded: tuple):
+    """Construct a DataFrame containing excluded data.
+
+    DataFrame constructed by reusing the grid points and inserting new columns for 'V' and 'P'.
+    Grid labels 'X' and 'Y' are renamed to their lowercase counterparts.
+
+    * docstring added on 18 Oct 2023 (8 months after this code was written 
+        (I don't remember what this does anymore))
+    Args:
+        df (pd.DataFrame): DataFrame of reference data for a single pair (V, P)
+        data_excluded (tuple): Pair of voltage and pressure to be excluded.
+
+    Returns:
+        list of df, features, labels: Returns the original input df, and separate dfs
+        for features and labels.
+    """
+    feature_names = ['V', 'P', 'x', 'y']
+    label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
     v_excluded, p_excluded = data_excluded
+    
     df['V'] = v_excluded
     df['P'] = p_excluded
     df.rename(columns={'X':'x', 'Y':'y'}, inplace=True)
@@ -312,11 +334,12 @@ def calculate_scores(reference_df: pd.DataFrame, prediction_df: pd.DataFrame):
         y_true = reference_df[column].values
         y_pred = prediction_df[column].values
 
+        mse = mean_squared_error(y_true, y_pred)
         mae = mean_absolute_error(y_true, y_pred)
         rmse = np.sqrt(mean_squared_error(y_true, y_pred))
         r2 = r2_score(y_true, y_pred)
         ratio = rmse/mae
-        scores.append(np.array([[mae], [rmse], [ratio], [r2]]))
+        scores.append(np.array([[mae], [rmse], [ratio], [r2], [mse]]))
     
     scores = np.hstack(scores)
     scores_df = pd.DataFrame(scores, columns=list(reference_df.columns))
