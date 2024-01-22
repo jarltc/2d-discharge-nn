@@ -9,6 +9,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from pathlib import Path
+import xbatcher
 
 root = Path.cwd()
 nc_data = root/'data'/'interpolation_datasets'/'full_interpolation.nc'
