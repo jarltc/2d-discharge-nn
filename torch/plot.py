@@ -1046,19 +1046,20 @@ def plot_imageset(image, v=300.0, p=60.0, cmap='viridis', out_dir=None):
     return fig
 
 
-def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor, 
-                       model:nn.Module, out_dir=None, is_square=False, cbar='magma', unscale=False): 
+def image_compare(reference: np.ndarray, prediction: np.ndarray, out_dir=None, 
+                  is_square=False, cmap='magma', unscale=False, minmax_scheme='true'): 
     """Create plot comparing the reference data with its autoencoder reconstruction.
     Each variable has its own colorbar scaling.
 
+    Based on previous plot_comparison and sep_comparison plots. This now just makes the plots for a given prediction.
+
     Args:
         reference (np.ndarray): Reference dataset.
-        prediction (torch.tensor): Tensor reshaped to match the encoding shape.
-        model (nn.Module): Autoencoder model whose decoder used to make predictions.
+        prediction (np.ndarray): NumPy array matching reference size.
         out_dir (Path, optional): Output directory. Defaults to None.
         is_square (bool, optional): Switch for square image and full rectangle.
             Defaults to False.
-        cbar (str, optional): Colormap used for the images. Defaults to 'magma'.
+        cmap (str, optional): Colormap used for the images. Defaults to 'magma'.
         unscale (bool, optional): Whether to reverse the minmax in the plots.
         minmax_scheme ('true', '99', or '999'): If unscaling, determine how the maximum value is selected.
             Minimum is always 0.
@@ -1069,6 +1070,7 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
     """
 
     matplotlib.rcParams["font.size"] = 7
+    reconstruction = prediction  # I don't feel like changing all that at the bottom yet
 
     resolution = reference.shape[2]
     if is_square:
@@ -1096,15 +1098,12 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
     ni_grid = create_imagegrid(153) 
     nm_grid = create_imagegrid(154)
     te_grid = create_imagegrid(155)
-    
-    with torch.no_grad():
-        decoded = model.decoder(prediction).cpu().numpy()
-        reconstruction = decoded[:, :, :resolution, :resolution]  # assumes shape: (samples, channels, height, width)
 
     # get the maximum of every parameter
+    # TODO: this should be a separate function
     if unscale:
         data_dir = Path.cwd()/'data'/'interpolation_datasets'/'synthetic'  # TODO: fix this
-        ds = xr.open_dataset(data_dir/'synthetic_averaged.nc')  # SPECIFY MINMAX SCALE
+        ds = xr.open_dataset(data_dir/'synthetic_averaged.nc')
         vars = list(ds.keys())
 
         minmax_schemes = ['true', '99', '999']
@@ -1141,10 +1140,10 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
     # plot the figures, vmax depends on which set (true or prediction) contains the higher values
     for i, grid in enumerate([phi_grid, ne_grid, ni_grid, nm_grid, te_grid]):
         org = grid[0].imshow(reference[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                        vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cbar)
+                        vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cmap)
         
         rec = grid[1].imshow(reconstruction[0, i, :, :], origin='lower', extent=extent, aspect='equal',
-                        vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cbar)
+                        vmin=cbar_ranges[i][0], vmax=cbar_ranges[i][1], cmap=cmap)
         
         if unscale:
             title = columns_math[i] + units_list[i]
@@ -1167,16 +1166,12 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
             ax.tick_params(axis='both', labelsize=7)
 
     name = 'sep_test_comparison_v2'
-    if cbar != 'magma':
-        name = 'sep_test_comparison_v2_' + cbar
+    if cmap != 'magma':
+        name = 'sep_test_comparison_v2_' + cmap
 
     if out_dir is not None:
         fig.savefig(out_dir/f'{name}.png', bbox_inches='tight')
         # fig.savefig(out_dir/f'{name}.svg', bbox_inches='tight')
 
     return fig
-
-def scores(reference, prediction):
-    # record scores
-    return [mse(reference[0, i, :, :], prediction[0, i, :, :]) for i in range(5)]
 
