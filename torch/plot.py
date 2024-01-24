@@ -1058,7 +1058,10 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
         out_dir (Path, optional): Output directory. Defaults to None.
         is_square (bool, optional): Switch for square image and full rectangle.
             Defaults to False.
-        cbar (str): Colormap used for the images. Defaults to 'magma'.
+        cbar (str, optional): Colormap used for the images. Defaults to 'magma'.
+        unscale (bool, optional): Whether to reverse the minmax in the plots.
+        minmax_scheme ('true', '99', or '999'): If unscaling, determine how the maximum value is selected.
+            Minimum is always 0.
 
     Returns:
         float: Evaluation time (ns).
@@ -1073,7 +1076,7 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
         extent = [0, 20, 35, 55]
         axes_pad = 0.3
     else:
-        figsize = (13, 4)
+        figsize = (15.4, 4)
         extent =[0, 20, 0, 70.7]
         axes_pad = 0.4
 
@@ -1108,10 +1111,21 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
         ds = xr.open_dataset(data_dir/'synthetic_averaged.nc')  # SPECIFY MINMAX SCALE
         vars = list(ds.keys())
 
-        def get_max(variable):
-            var_data = np.nan_to_num(ds[variable].values)
-            return var_data.max()
+        minmax_schemes = ['true', '99', '999']
 
+        if minmax_scheme not in minmax_schemes:
+            raise ValueError(f'Invalid minmax scheme: {minmax_scheme}. Expected one of {minmax_schemes}')
+
+        def get_max(variable, minmax_scheme=minmax_scheme):
+            var_data = np.nan_to_num(ds[variable].values)
+            if minmax_scheme == 'true':
+                return var_data.max()  # use minmax values
+            elif minmax_scheme == '999':
+                return np.quantile(var_data, 0.999)
+            elif minmax_scheme == '99':
+                return np.quantile(var_data, 0.99)
+
+        # convert to a vector to broadcast to an np array
         maxima = np.array([get_max(var) for var in vars]).reshape(5, 1, 1)
 
         # output = (np.array(maxima).reshape(5, 1, 1) * a[0]).reshape(1, 5, 64, 64)
