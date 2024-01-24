@@ -81,7 +81,7 @@ class SimDataset(Dataset):
 if __name__ == '__main__':
     # set metal backend (apple socs)
     # in_resolution = int(input('Resolution: ') or "1000")
-    in_resolution = 64
+    in_resolution = 200
     if in_resolution == 1000:
         resolution = None  # (707, 200)
     else:
@@ -104,22 +104,36 @@ if __name__ == '__main__':
     is_square = True
     dtype = torch.float32
 
-    # get augmentation data
-    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
+    # get augmentation data, this changes depending on the resolution
+    synthetic_dir = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic')
+    if resolution == 32:
+        ncfile = synthetic_dir/'synthetic_averaged_s32.nc'
+    elif resolution == 64:
+        ncfile = synthetic_dir/'synthetic_averaged_s64.nc'
+    elif resolution == 200:
+        # TODO: create 200x200 dataset
+        ncfile = synthetic_dir/'synthetic_averaged.nc'
+    else:
+        ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
 
     _, test, val = get_data(test_pair, val_pair, in_resolution, square=is_square)
 
-    augdataset = AugmentationDataset(ncfile.parent, device, resolution=in_resolution)
+    augdataset = AugmentationDataset(ncfile.parent, device, is_square)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
+    ##### hyperparameters #####
     epochs = 5
     learning_rate = 1e-3
+
     if in_resolution == 32:
         model = AE.A300().to(device)
     elif in_resolution == 64:
         model = AE.A64_9().to(device)
+    elif in_resolution == 200:
+        model = AE.A200_1().to(device)  # still missing
     else: model = AE.FullAE1().to(device)
+
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
 
@@ -127,11 +141,11 @@ if __name__ == '__main__':
     epoch_validation = []
     loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
 
-    patience = 30
-    best_loss = 100
-    best_epoch = -1
-    eps = 1e-5  # threshold to consider if the change is significant
-    epochs_since_best = 0
+    # patience = 30
+    # best_loss = 100
+    # best_epoch = -1
+    # eps = 1e-5  # threshold to consider if the change is significant
+    # epochs_since_best = 0
 
     train_start = time.perf_counter()
     for epoch in loop:
@@ -157,27 +171,27 @@ if __name__ == '__main__':
         epoch_validation.append(val_loss)
         epoch_loss.append(running_loss)
 
-        # -----  EARLY STOPPPING ----- #
+        ### -----  EARLY STOPPPING ----- ###
         # check if the current loss is smaller than the best loss 
-        if (val_loss < best_loss):
-            # update the best epoch and loss
-            best_epoch = epoch  
+        # if (val_loss < best_loss):
+        #     # update the best epoch and loss
+        #     best_epoch = epoch  
 
-            if (abs(val_loss - best_loss) < eps):
-                # if change is insignificant, keep waiting
-                epochs_since_best += 1
+        #     if (abs(val_loss - best_loss) < eps):
+        #         # if change is insignificant, keep waiting
+        #         epochs_since_best += 1
 
-                if epochs_since_best >= patience:
-                    # save model when best result is reached and model has not improved a number of times
-                    epochs = best_epoch + 1
-                    torch.save(model.state_dict(), out_dir/f'{name}')
-                    save_history_graph(epoch_loss, out_dir)
-                    break
-            else:
-                # if loss significantly decreases, reset progress
-                epochs_since_best = 0
+        #         if epochs_since_best >= patience:
+        #             # save model when best result is reached and model has not improved a number of times
+        #             epochs = best_epoch + 1
+        #             torch.save(model.state_dict(), out_dir/f'{name}')
+        #             save_history_graph(epoch_loss, out_dir)
+        #             break
+        #     else:
+        #         # if loss significantly decreases, reset progress
+        #         epochs_since_best = 0
             
-            best_loss = val_loss  # update the loss after comparisons have been made
+        #     best_loss = val_loss  # update the loss after comparisons have been made
 
 
         if (epoch+1) % epochs == 0:
