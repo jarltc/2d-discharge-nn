@@ -174,6 +174,9 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
         [train, test, *validation]: Minmax-scaled training and test images (np.ndarrays), and validation image if provided.
         [(train_images, train_labels), (test_image, test_label), *(val_set, val_label)] if labeled=True.
     """
+    resolutions = [32, 64, 200, None]
+    if resolution not in resolutions:
+        raise ValueError(f'Invalid resolution: {resolution}. Expected one of : {resolutions}')
 
     global nc_data
     ds = xr.open_dataset(nc_data)
@@ -186,8 +189,8 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
     train_labels_list = []
     for vp in vps:
         image = get_dataset(vp[0], vp[1])  # load data
-        cropped = crop(image) if square else image
-        scaled = downscale(cropped, resolution) if resolution is not None else image
+        cropped = crop(image) if square else image  # crop if square
+        scaled = downscale(cropped, resolution) if resolution in [64, 32] else cropped  # downscale if 64, 32
 
         mmax = minmax_scale(scaled, ds, minmax_scheme)
         label = np.array(minmax_label(vp[0], vp[1]))  # shape = [2]
@@ -220,22 +223,26 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
 
 
 class AugmentationDataset(Dataset):
-    def __init__(self, ncfile, device, resolution=None, dtype=torch.float32):
+    def __init__(self, ncfile, device, dtype=torch.float32, is_square=False):
         super().__init__()
         self.data = xr.open_dataset(ncfile, chunks='auto')
 
-        self.resolution = resolution
+        # self.resolution = resolution  # unused
         self.device = device
         self.dtype = dtype
+        self.square = is_square
     
     def __len__(self):
         return self.data.dims['image']
+    
+    def _crop(np_array):
+        return np_array.copy()[:, :, :, :200]
     
     def __getitem__(self, index):
         """ Convert batches of data from xarray to numpy arrays then pytorch tensors """
         # does the dataloader keep track of what data has already been used by tracking the indices?
         np_arrays = [self.data[variable].sel(image=index).values for variable in list(self.data.keys())]  # extract numpy array in each variable
-        image_sample = np.stack(np_arrays)  # stack arrays into shape (channels, height, width)
+        image_sample = self._crop(np.stack(np_arrays)) if self.square else np.stack(np_arrays) # stack arrays into shape (channels, height, width)
         tensor = torch.tensor(image_sample, device=self.device, dtype=self.dtype)  # convert to pytorch tensor
         self.data.close()
         return tensor
