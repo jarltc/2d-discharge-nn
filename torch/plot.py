@@ -846,7 +846,8 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
     # plot the figures for each ImageGrid
     for i, ax in enumerate(topgrid):
         absim = ax.imshow(absdelta[0, i, :, :], origin='lower', extent=extent, aspect='auto',
-                          vmin=-amax, vmax=amax, cmap=cbar)
+                          norm=colors.SymLogNorm(0.025, vmin=-amax, vmax=amax),
+                          cmap=cbar)
         draw_apparatus(ax)
         ax.set_ylabel('z [cm]', fontsize=8)
         ax.set_xlabel('r [cm]', fontsize=8)
@@ -859,7 +860,7 @@ def delta(reference: np.ndarray, reconstruction: np.ndarray,
     #     ax.set_xlabel('r [cm]', fontsize=8)
 
     # colorbar settings
-    cb1 = topgrid.cbar_axes[0].colorbar(absim)
+    cb1 = topgrid.cbar_axes[0].colorbar(absim, extend='both')
     cb1.set_label('Absolute error', rotation=270, fontsize=7, va='bottom', ha='center')
     cb1.ax.tick_params(labelsize=7)
 
