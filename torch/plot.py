@@ -1124,8 +1124,6 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
         # convert to a vector to broadcast to an np array
         maxima = np.array([get_max(var) for var in vars]).reshape(5, 1, 1)
 
-        # output = (np.array(maxima).reshape(5, 1, 1) * a[0]).reshape(1, 5, 64, 64)
-
         # unscale the arrays
         reference = reference * maxima
         reconstruction = reconstruction * maxima
@@ -1168,12 +1166,6 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
             ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
             ax.tick_params(axis='both', labelsize=7)
 
-    # record scores
-    scores = []
-    for i in range(5):
-        score = mse(reference[0, i, :, :], reconstruction[0, i, :, :])
-        scores.append(score)
-
     name = 'sep_test_comparison_v2'
     if cbar != 'magma':
         name = 'sep_test_comparison_v2_' + cbar
@@ -1182,4 +1174,9 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
         fig.savefig(out_dir/f'{name}.png', bbox_inches='tight')
         # fig.savefig(out_dir/f'{name}.svg', bbox_inches='tight')
 
-    return eval_time, scores
+    return fig
+
+def scores(reference, prediction):
+    # record scores
+    return [mse(reference[0, i, :, :], prediction[0, i, :, :]) for i in range(5)]
+
