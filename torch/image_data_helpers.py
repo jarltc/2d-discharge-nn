@@ -113,25 +113,20 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset, max_value='true'):
     if max_value not in ['true', '99', '999']:
         raise ValueError("Invalid max value. Supported schemes are 'true', '99' (99th percentile), and '999' (99.9th percentile).")
 
-    for i, variable in enumerate(list(ds.keys())):
+    def get_max(variable, minmax_scheme=max_value):
+            # TODO: keep a dictionary of this data
+            var_data = np.nan_to_num(ds[variable].values)
+            if minmax_scheme == 'true':
+                return var_data.max()  # use minmax values
+            elif minmax_scheme == '999':
+                return np.quantile(var_data, 0.999)
+            elif minmax_scheme == '99':
+                return np.quantile(var_data, 0.99)
+            
+    b = np.array([get_max(var) for var in list(ds.keys())]).reshape(5, 1, 1)  # reshape to allow broadcasting
+    a = np.zeros((5, 1, 1))  # may change for whatever reason
 
-        var_data = np.nan_to_num(ds[variable].values)
-        a = 0.0  # force 0 minimum
-        if max_value == 'true':
-            b = var_data.max()
-        elif max_value == '99':
-            b = np.quantile(var_data, 0.99)
-        elif max_value == '999':
-            b = np.quantile(var_data, 0.999)
-
-        data_array = image[i, :, :]
-
-        # minmax scale
-        scaled_arrays.append((data_array-a) / (b - a))
-
-    scaled = np.stack(scaled_arrays)
-
-    assert scaled.shape == image.shape
+    scaled = (image - a) / (b - a)  # minmax: x' = (x - min) / (max - min)
 
     return scaled
 
