@@ -1098,12 +1098,8 @@ def sep_comparison_ae_v2(reference: np.ndarray, prediction: torch.tensor,
     te_grid = create_imagegrid(155)
     
     with torch.no_grad():
-        start = time.perf_counter_ns()
         decoded = model.decoder(prediction).cpu().numpy()
-        end = time.perf_counter_ns()
         reconstruction = decoded[:, :, :resolution, :resolution]  # assumes shape: (samples, channels, height, width)
-
-    eval_time = (end-start)  # measures decode time
 
     # get the maximum of every parameter
     if unscale:
