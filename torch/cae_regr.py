@@ -68,6 +68,8 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write(f'Evaluation time: {eval_time:.2f} ms\n')
         f.write(f'Scores (MSE): {mse_scores}\n')
         f.write(f'Scores (r2): {r2}\n')
+        f.write('Evaluation time measurement:')
+        f.write(f'{timer}')
         f.write('\n***** end of file *****')
 
 
@@ -142,7 +144,7 @@ if __name__ == '__main__':
 
     image_ds = ImageDataset(root/'data'/'interpolation_datasets', is_square)
     _, test = get_data((300, 60), resolution=resolution, square=is_square, labeled=True)
-    test_image, test_label = test
+    test_image, test_label = test  # minmax scaled labels
 
     autoencoder.load_state_dict(torch.load(ae_dir))  # use path directly to model
     mlp.load_state_dict(torch.load(mlp_dir))  # use path directly to model
@@ -157,7 +159,8 @@ if __name__ == '__main__':
     
     fake_encoding, prediction = imageMLP_eval(test_label, mlp, autoencoder)
 
-    eval_time = speedtest(test_label).median * 1e3  # seconds to ms
+    timer = speedtest(test_label)
+    eval_time = timer.median * 1e3  # seconds to ms
     fig = image_compare(test_image, prediction, out_dir=out_dir, is_square=is_square, cmap='viridis', unscale=True)
     mse_scores = scores(test_image, prediction)
     r2 = ae_correlation(test_image, prediction, out_dir)
