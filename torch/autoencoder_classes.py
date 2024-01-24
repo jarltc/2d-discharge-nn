@@ -326,6 +326,7 @@ class A64_8(nn.Module):
     """
     def __init__(self) -> None:
         super(A64_8, self).__init__()
+        self.encoded_shape = (40, 8, 8)
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=9, stride=2, padding=4),
             nn.ReLU(),
@@ -371,7 +372,8 @@ class A64_8(nn.Module):
         return decoded
     
 class A64_9(nn.Module):
-    """A64_8 with all 3x3 kernels and MaxPool layers in the encoder.
+    """ *** best performing model ***
+    A64_8 with all 3x3 kernels and MaxPool layers in the encoder.
 
     by jarl @ 25 Oct 2023 15:14
     
@@ -417,7 +419,50 @@ class A64_9(nn.Module):
             decoded, 0, 0, 64, 64)
         return decoded
     
-    
+
+class A200_1(nn.Module):
+    """Autoencoder for 200x200 input images with all 3x3 kernels and MaxPool layers.
+
+    by jarl @ 24 Jan 2023
+    """
+    def __init__(self) -> None:
+        super(A64_9, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 20, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 40, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 40, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 20, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = torchvision.transforms.functional.crop(self.decoder(encoded), 0, 0, 200, 200)
+        return decoded
+
 class FullAE1(nn.Module):
     """Autoencoder for a whole 707x200 image.
 
@@ -474,7 +519,7 @@ class FullAE1(nn.Module):
         )
 
     def forward(self, x):
-        encoded = self.encoder(x)
+        encoded = self.encoder(x)  # encoded: (20, 22, 6)
         decoded = self.decoder(encoded)
 
         return decoded

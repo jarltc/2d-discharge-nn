@@ -87,21 +87,17 @@ if __name__ == '__main__':
     is_square=True
 
     resolution = 64
-    if resolution == 32:
-        model = autoencoder_classes.A300()
-        encodedx = 20
-        encodedy = encodedz = 4
-    elif resolution == 64:
-        model = autoencoder_classes.A64_8()
-        encodedx = 40
-        encodedy = encodedz = 8
-    encoded_size = encodedx * encodedy * encodedz
-    # model = autoencoder_classes.A300()
-    mlp = mlp_classes.MLP4(2, encoded_size, dropout_prob=0.5)
+    if resolution == 32:  # (4, 4, 20)
+        autoencoder = autoencoder_classes.A300()
+    elif resolution == 64:  # (8, 8, 40)
+        autoencoder = autoencoder_classes.A64_8()
     
-    # ae_dir = Path(input('AE dir: '))
     ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8')
     mlp_dir = Path(input('Path to MLP: '))
+
+    encodedx, encodedy, encodedz = autoencoder.encoded_shape
+    encoded_size = encodedx * encodedy * encodedz
+
 
     out_dir = mlp_dir.parents[0]
     if not out_dir.exists():
