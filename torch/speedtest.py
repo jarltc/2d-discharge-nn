@@ -1,9 +1,11 @@
 # regr code for fullAE (autoencoder)
 import time
 import torch
+import numpy as np
 from pathlib import Path
 from image_data_helpers import get_data
 from autoencoder_classes import FullAE1, A64_8
+import torch.utils.benchmark as benchmark
 
 def speedtest(model_dir, resolution=None):
     """Get a trained model and evaluate its reconstruction speed.
@@ -21,9 +23,9 @@ def speedtest(model_dir, resolution=None):
         model = A64_8() 
     else:
         square = False
-        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/100ep_MSE/fullAE-1")
         model = FullAE1()
 
+    # load test image
     _, test = get_data((300, 60), square=square, resolution=resolution)
 
     # convert to tensor
@@ -34,11 +36,10 @@ def speedtest(model_dir, resolution=None):
     model.to(device)
     model.eval()
 
-    start = time.perf_counter_ns()
-    model(image)
-    end = time.perf_counter_ns()
+    t = benchmark.Timer(stmt="model(image)",
+                        globals={'model':model, 'image':image})
 
-    return (end-start)/1e6
+    return t.timeit(100)
 
 def regr(in_pair: tuple, resolution=None):
     """Get regression image for a given pair.
@@ -52,6 +53,8 @@ def regr(in_pair: tuple, resolution=None):
     """
     from plot import plot_comparison_ae, sep_comparison_ae, sep_comparison_ae_v2
 
+    minmax_scheme = '999'  # default for now
+
     device = torch.device("mps")
     if resolution == 64:
         square = True
@@ -60,10 +63,11 @@ def regr(in_pair: tuple, resolution=None):
     else:
         square = False
         # model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/weighted/fullAE-1")
-        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
+        # model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
+        model_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_500ep/fullAE-1')
         model = FullAE1()
 
-    _, test = get_data(in_pair, square=square, resolution=resolution, minmax_scheme='999')  # change minmax scheme 
+    _, test = get_data(in_pair, square=square, resolution=resolution, minmax_scheme=minmax_scheme)  # change minmax scheme 
 
     # convert to tensor
     sim = torch.tensor(test, dtype=torch.float32, device=device)
@@ -77,16 +81,18 @@ def regr(in_pair: tuple, resolution=None):
     out_dir = model_dir.parent
 
     # plot_comparison_ae(test, prediction, model, out_dir=out_dir, is_square=square)
-    sep_comparison_ae_v2(test, prediction, model, out_dir=out_dir, is_square=square, cbar='viridis')
+    sep_comparison_ae_v2(test, prediction, model, out_dir=out_dir, is_square=square, cbar='viridis', minmax_scheme=minmax_scheme)
     print(f"file saved in {out_dir}")
 
 
 if __name__ == "__main__":
-    model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
-    full_time = speedtest(model_dir)
-    # small_time = speedtest(64)
+    fullae_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
+    a64_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8")
+    full_time = speedtest(fullae_dir)
+    # small_time = speedtest(a64_dir, 64)
      
     # return decode speed
-    print(f"Full AE speed: {full_time} ms")
-    # print(f"64x64 speed: {small_time} ms")
-    regr((300, 60))  # this shows metastable density more clearly
+    # print(f"Full AE speed: {full_time} ms")
+    print(f"Full AE: {full_time.median*1e3:.3f} ms")
+    # print(f"64x64 decode speed: {small_time} ms")
+    # regr((300, 60))  
