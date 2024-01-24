@@ -77,6 +77,21 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write('\n***** end of file *****')
 
 
+def speedtest(test_label: torch.tensor):
+    """Evaluate prediction speeds for the model.
+
+    Args:
+        test_label (torch.tensor): Input pair of V, P from which predictions are made.
+
+    Returns:
+        torch.utils.benchmark.Measurement: The result of a Timer measurement. 
+            Value can be extracted by the .median property.
+    """
+    timer = benchmark.Timer(stmt="imageMLP_eval(test_label, mlp, autoencoder)",
+                            setup='from __main__ import imageMLP_eval',
+                            globals={'test_label':test_label, 'mlp':mlp, 'autoencoder':autoencoder})
+
+    return timer.timeit(100)
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
@@ -113,19 +128,5 @@ if __name__ == '__main__':
     mlp.to(device)
     model.eval()
     mlp.eval()
-    
-    with torch.no_grad():
-        start = time.perf_counter_ns()
-        fake_encoding = mlp(torch.tensor(test_label, device=device, dtype=torch.float32))  # mps does not support float64
-        fake_encoding = fake_encoding.reshape(1, encodedx, encodedy, encodedz)
-        decoded = model.decoder(fake_encoding).cpu().numpy()[:, :, :64, :64]
-        end = time.perf_counter_ns()
-    
-
-    # _, scores = plot_comparison_ae(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis')
-    _, scores = sep_comparison_ae_v2(test_image, fake_encoding, model, out_dir=out_dir, is_square=is_square, cbar='viridis', unscale=True)
-    r2 = ae_correlation(test_image, decoded, out_dir)
-    image_slices(test_image, decoded, out_dir=out_dir, cmap='viridis')
-    delta(test_image, decoded, out_dir=out_dir, is_square=True)
-    eval_time = (end-start) # ms
+    eval_time = speedtest(test_label).median * 1e3  # seconds to ms
     write_metadata(out_dir)
