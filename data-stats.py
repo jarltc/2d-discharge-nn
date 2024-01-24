@@ -5,6 +5,7 @@ irregular mesh to a rectangular mesh."""
 
 import xarray as xr
 from pathlib import Path
+import matplotlib
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter, LogLocator
 import numpy as np
@@ -24,7 +25,8 @@ def print_statistics(variable, file=None):
                       q1 = ds[variable].quantile(0.25).item(),
                       q2 = ds[variable].median().item(),
                       q3 = ds[variable].quantile(0.75).item(),
-                      P99 = ds[variable].quantile(0.99).item()
+                      P99 = ds[variable].quantile(0.99).item(),
+                      P999 = ds[variable].quantile(0.999).item()
     )
     print(f"***** {variable} *****", file=file)
     for key in stats_dict:
@@ -84,15 +86,24 @@ def data_histplot(ds:xr.Dataset):
         ax[i].set_xlim(left=0)
         ax[i].set_xlabel(f"{columns_math[i]} {units[variable]}")
 
+        cmap = matplotlib.cm.get_cmap('hot')
+        linecolors = [cmap(n) for n in [0.1, 0.3, 0.5]]
+
         # annotate 99th percentile
         mean = np.mean(data)
         p99 = np.quantile(data, 0.99)
-        ax[i].axvline(x=mean, linewidth=1.0, color='k', linestyle=':')
-        ax[i].axvline(x=p99, linewidth=1.2, color='r')
+        p999 = np.quantile(data, 0.999)
+
+        ax[i].axvline(x=mean, linewidth=1.2, color=linecolors[0], linestyle=':')
+        ax[i].axvline(x=p99, linewidth=1.2, color=linecolors[1])
+        ax[i].axvline(x=p999, linewidth=1.2, color=linecolors[2])
+
         ax[i].text(mean, 0.7, 'mean', transform=ax[i].get_xaxis_text1_transform(0)[0], 
-                   fontsize=10, ha='left', va='center', color='k')
+                   fontsize=10, ha='left', va='center', color=linecolors[0])
         ax[i].text(p99, 0.7, '$P_{99}$', transform=ax[i].get_xaxis_text1_transform(0)[0], 
-                   fontsize=10, ha='left', va='center', color='r')
+                   fontsize=10, ha='left', va='center', color=linecolors[1])
+        ax[i].text(p999, 0.7, '$P_{99.9}$', transform=ax[i].get_xaxis_text1_transform(0)[0], 
+                   fontsize=10, ha='left', va='center', color=linecolors[2])
     
     file_path = ds_path.parent/"hist.png"
     fig.savefig(file_path, bbox_inches='tight')
