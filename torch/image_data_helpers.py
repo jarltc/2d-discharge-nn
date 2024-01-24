@@ -94,39 +94,85 @@ def downscale(image_stack: np.ndarray, resolution: int) -> np.ndarray:
     return np.moveaxis(data, -1, 1)  # revert moveaxis operation
 
 
-def minmax_scale(image:np.ndarray, ds:xr.Dataset, minmax_scheme='true'):
+def minmax_scale(image:np.ndarray, maxima:np.ndarray):
     """Perform minmax scaling on some input image with shape (channels, height, width)
 
-    Values for the minmax scaling are obtained from the .nc file. 
-    This also forces the minimum to be 0 instead of some crazy value that might mess with calculations.
-    This scheme scales an array to lie between 0 and 1 (the maximum value for the specific variable across the entire dataset).
+    Requires a set of maxima (depending on the minmax scheme) for each variable as input.
+    Default minimum value is 0.
+    
+    Minmax scales an array's values to lie between 0 and 1 (the maximum value for the specific variable across the entire dataset).
+    
     Args:
         image (np.ndarray): Image (channels, height, width) to be scaled.
-        ds (xr.Dataset): Dataset to reference for the maximum values of each parameter.
+        maxima (np.ndarray): Maxima for each parameter for minmax scaling.
 
     Returns:
         np.ndarray: Minmax-scaled array.
     """
 
-    if minmax_scheme not in ['true', '99', '999']:
-        raise ValueError("Invalid max value. Supported schemes are 'true', '99' (99th percentile), and '999' (99.9th percentile).")
-
-    def get_max(variable, minmax_scheme=minmax_scheme):
-            # TODO: keep a dictionary of this data
-            var_data = np.nan_to_num(ds[variable].values)
-            if minmax_scheme == 'true':
-                return var_data.max()  # use minmax values
-            elif minmax_scheme == '999':
-                return np.quantile(var_data, 0.999)
-            elif minmax_scheme == '99':
-                return np.quantile(var_data, 0.99)
+    assert maxima.shape == (5,)
             
-    b = np.array([get_max(var) for var in list(ds.keys())]).reshape(5, 1, 1)  # reshape to allow broadcasting
+    b = maxima.reshape(5, 1, 1)  # reshape to allow broadcasting
     a = np.zeros((5, 1, 1))  # may change for whatever reason
 
     scaled = (image - a) / (b - a)  # minmax: x' = (x - min) / (max - min)
 
     return scaled
+
+
+def build_max_dict(ds:xr.Dataset):
+    """ ** UNUSED, but I am keeping just in case **
+    Build a dictionary of maxima for every minmax scheme. 
+
+    Args:
+        ds (xr.Dataset): Dataset for reference.
+
+    Returns:
+        dict: Dictionary of maxima for each scheme.
+    """
+    var_list = list(ds.keys())
+
+    def _get_max(variable, scheme):
+        # TODO: keep a dictionary of this data
+        var_data = np.nan_to_num(ds[variable].values)
+        if scheme == 'true':
+            return var_data.max()
+        elif scheme == '999':
+            return np.quantile(var_data, 0.999)
+        elif scheme == '99':
+            return np.quantile(var_data, 0.99)
+            
+    minmax_schemes = ['true', '99', '999']
+    max_dict = {minmax_scheme : np.array([_get_max(var) for var in var_list]) for minmax_scheme in minmax_schemes}
+    
+    print(max_dict)
+    
+    return max_dict
+
+
+def get_maxima(ds:xr.Dataset, minmax_scheme='true'):
+    """Get maxima for a dataset.
+
+    Args:
+        ds (xr.Dataset): Dataset for reference.
+        minmax_scheme (str, optional): Minmax scheme. Defaults to 'true'.
+
+    Returns:
+        np.ndarray: NumPy array of maxima.
+    """
+    var_list = list(ds.keys())
+
+    def _get_max(variable, scheme):
+        # TODO: keep a dictionary of this data
+        var_data = np.nan_to_num(ds[variable].values)
+        if scheme == 'true':
+            return var_data.max()
+        elif scheme == '999':
+            return np.quantile(var_data, 0.999)
+        elif scheme == '99':
+            return np.quantile(var_data, 0.99)
+
+    return np.array([_get_max(var) for var in var_list])
 
 
 def minmax_label(V, P):
@@ -176,6 +222,10 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
     resolutions = [32, 64, 200, None]
     if resolution not in resolutions:
         raise ValueError(f'Invalid resolution: {resolution}. Expected one of : {resolutions}')
+    
+    if minmax_scheme not in ['true', '99', '999']:
+        raise ValueError("Invalid minmax scheme. Expected one of 'true', \
+                         '99' (99th percentile), and '999' (99.9th percentile).")
 
     global nc_data
     ds = xr.open_dataset(nc_data)
@@ -184,6 +234,8 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
 
     vps = [(v, p) for v in v_list for p in p_list]
 
+    maxima = get_maxima(ds, minmax_scheme)  # dict of np arrays containing maxima
+
     train_images = []
     train_labels_list = []
     for vp in vps:
@@ -191,7 +243,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
         cropped = crop(image) if square else image  # crop if square
         scaled = downscale(cropped, resolution) if resolution in [64, 32] else cropped  # downscale if 64, 32
 
-        mmax = minmax_scale(scaled, ds, minmax_scheme)
+        mmax = minmax_scale(scaled, ds, maxima)
         label = np.array(minmax_label(vp[0], vp[1]))  # shape = [2]
 
         if vp == test:
