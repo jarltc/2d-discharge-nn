@@ -131,6 +131,7 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset, minmax_scheme='true'):
 
 def minmax_label(V, P):
     """Get minmax-scaled V and P based on the available simulation dataset.
+    Assumes that minima are 0.
 
     Args:
         V (float): Voltage to be scaled.
@@ -148,8 +149,8 @@ def minmax_label(V, P):
     vs = ds.V.values
     ps = ds.P.values
 
-    scaled_v = (vs.max() - V)/vs.max()
-    scaled_p = (ps.max() - P)/ps.max()
+    scaled_v = V/vs.max()
+    scaled_p = P/ps.max()
     
     return [scaled_v, scaled_p]
 
