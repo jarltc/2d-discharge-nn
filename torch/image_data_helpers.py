@@ -94,7 +94,7 @@ def downscale(image_stack: np.ndarray, resolution: int) -> np.ndarray:
     return np.moveaxis(data, -1, 1)  # revert moveaxis operation
 
 
-def minmax_scale(image:np.ndarray, ds:xr.Dataset, max_value='true'):
+def minmax_scale(image:np.ndarray, ds:xr.Dataset, minmax_scheme='true'):
     """Perform minmax scaling on some input image with shape (channels, height, width)
 
     Values for the minmax scaling are obtained from the .nc file. 
@@ -108,12 +108,10 @@ def minmax_scale(image:np.ndarray, ds:xr.Dataset, max_value='true'):
         np.ndarray: Minmax-scaled array.
     """
 
-    scaled_arrays = []
-
-    if max_value not in ['true', '99', '999']:
+    if minmax_scheme not in ['true', '99', '999']:
         raise ValueError("Invalid max value. Supported schemes are 'true', '99' (99th percentile), and '999' (99.9th percentile).")
 
-    def get_max(variable, minmax_scheme=max_value):
+    def get_max(variable, minmax_scheme=minmax_scheme):
             # TODO: keep a dictionary of this data
             var_data = np.nan_to_num(ds[variable].values)
             if minmax_scheme == 'true':
