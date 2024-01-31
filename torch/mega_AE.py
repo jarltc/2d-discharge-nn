@@ -102,9 +102,7 @@ if __name__ == '__main__':
     torch.manual_seed(seed)
     model = AE.FullAE1().to(device)
     criterion = nn.MSELoss()
-    # criterion = nn.L1Loss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    # weight_tensor = torch.tensor([1, 1, 1, 10, 1], dtype=dtype, device=device).view(1, -1, 1, 1)
 
     epoch_loss = []
     epoch_validation = []
