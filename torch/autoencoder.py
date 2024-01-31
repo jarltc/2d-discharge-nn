@@ -1,11 +1,9 @@
-"""Autoencoder for predicting 2d plasma profiles
+"""Autoencoder for predicting (square cropped) 2d plasma profiles
 
 Jupyter eats up massive RAM so I'm making a script to do my tests
 """
 
-import os
 import time
-import pickle
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -16,12 +14,15 @@ from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.data import Dataset, TensorDataset, DataLoader
+from torch.utils.data import Dataset, DataLoader
 from torchinfo import summary
+import torch.utils.benchmark as benchmark
+from torchvision.transforms.functional import crop
 
 import autoencoder_classes as AE
-from plot import plot_comparison_ae, save_history_graph, ae_correlation
+from plot import image_compare, save_history_graph, ae_correlation
 from image_data_helpers import get_data, AugmentationDataset
+from data_helpers import mse
 
 
 def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
@@ -42,9 +43,9 @@ def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot modul
     fig.savefig(out_dir/'train_loss.png')
 
 
-def write_metadata(out_dir):  # TODO: move to data module
+def write_metadata(out_dir):  # TODO: move to data modules
     # in_size = batch_data[0].size()  # broken
-    in_size = (1, 5, resolution, resolution)
+    in_size = (1, 5, in_resolution, in_resolution)
 
     # save model structure
     file = out_dir/'train_log.txt'
@@ -58,6 +59,7 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
         f.write(f'Resolution: {resolution}\n')
+        f.write(f'Evaluation time (100 trials): {eval_time.median * 1e3} ms\n')  # convert seconds to ms
         f.write(f'Train time: {(train_end-train_start):.2f} seconds ({(train_end-train_start)/60:.2f} minutes)\n')
         f.write('\n***** end of file *****')
 
@@ -77,6 +79,32 @@ class SimDataset(Dataset):
                             dtype=torch.float32, 
                             device=self.device)
         
+
+def speedtest(image: torch.tensor):
+    """Evaluate prediction speeds for the model.
+
+    Args:
+        test_label (torch.tensor): Input pair of V, P from which predictions are made.
+
+    Returns:
+        torch.utils.benchmark.Measurement: The result of a Timer measurement. 
+            Value can be extracted by the .median property.
+    """
+    timer = benchmark.Timer(stmt="autoencoder_eval(image, autoencoder)",
+                            setup='from __main__ import autoencoder_eval',
+                            globals={'image':image, 'autoencoder':model})
+
+    return timer.timeit(100)
+
+
+def autoencoder_eval(image, autoencoder):
+    with torch.no_grad():
+        output = autoencoder(image)
+    return output
+
+def scores(reference, prediction):
+    # record scores
+    return [mse(reference[0, i, :, :], prediction[0, i, :, :]) for i in range(5)]
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
@@ -118,7 +146,7 @@ if __name__ == '__main__':
 
     _, test, val = get_data(test_pair, val_pair, in_resolution, square=is_square)
 
-    augdataset = AugmentationDataset(ncfile.parent, device, is_square)
+    augdataset = AugmentationDataset(ncfile, device, is_square=is_square)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
@@ -153,6 +181,8 @@ if __name__ == '__main__':
             # get inputs
             inputs = batch_data  # TODO: this used to be batch_data[0] when using TensorDataset()
             optimizer.zero_grad()
+            if in_resolution == 200:
+                inputs = crop(inputs, 550, 0, 200, 200)  # image, top, left, height, width
 
             # record loss
             running_loss = 0.0
@@ -200,13 +230,14 @@ if __name__ == '__main__':
             save_history_graph(epoch_loss, out_dir)
 
     train_end = time.perf_counter()
+    test_image = torch.tensor(test, device=device, dtype=dtype)
 
-    with torch.no_grad():
-        encoded = model.encoder(torch.tensor(test, device=device, dtype=dtype))
-        decoded = model(torch.tensor(test, device=device, dtype=dtype))
+    decoded = autoencoder_eval(test_image, model).cpu().numpy()[:, :, :in_resolution, :in_resolution]  # convert to np?
 
     torch.save(model.state_dict(), out_dir/f'{name}')
-    eval_time, scores = plot_comparison_ae(test, encoded, model, out_dir=out_dir, is_square=True)
+    eval_time = speedtest(test_image)
+    fig = image_compare(test, decoded, out_dir, is_square, cmap='viridis')
+    mse_scores = scores(test, decoded)
     r2 = ae_correlation(test, decoded, out_dir)
     plot_train_loss(epoch_loss, epoch_validation)
-    # write_metadata(out_dir)
+    write_metadata(out_dir)
