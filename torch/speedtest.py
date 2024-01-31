@@ -39,7 +39,7 @@ def speedtest(model_dir, resolution=None):
     t = benchmark.Timer(stmt="model(image)",
                         globals={'model':model, 'image':image})
 
-    return t.timeit(100)
+    return t.timeit(1000)
 
 def regr(in_pair: tuple, resolution=None):
     """Get regression image for a given pair.
@@ -88,11 +88,11 @@ def regr(in_pair: tuple, resolution=None):
 if __name__ == "__main__":
     fullae_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
     a64_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8")
-    full_time = speedtest(fullae_dir)
-    # small_time = speedtest(a64_dir, 64)
+    # full_time = speedtest(fullae_dir)
+    small_time = speedtest(a64_dir, 64)
      
     # return decode speed
     # print(f"Full AE speed: {full_time} ms")
-    print(f"Full AE: {full_time.median*1e3:.3f} ms")
-    # print(f"64x64 decode speed: {small_time} ms")
+    # print(f"Full AE: {full_time.median*1e3:.3f} ms")
+    print(f"64x64: {small_time.median*1e3:.3f} ms")
     # regr((300, 60))  
