@@ -22,7 +22,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
 from data_helpers import ImageDataset
-from plot import plot_comparison_ae, save_history_graph, ae_correlation, image_slices, delta, image_compare
+from plot import ae_correlation, image_compare
 import autoencoder_classes
 import mlp_classes
 from image_data_helpers import get_data
@@ -68,8 +68,6 @@ def write_metadata(out_dir):  # TODO: move to data module
         f.write(f'Evaluation time: {eval_time:.2f} ms\n')
         f.write(f'Scores (MSE): {mse_scores}\n')
         f.write(f'Scores (r2): {r2}\n')
-        f.write('Evaluation time measurement:')
-        f.write(f'{timer}')
         f.write('\n***** end of file *****')
 
 
@@ -108,7 +106,7 @@ def speedtest(test_label: torch.tensor):
                             setup='from __main__ import imageMLP_eval',
                             globals={'test_label':test_label, 'mlp':mlp, 'autoencoder':autoencoder})
 
-    return timer.timeit(100)
+    return timer.timeit(1000)
 
 
 def scores(reference, prediction):
