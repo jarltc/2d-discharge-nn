@@ -426,7 +426,7 @@ class A200_1(nn.Module):
     by jarl @ 24 Jan 2023
     """
     def __init__(self) -> None:
-        super(A64_9, self).__init__()
+        super(A200_1, self).__init__()
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
             nn.MaxPool2d(2, 2),
