@@ -172,7 +172,7 @@ def get_maxima(ds:xr.Dataset, minmax_scheme='true'):
         elif scheme == '99':
             return np.quantile(var_data, 0.99)
 
-    return np.array([_get_max(var) for var in var_list])
+    return np.array([_get_max(var, minmax_scheme) for var in var_list])
 
 
 def minmax_label(V, P):
@@ -243,7 +243,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
         cropped = crop(image) if square else image  # crop if square
         scaled = downscale(cropped, resolution) if resolution in [64, 32] else cropped  # downscale if 64, 32
 
-        mmax = minmax_scale(scaled, ds, maxima)
+        mmax = minmax_scale(scaled, maxima)
         label = np.array(minmax_label(vp[0], vp[1]))  # shape = [2]
 
         if vp == test:
@@ -274,6 +274,10 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
 
 
 class AugmentationDataset(Dataset):
+    """ Dataset containing synthetic images for training autoencoders.
+
+    Designed (I hope) to load images without having to load the entire dataset into memory.
+    """
     def __init__(self, ncfile, device, dtype=torch.float32, is_square=False):
         super().__init__()
         self.data = xr.open_dataset(ncfile, chunks='auto')
@@ -286,14 +290,14 @@ class AugmentationDataset(Dataset):
     def __len__(self):
         return self.data.dims['image']
     
-    def _crop(np_array):
-        return np_array.copy()[:, :, :, :200]
+    def _crop(self, np_array):
+        return np_array[:, :200, :200]  # (channels, width, height)
     
     def __getitem__(self, index):
         """ Convert batches of data from xarray to numpy arrays then pytorch tensors """
         # does the dataloader keep track of what data has already been used by tracking the indices?
         np_arrays = [self.data[variable].sel(image=index).values for variable in list(self.data.keys())]  # extract numpy array in each variable
-        image_sample = self._crop(np.stack(np_arrays)) if self.square else np.stack(np_arrays) # stack arrays into shape (channels, height, width)
+        image_sample = np.stack(np_arrays) # stack arrays into shape (channels, height, width)
         tensor = torch.tensor(image_sample, device=self.device, dtype=self.dtype)  # convert to pytorch tensor
         self.data.close()
         return tensor
