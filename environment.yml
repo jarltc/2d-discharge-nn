@@ -1,0 +1,19 @@
+name: plasma-torch
+channels:
+ - conda-forge
+ - pytorch
+dependencies:
+ - python=3.11
+ - numpy
+ - pandas
+ - matplotlib
+ - scikit-learn
+ - xarray
+ - pyarrow
+ - tqdm
+ - opencv
+ - torchinfo
+ - pytorch
+ - torchvision
+ - torchaudio
+ - xbatcher
