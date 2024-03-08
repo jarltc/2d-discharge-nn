@@ -28,7 +28,7 @@ from torchinfo import summary
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from data_helpers import ImageDataset
+from data_helpers import ImageDataset, set_device
 from plot import plot_comparison_ae, ae_correlation, image_slices, sep_comparison_ae_v2
 import autoencoder_classes as AE
 from image_data_helpers import get_data
@@ -190,7 +190,7 @@ def normalize_train(dataset:np.ndarray):
     return normalized_dataset, scalers
 
 
-def normalize_test(dataset:np.ndarray, scalers:dict()):
+def normalize_test(dataset:np.ndarray, scalers:dict):
     normalized_variables = []
 
     for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
@@ -206,8 +206,7 @@ def normalize_test(dataset:np.ndarray, scalers:dict()):
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
-    device = torch.device(
-        'mps' if torch.backends.mps.is_available() else 'cpu')
+    device = set_device()
 
     model_folder = Path(input("Enter model directory: "))
     model_dir = model_folder/model_folder.stem

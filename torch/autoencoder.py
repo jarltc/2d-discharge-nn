@@ -22,7 +22,7 @@ from torchvision.transforms.functional import crop
 import autoencoder_classes as AE
 from plot import image_compare, save_history_graph, ae_correlation
 from image_data_helpers import get_data, AugmentationDataset
-from data_helpers import mse
+from data_helpers import mse, set_device
 
 
 def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
@@ -109,22 +109,15 @@ def scores(reference, prediction):
 if __name__ == '__main__':
     # set metal backend (apple socs)
     # in_resolution = int(input('Resolution: ') or "1000")
-    in_resolution = 200
-    if in_resolution == 1000:
-        resolution = None  # (707, 200)
-    else:
-        resolution = (in_resolution, in_resolution)  # use a square image 
+    in_resolution = 64
+    resolution = (in_resolution, in_resolution)  # use a square image 
 
     # set device
-    if torch.backends.mps.is_available():
-        device = torch.device('mps')
-    elif torch.backends.cuda.is_available():
-        device = torch.device('cuda')
-    else:
-        device = torch.device('cpu')
+    device = set_device()
 
     # name = input("Enter model name: ")
-    name = 'test'
+    # name = 'test'
+    name = 'A64-9'
     root = Path.cwd()
 
     out_dir = root/'created_models'/'autoencoder'/f'{resolution[0]}x{resolution[0]}'/name
@@ -138,16 +131,15 @@ if __name__ == '__main__':
     dtype = torch.float32
 
     # get augmentation data, this changes depending on the resolution
-    synthetic_dir = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic')
-    if resolution == 32:
+    synthetic_dir = root/'data'/'interpolation_datasets'/'synthetic'
+    if in_resolution == 32:
         ncfile = synthetic_dir/'synthetic_averaged_s32.nc'
-    elif resolution == 64:
+    elif in_resolution == 64:
         ncfile = synthetic_dir/'synthetic_averaged_s64.nc'
-    elif resolution == 200:
-        # TODO: create 200x200 dataset
+    elif in_resolution == 200:
         ncfile = synthetic_dir/'synthetic_averaged.nc'
     else:
-        ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
+        ncfile = root/'data'/'interpolation_datasets'/'synthetic'/'synthetic_averaged.nc'
 
     _, test, val = get_data(test_pair, val_pair, in_resolution, square=is_square)
 
@@ -156,7 +148,7 @@ if __name__ == '__main__':
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
     ##### hyperparameters #####
-    epochs = 5
+    epochs = 200
     learning_rate = 1e-3
 
     if in_resolution == 32:

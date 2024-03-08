@@ -26,7 +26,7 @@ from plot import ae_correlation, image_compare
 import autoencoder_classes
 import mlp_classes
 from image_data_helpers import get_data
-from data_helpers import mse
+from data_helpers import mse, set_device
 
 # define model TODO: construct following input file/specification list
 
@@ -45,7 +45,7 @@ def resize(data: np.ndarray, scale=64) -> np.ndarray:
     return data
 
 
-def normalize_test(dataset:np.ndarray, scalers:dict()):
+def normalize_test(dataset:np.ndarray, scalers:dict):
     normalized_variables = []
 
     for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
@@ -116,8 +116,7 @@ def scores(reference, prediction):
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
-    device = torch.device(
-        'mps' if torch.backends.mps.is_available() else 'cpu')
+    device = set_device()
 
     root = Path.cwd()
     is_square=True
@@ -128,7 +127,7 @@ if __name__ == '__main__':
     elif resolution == 64:  # (8, 8, 40)
         autoencoder = autoencoder_classes.A64_8()
     
-    ae_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8')
+    ae_dir = root/'created_models'/'autoencoder'/'64x64''/A64-8'/'A64-8'
     mlp_dir = Path(input('Path to MLP: '))
 
     encodedx, encodedy, encodedz = autoencoder.encoded_shape

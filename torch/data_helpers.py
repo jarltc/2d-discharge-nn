@@ -423,7 +423,7 @@ def mse(image1, image2):
 def train2db(model_dir: Path, name:str, epochs:int, v_excluded, p_excluded, resolution:int, typ=None):
     # TODO: find a way to infer the base and iteration
     import sqlite3
-    root = Path('/Users/jarl/2d-discharge-nn')
+    root = Path.cwd()
     conn = sqlite3.connect(root/'created_models'/'created_models.db')
     cursor = conn.cursor()
 
@@ -438,3 +438,13 @@ def train2db(model_dir: Path, name:str, epochs:int, v_excluded, p_excluded, reso
     conn.close()
 
     return 1
+
+def set_device():
+    if torch.backends.mps.is_available():
+            device = torch.device('mps')
+    elif torch.backends.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
+    
+    return device

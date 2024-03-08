@@ -18,7 +18,6 @@ if __name__ == '__main__':
     now = dt.now().strftime('%Y-%m-%d %H:%M')
 
     root = Path.cwd()/'data'
-    # root = Path('/Users/jarl/2d-discharge-nn/data/')
     data = root/'interpolation_datasets'/'full_interpolation.nc'
     ds = xr.open_dataset(data)
     variables = list(ds.keys())

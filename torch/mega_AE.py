@@ -22,6 +22,7 @@ from torchinfo import summary
 import autoencoder_classes as AE
 from plot import plot_comparison_ae, save_history_graph, ae_correlation, sep_comparison_ae
 from image_data_helpers import get_data, AugmentationDataset
+from data_helpers import set_device
 
 
 def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
@@ -69,8 +70,7 @@ def write_metadata(out_dir):  # TODO: move to data module
 if __name__ == '__main__':
     # set metal backend (apple socs)
     resolution = None
-    device = torch.device(
-        'mps' if torch.backends.mps.is_available() else 'cpu')
+    device = set_device()
 
     # name = input("Enter model name: ")
     name = 'fullAE-1'
@@ -86,7 +86,7 @@ if __name__ == '__main__':
     dtype = torch.float32
 
     # specify dataset to load
-    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged999.nc')
+    ncfile = root/'data'/'interpolation_datasets'/'synthetic'/'synthetic_averaged999.nc'
 
     # use helper function to load test and validation data (using the specified ncfile)
     _, test, val = get_data(test_pair, val_pair, square=False, minmax_scheme='999')

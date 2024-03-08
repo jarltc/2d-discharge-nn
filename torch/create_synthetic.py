@@ -72,7 +72,8 @@ def average_pair(a, b, ds, resolution=None):
 
 
 if __name__ == "__main__":
-    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/rec-interpolation2.nc')
+    root = Path.cwd()
+    ncfile = root/'data'/'interpolation_datasets'/'rec-interpolation2.nc'
     ds = xr.open_dataset(ncfile)
 
     v_list = list(ds.V.values)

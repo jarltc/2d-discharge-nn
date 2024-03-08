@@ -4,6 +4,9 @@ import torchvision
 
 from pathlib import Path
 
+root = Path.cwd()
+model_dir = root/'created_models'/'autoencoder'
+
 class A212(nn.Module):
     """Autoencoder using square images as inputs.
     
@@ -12,7 +15,7 @@ class A212(nn.Module):
     def __init__(self) -> None:
         super(A212, self).__init__()
         # trained on normalized dataset, otherwise see A212
-        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/32x32/A212b/A212b')
+        self.path = model_dir/'32x32'/'A212b'/'A212b')
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -50,7 +53,7 @@ class A300(nn.Module):
     """
     def __init__(self) -> None:
         super(A300, self).__init__()
-        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/32x32/A300/A300')
+        self.path = model_dir/'32x32'/'A300'/'A300'
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -94,7 +97,7 @@ class A300s(nn.Module):
     """
     def __init__(self) -> None:
         super(A300s, self).__init__()
-        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/32x32/A300s/A300s')
+        self.path = model_dir/'32x32'/'A300s'/'A300s'
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -135,7 +138,7 @@ class A64_7(nn.Module):
     """
     def __init__(self) -> None:
         super(A64_7, self).__init__()
-        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-7/A64-7')
+        self.path = model_dir/'64x64'/'A64-7'/'A64-7'
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=1),
             nn.ReLU(),
@@ -182,7 +185,7 @@ class A64_6(nn.Module):
     """
     def __init__(self) -> None:
         super(A64_6, self).__init__()
-        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-6/A64-6')
+        self.path = model_dir/'64x64'/'A64-6'/'A64-6'
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=2),
             nn.ReLU(),
@@ -235,7 +238,7 @@ class A64_6s(nn.Module):
     """
     def __init__(self) -> None:
         super(A64_6s, self).__init__()
-        self.path = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-6s/A64-6s')
+        self.path = model_dir/'64x64'/'A64-6s'/'A64-6s'
         self.resolution = 64
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=5, stride=2, padding=2),

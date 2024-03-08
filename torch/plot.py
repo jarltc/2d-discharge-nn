@@ -37,6 +37,7 @@ units = {'potential (V)'    :' ($\mathrm{10 V}$)',
             'Te (eV)'          :' (eV)'}  # list of keys can be extracted using units.keys()
 columns_math = ['$\phi$', '$n_e$', '$n_i$', '$n_m$', '$T_e$']
 cat_rainbow = ['#d20f39', '#df8e1d', '#40a02b', '#04a5e5', '#8839ef']
+root = Path.cwd()
 
 
 def triangulate(df: pd.DataFrame):   
@@ -559,7 +560,7 @@ def mesh_slices(model, scaler_dir: Path, kind='mesh', out_dir=None):
     sliceres = 1000
     
     # load reference data
-    ds = xr.open_dataset(Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/test_set.nc'))
+    ds = xr.open_dataset(root/'data'/'interpolation_datasets'/'test_set.nc')
 
     xscalers_dir = sorted(scaler_dir.rglob('xscaler*.pkl'))  # order goes V, P, x, y
     yscalers_dir = sorted(scaler_dir.rglob('yscaler*.pkl'))

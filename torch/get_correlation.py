@@ -1,5 +1,6 @@
 from plot import ae_correlation, plot_comparison_ae
 from image_data_helpers import get_data, nc_data
+from data_helpers import set_device
 from autoencoder_classes import A64_6, A300
 from mlp_classes import MLP
 
@@ -26,7 +27,8 @@ def label_minmax(V, P):
 
 
 if __name__ == '__main__':
-    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    device = set_device()
+    root = Path.cwd()
     
     resolution = 64
     if resolution == 64:
@@ -39,7 +41,7 @@ if __name__ == '__main__':
         encodedz = 8
         encoded_size = encodedx*encodedy*encodedz 
 
-        out_dir = Path('/Users/jarl/2d-discharge-nn/created_models/conditional_autoencoder/64x64/A64g')
+        out_dir = root/'created_models'/'conditional_autoencoder'/'64x64'/'A64g'
         mlp = MLP(2, encoded_size, dropout_prob=0.5)
         mlp.load_state_dict(torch.load(out_dir/'A64g'))
         mlp.to(device)
@@ -57,7 +59,7 @@ if __name__ == '__main__':
         mlp = MLP(2, encoded_size, dropout_prob=0.5)
         mlp.load_state_dict(torch.load(mlp.path32))
         mlp.to(device)
-        out_dir = Path('/Users/jarl/2d-discharge-nn/created_models/conditional_autoencoder/32x32/A32g')
+        out_dir = root/'created_models'/'conditional_autoencoder'/'32x32'/'A32g'
 
 
     # get scaled image test data

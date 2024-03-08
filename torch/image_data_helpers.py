@@ -44,7 +44,7 @@ def get_dataset(V, P, dataset:Path = nc_data):
         V (numeric): voltage
         P (numeric): pressure
         dataset (Path, optional): Path to .nc file to be used. 
-            Defaults to Path('/Users/jarl/2d-discharge-nn/data/\ interpolation_datasets/full_interpolation.nc').
+            Defaults to Path('data/interpolation_datasets/full_interpolation.nc').
 
     Returns:
         np.ndarray: Dataset for the specified V, P pair, with shape (channels, height, width).
@@ -288,7 +288,7 @@ class AugmentationDataset(Dataset):
         self.square = is_square
     
     def __len__(self):
-        return self.data.dims['image']
+        return self.data.dims['image']  # FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
     
     def _crop(self, np_array):
         return np_array[:, :200, :200]  # (channels, width, height)

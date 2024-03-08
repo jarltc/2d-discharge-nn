@@ -19,7 +19,7 @@ def speedtest(model_dir, resolution=None):
     device = torch.device("mps")
     if resolution == 64:
         square = True
-        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8")
+        model_dir = ae_dir/'64x64'/'A64-8'/'A64-8'
         model = A64_8() 
     else:
         square = False
@@ -58,13 +58,11 @@ def regr(in_pair: tuple, resolution=None):
     device = torch.device("mps")
     if resolution == 64:
         square = True
-        model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8")
+        model_dir = ae_dir/'64x64'/'A64-8'/'A64-8'
         model = A64_8() 
     else:
         square = False
-        # model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/weighted/fullAE-1")
-        # model_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
-        model_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_500ep/fullAE-1')
+        model_dir = ae_dir/'fullAE-1'/'95622_500ep'/'fullAE-1'
         model = FullAE1()
 
     _, test = get_data(in_pair, square=square, resolution=resolution, minmax_scheme=minmax_scheme)  # change minmax scheme 
@@ -86,9 +84,10 @@ def regr(in_pair: tuple, resolution=None):
 
 
 if __name__ == "__main__":
-    fullae_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/fullAE-1/95622_seedtest2/fullAE-1")
-    a64_dir = Path("/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8")
-    # full_time = speedtest(fullae_dir)
+    root = Path.cwd()
+    ae_dir = root/'created_models'/'autoencoder'
+    fullae_dir = ae_dir/'fullAE-1'/'95622_seedtest2'/'fullAE-1'
+    a64_dir = ae_dir/'64x64'/'A64-8'/'A64-8'
     small_time = speedtest(a64_dir, 64)
      
     # return decode speed

@@ -79,7 +79,7 @@ def interpolation(parameter, interpolation_variable=None):
     return inter_array
 
 
-data_folder = Path('/Users/jarl/2d-discharge-nn/data/avg_data')
+data_folder = Path.cwd()/'data'/'avg_data'
 
 voltages = [200, 300, 400, 500]
 pressures = [5, 10, 30, 45, 60, 80, 100, 120]
@@ -92,9 +92,9 @@ p_pairs = [(a, b) for a, b in list(zip(pressures, pressures[1:]))]
 interp_factor_v = float(input('Interpolation factor (V) (default 0.5): ') or '0.5')
 interp_factor_p = float(input('Interpolation factor (P) (default 0.5): ') or '0.5')
 
-out_dir = Path('/Users/jarl/2d-discharge-nn/data/interpolation')
+out_dir = data_folder.parent/'interpolation'
 folder_name = dt.datetime.now().strftime('%Y%m%d')
-feather_outdir = Path('/Users/jarl/2d-discharge-nn/data/interpolation_feather') / folder_name
+feather_outdir = data_folder.parent/'interpolation_feather'/ folder_name
 if not os.path.exists(feather_outdir):
     os.mkdir(feather_outdir)
 

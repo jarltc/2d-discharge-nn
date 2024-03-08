@@ -26,7 +26,7 @@ import torch.optim as optim
 import torchvision
 
 from image_data_helpers import get_data, AugmentationDataset
-from data_helpers import mse
+from data_helpers import mse, set_device
 from plot import ae_correlation
 
 
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     vps = [(v, p) for v in voltages for p in pressures]  # create list of v and p to leave out
     # k = 10
 
-    device = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    device = set_device()
     root = Path.cwd().parent
     out_dir = root/'kfold'
     if not out_dir.exists():

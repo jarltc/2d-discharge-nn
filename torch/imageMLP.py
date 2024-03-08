@@ -31,7 +31,7 @@ from torchinfo import summary
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import MinMaxScaler
 
-from data_helpers import ImageDataset, train2db
+from data_helpers import ImageDataset, train2db, set_device
 from plot import plot_comparison_ae, save_history_graph, ae_correlation
 import autoencoder_classes
 import mlp_classes
@@ -52,7 +52,7 @@ def resize(data: np.ndarray, scale=64) -> np.ndarray:
     return np.moveaxis(data, -1, 1)  # revert initial moveaxis
 
 
-def normalize_test(dataset:np.ndarray, scalers:dict()):
+def normalize_test(dataset:np.ndarray, scalers:dict):
     normalized_variables = []
 
     for i, var in enumerate(['pot', 'ne', 'ni', 'nm', 'te']):
@@ -98,8 +98,7 @@ def write_metadata_ae(out_dir):  # TODO: move to data module
 
 if __name__ == '__main__':
     # set metal backend (apple socs)
-    device = torch.device(
-        'mps' if torch.backends.mps.is_available() else 'cpu')
+    device = set_device()
     
     name = input("Model name: ") or "CAE_test"
     message = input("Leave a note?: ") or None
@@ -119,7 +118,7 @@ if __name__ == '__main__':
     encoded_size = encodedx*encodedy*encodedz
 
     ##### things to change #####
-    model_dir = Path('/Users/jarl/2d-discharge-nn/created_models/autoencoder/64x64/A64-8/A64-8')  # path to autoencoder model
+    model_dir = root/'created_models'/'autoencoder'/'64x64'/'A64-8'/'A64-8'  # path to autoencoder model
     
     # ----- #
     epochs = 500

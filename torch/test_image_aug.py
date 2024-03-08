@@ -19,6 +19,7 @@ from torchinfo import summary
 from autoencoder_classes import A64_6
 from image_data_helpers import crop, downscale, get_data
 from plot import plot_comparison_ae
+from data_helpers import set_device
 
 def write_metadata(out_dir: Path):  # TODO: move to data module
     # if is_square:
@@ -69,12 +70,12 @@ class CustomDataset(Dataset):
         return tensor
     
 if __name__ == '__main__':
-    ncfile = Path('/Users/jarl/2d-discharge-nn/data/interpolation_datasets/synthetic/synthetic_averaged.nc')
+    root = Path.cwd()
+    ncfile = root/'data'/'interpolation_datasets'/'synthetic'/'synthetic_averaged.nc'
     data_dir = ncfile.parent
     resolution = 64
 
-    device = torch.device('mps' if torch.backends.mps.is_available() 
-                        else 'cpu')
+    device = set_device()
 
     start = time.perf_counter_ns()
     customdataset = CustomDataset(data_dir, device, resolution=resolution)  # initialize dataset

@@ -16,7 +16,7 @@ image = ds['Nm (#/m^-3)'].sel(V=300, P=60).values
 print(image.shape)
 
 #### mesh figure ###
-avg_data= Path('/Users/jarl/2d-discharge-nn/data/avg_data.feather')
+avg_data= root/'data'/'avg_data.feather'
 mesh_df = pd.read_feather(avg_data)
 
 dataset = mesh_df.loc[(mesh_df['Vpp [V]'] == 300) & (mesh_df['P [Pa]'] == 60)]

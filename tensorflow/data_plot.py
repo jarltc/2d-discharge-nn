@@ -23,7 +23,7 @@ from sklearn.preprocessing import MinMaxScaler
 import numpy as np
 
 matplotlib.rcParams['font.family'] = 'Arial'
-file_path = '/Users/jarl/2d-discharge-nn/data/avg_data/300Vpp_060Pa_node.dat'
+file_path = Path.cwd()/'data'/'avg_data'/'300Vpp_060Pa_node.dat'
 
 def read_file(file_path):
     """
