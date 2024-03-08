@@ -115,8 +115,13 @@ if __name__ == '__main__':
     else:
         resolution = (in_resolution, in_resolution)  # use a square image 
 
-    device = torch.device(
-        'mps' if torch.backends.mps.is_available() else 'cpu')
+    # set device
+    if torch.backends.mps.is_available():
+        device = torch.device('mps')
+    elif torch.backends.cuda.is_available():
+        device = torch.device('cuda')
+    else:
+        device = torch.device('cpu')
 
     # name = input("Enter model name: ")
     name = 'test'
