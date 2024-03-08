@@ -240,6 +240,7 @@ if __name__ == '__main__':
     decoded = autoencoder_eval(test_image, model).cpu().numpy()[:, :, :in_resolution, :in_resolution]  # convert to np?
 
     torch.save(model.state_dict(), out_dir/f'{name}')
+    np.save(out_dir/'prediction.npy', decoded)
     eval_time = speedtest(test_image)
     fig = image_compare(test, decoded, out_dir, is_square, cmap='viridis')
     mse_scores = scores(test, decoded)
