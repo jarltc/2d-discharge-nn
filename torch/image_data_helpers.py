@@ -98,7 +98,7 @@ def minmax_scale(image:np.ndarray, maxima:np.ndarray):
     """Perform minmax scaling on some input image with shape (channels, height, width)
 
     Requires a set of maxima (depending on the minmax scheme) for each variable as input.
-    Default minimum value is 0.
+    Assumes minimum value is 0.
     
     Minmax scales an array's values to lie between 0 and 1 (the maximum value for the specific variable across the entire dataset).
     
@@ -110,7 +110,7 @@ def minmax_scale(image:np.ndarray, maxima:np.ndarray):
         np.ndarray: Minmax-scaled array.
     """
 
-    assert maxima.shape == (5,)
+    assert maxima.shape == (5,) 
             
     b = maxima.reshape(5, 1, 1)  # reshape to allow broadcasting
     a = np.zeros((5, 1, 1))  # may change for whatever reason
@@ -155,7 +155,7 @@ def get_maxima(ds:xr.Dataset, minmax_scheme='true'):
 
     Args:
         ds (xr.Dataset): Dataset for reference.
-        minmax_scheme (str, optional): Minmax scheme. Defaults to 'true'.
+        minmax_scheme (str, optional): Minmax scheme. Defaults to 'true' for "true" minmax.
 
     Returns:
         np.ndarray: NumPy array of maxima.
@@ -288,7 +288,7 @@ class AugmentationDataset(Dataset):
         self.square = is_square
     
     def __len__(self):
-        return self.data.dims['image']  # FutureWarning: The return type of `Dataset.dims` will be changed to return a set of dimension names in future, in order to be more consistent with `DataArray.dims`. To access a mapping from dimension names to lengths, please use `Dataset.sizes`.
+        return self.data.sizes['image']  
     
     def _crop(self, np_array):
         return np_array[:, :200, :200]  # (channels, width, height)
