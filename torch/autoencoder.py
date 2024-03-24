@@ -142,7 +142,7 @@ if __name__ == '__main__':
     else:
         ncfile = root/'data'/'interpolation_datasets'/'synthetic'/'synthetic_averaged.nc'
 
-    _, test, val = get_data(test_pair, val_pair, in_resolution, square=is_square)
+    _, test, val = get_data(test_pair, val_pair, ncfile, in_resolution, square=is_square)
 
     augdataset = AugmentationDataset(ncfile, device, is_square=is_square)
     trainloader = DataLoader(augdataset, batch_size=32, shuffle=True)

@@ -201,7 +201,7 @@ def minmax_label(V, P):
     return [scaled_v, scaled_p]
 
 
-def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, labeled=False,
+def get_data(test:tuple, validation:tuple = None, ncfile=None, resolution=None, square=True, labeled=False,
              minmax_scheme='true'):
     """Get train, test, and (optional) validation data from an .nc file.
 
@@ -227,8 +227,12 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
         raise ValueError("Invalid minmax scheme. Expected one of 'true', \
                          '99' (99th percentile), and '999' (99.9th percentile).")
 
-    global nc_data
-    ds = xr.open_dataset(nc_data)
+    if ncfile is not None:
+        ds = xr.open_dataset(ncfile)
+    else:
+        global nc_data
+        ds = xr.open_dataset(nc_data)
+    
     v_list = list(ds.V.values)
     p_list = list(ds.P.values)
 
