@@ -442,7 +442,7 @@ def train2db(model_dir: Path, name:str, epochs:int, v_excluded, p_excluded, reso
 def set_device():
     if torch.backends.mps.is_available():
             device = torch.device('mps')
-    elif torch.backends.cuda.is_available():
+    elif torch.cuda.is_available():
         device = torch.device('cuda')
     else:
         device = torch.device('cpu')
