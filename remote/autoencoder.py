@@ -120,7 +120,7 @@ def data_loading(model, dtype=torch.float32):
 
 
 def set_hyperparameters(model):
-    epochs = 500
+    epochs = 200
     learning_rate = 1e-3
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
@@ -135,10 +135,9 @@ def set_hyperparameters(model):
     return hyperparameters
 
 
-def train(model:nn.Module, data:tuple[torch.Tensor], hyperparameters:dict):
+def training(model:nn.Module, data:tuple[torch.Tensor], hyperparameters:dict):
 
     epochs = hyperparameters["epochs"]
-    learning_rate = hyperparameters["learning_rate"]
     criterion = hyperparameters["criterion"]
     optimizer = hyperparameters["optimizer"]
     batch_size = hyperparameters["batch_size"]
@@ -188,7 +187,7 @@ def testing(model, test_tensor):
     out_dir = model.path
 
     decoded = autoencoder_eval(test_tensor, model).cpu().numpy()[:, :, :in_resolution, :in_resolution]  # convert to np?
-    eval_time = speedtest(test_tensor)
+    eval_time = speedtest(test_tensor, model)
 
     fig = image_compare(test, decoded, out_dir, is_square, cmap='viridis')
 
@@ -214,6 +213,7 @@ def main(seed):
     dtype=torch.float32
 
     model = AE.A64_9().to(device)
+    out_dir = model.path
 
     if not out_dir.exists():
         out_dir.mkdir(parents=True)
@@ -226,17 +226,16 @@ def main(seed):
 
     data = (train, val_tensor)
 
-    train_time, epoch_validation, epoch_loss = train(model, data, hyperparameters)
+    train_time, epoch_validation, epoch_loss = training(model, data, hyperparameters)
 
     decoded, eval_time = testing(model, test_tensor)
 
     times = {"train": train_time,
              "eval": eval_time}
 
-    out_dir = model.path
     torch.save(model.state_dict(), out_dir/'model.pt')
     np.save(out_dir/'prediction.npy', decoded)
-    plot_train_loss(epoch_loss, out_dir, epoch_validation)
+    plot_train_loss(epoch_loss,epoch_validation, out_dir)
 
     write_metadata(model, hyperparameters, times, out_dir)
 
