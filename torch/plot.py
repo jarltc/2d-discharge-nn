@@ -1166,9 +1166,9 @@ def image_compare(reference: np.ndarray, prediction: np.ndarray, out_dir=None,
             ax.yaxis.set_minor_locator(ticker.MultipleLocator(2))
             ax.tick_params(axis='both', labelsize=7)
 
-    name = 'sep_test_comparison_v2'
+    name = 'image_compare'
     if cmap != 'magma':
-        name = 'sep_test_comparison_v2_' + cmap
+        name = 'image_compare_' + cmap
 
     if out_dir is not None:
         fig.savefig(out_dir/f'{name}.png', bbox_inches='tight')
