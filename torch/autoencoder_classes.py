@@ -430,6 +430,7 @@ class A64_9_BN(nn.Module):
     """
     def __init__(self) -> None:
         super(A64_9_BN, self).__init__()
+        self.path = model_dir/'64x64'/'A64-9_BN'/'A64-9_BN'
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
             nn.MaxPool2d(2, 2),
