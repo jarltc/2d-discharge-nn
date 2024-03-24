@@ -21,15 +21,13 @@ from torchvision.transforms.functional import crop
 
 import autoencoder_classes as AE
 from plot import image_compare, save_history_graph, ae_correlation
-from image_data_helpers import get_data, AugmentationDataset, load_synthetic
+from image_data_helpers import get_data, AugmentationDataset, load_synthetic, check_empty
 from data_helpers import mse, set_device
 
-torch.manual_seed(28923)
-
-def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
+def plot_train_loss(losses, validation_losses=None, out_dir=None):  # TODO: move to plot module
 
     losses = np.array(losses)
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(dpi=300)
     ax.set_yscale('log')
     ax.plot(losses, c='r', label='train')
 
@@ -41,11 +39,21 @@ def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot modul
     ax.set_ylabel('Loss')
     ax.grid()
 
-    fig.savefig(out_dir/'train_loss.png')
+    if out_dir is not None:
+        fig.savefig(out_dir/'train_loss.png')
 
 
-def write_metadata(out_dir):  # TODO: move to data modules
+def write_metadata(model:nn.Module, hyperparameters:dict, times:dict, out_dir:Path):  # TODO: move to data modules
     # in_size = batch_data[0].size()  # broken
+    in_resolution = model.in_resolution
+    name = model.name
+    epochs = hyperparameters["epochs"]
+    learning_rate = hyperparameters["lr"]
+    batch_size = hyperparameters["batch_size"]
+
+    eval_time = times["eval"]
+    train_time = times["train"]
+
     in_size = (1, 5, in_resolution, in_resolution)
 
     # save model structure
@@ -59,29 +67,14 @@ def write_metadata(out_dir):  # TODO: move to data modules
         print(model, file=f)
         f.write(f'\nEpochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
-        f.write(f'Resolution: {resolution}\n')
+        f.write(f'Batch size: {batch_size}\n')
+        f.write(f'Resolution: {in_resolution}\n')
         f.write(f'Evaluation time (100 trials): {eval_time.median * 1e3} ms\n')  # convert seconds to ms
-        f.write(f'Train time: {(train_end-train_start):.2f} seconds ({(train_end-train_start)/60:.2f} minutes)\n')
+        f.write(f'Train time: {train_time:.2f} seconds ({train_time/60:.2f} minutes)\n')
         f.write('\n***** end of file *****')
-
-
-class SimDataset(Dataset):
-    def __init__(self, image_set, device, square=True):
-        super().__init__()
-        self.is_square = square
-        self.device = device
-        self.data = image_set  # ndarray: (channels, n_samples, height, width)
-
-    def __len__(self):
-        return self.data.shape[0]  # get number of V, P pairs
-    
-    def __getitem__(self, index):
-        return torch.tensor(self.data[index], 
-                            dtype=torch.float32, 
-                            device=self.device)
         
 
-def speedtest(image: torch.tensor):
+def speedtest(image: torch.tensor, model: nn.Module):
     """Evaluate prediction speeds for the model.
 
     Args:
@@ -103,47 +96,60 @@ def autoencoder_eval(image, autoencoder):
         output = autoencoder(image)
     return output
 
+
 def scores(reference, prediction):
     # record scores
     return [mse(reference[0, i, :, :], prediction[0, i, :, :]) for i in range(5)]
 
-if __name__ == '__main__':
-    # set device
-    device = set_device()
 
-    model = AE.A64_9().to(device)
-    name = model.name
-    root = Path.cwd()
-
-    out_dir = model.path
-    if not out_dir.exists():
-        out_dir.mkdir(parents=True)
-    dtype = torch.float32
-
+def data_loading(model, dtype=torch.float32):
     in_resolution = model.in_resolution
     resolution = (in_resolution, in_resolution)  # use a square image 
     test_pair = model.test_pair
     val_pair = model.val_pair
     is_square = model.is_square
     ncfile = model.ncfile
+    device = set_device()
 
     _, test, val = get_data(test_pair, val_pair, in_resolution, square=is_square, 
                             minmax_scheme='999')
-
+    
     train = load_synthetic(ncfile, device, dtype)
-    trainloader = DataLoader(train, batch_size=32, shuffle=True)
-    val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
-    ##### hyperparameters #####
+    return train, test, val
+
+
+def set_hyperparameters(model):
     epochs = 500
     learning_rate = 1e-3
-
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    batch_size = 128
+
+    hyperparameters = {"epochs": epochs,
+                       "lr": learning_rate,
+                       "criterion": criterion,
+                       "optimizer": optimizer,
+                       "batch_size": batch_size}
+    
+    return hyperparameters
+
+
+def train(model:nn.Module, data:tuple[torch.Tensor], hyperparameters:dict):
+
+    epochs = hyperparameters["epochs"]
+    learning_rate = hyperparameters["learning_rate"]
+    criterion = hyperparameters["criterion"]
+    optimizer = hyperparameters["optimizer"]
+    batch_size = hyperparameters["batch_size"]
+
+    train, val = data
+    trainloader = DataLoader(train, batch_size=batch_size, shuffle=True)
+
+    loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
 
     epoch_loss = []
     epoch_validation = []
-    loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
 
     train_start = time.perf_counter()
     for epoch in loop:
@@ -163,22 +169,82 @@ if __name__ == '__main__':
             loop.set_description(f"Epoch {epoch+1}/{epochs}")
 
         with torch.no_grad():
-            val_loss = criterion(model(val_tensor), val_tensor).item()
+            val_loss = criterion(model(val), val).item()
 
         epoch_validation.append(val_loss)
         epoch_loss.append(running_loss)
-
-
+    
     train_end = time.perf_counter()
-    test_image = torch.tensor(test, device=device, dtype=dtype)
 
-    decoded = autoencoder_eval(test_image, model).cpu().numpy()[:, :, :in_resolution, :in_resolution]  # convert to np?
+    return [(train_end-train_start), epoch_validation, epoch_loss]
 
-    torch.save(model.state_dict(), out_dir/'model.pt')
-    np.save(out_dir/'prediction.npy', decoded)
-    eval_time = speedtest(test_image)
+
+def testing(model, test_tensor):
+
+    in_resolution = model.in_resolution
+    is_square = model.is_square
+    device = set_device()
+    test = test_tensor.cpu().numpy()
+    out_dir = model.path
+
+    decoded = autoencoder_eval(test_tensor, model).cpu().numpy()[:, :, :in_resolution, :in_resolution]  # convert to np?
+    eval_time = speedtest(test_tensor)
+
     fig = image_compare(test, decoded, out_dir, is_square, cmap='viridis')
+
     mse_scores = scores(test, decoded)
     r2 = ae_correlation(test, decoded, out_dir)
-    plot_train_loss(epoch_loss, epoch_validation)
-    write_metadata(out_dir)
+
+    return decoded, eval_time
+
+
+def main(seed):
+    """Train model with a specific seed.
+
+    Args:
+        seed (int): Random number seed for PyTorch objects.
+
+    Returns:
+        bool: Boolean if the predicted dataset contains an empty profile.
+    """
+    torch.manual_seed(seed)
+    
+    # set device
+    device = set_device()
+    dtype=torch.float32
+
+    model = AE.A64_9().to(device)
+
+    if not out_dir.exists():
+        out_dir.mkdir(parents=True)
+
+    train, test, val = data_loading(model)
+    val_tensor = torch.tensor(val, device=device, dtype=dtype)
+    test_tensor = torch.tensor(test, device=device, dtype=dtype)
+
+    hyperparameters = set_hyperparameters(model)
+
+    data = (train, val_tensor)
+
+    train_time, epoch_validation, epoch_loss = train(model, data, hyperparameters)
+
+    decoded, eval_time = testing(model, test_tensor)
+
+    times = {"train": train_time,
+             "eval": eval_time}
+
+    out_dir = model.path
+    torch.save(model.state_dict(), out_dir/'model.pt')
+    np.save(out_dir/'prediction.npy', decoded)
+    plot_train_loss(epoch_loss, out_dir, epoch_validation)
+
+    write_metadata(model, hyperparameters, times, out_dir)
+
+    # check if the results are empty
+    return check_empty(decoded)
+
+
+if __name__ == '__main__':
+    seed = 28923
+    result = main(seed)
+    print(result)
