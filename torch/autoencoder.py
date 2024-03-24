@@ -1,6 +1,6 @@
 """Autoencoder for predicting (square cropped) 2d plasma profiles
 
-Jupyter eats up massive RAM so I'm making a script to do my tests
+Run this with the terminal (and quit VSCode) as much as possible to avoid excessive RAM usage.
 """
 
 import time
@@ -24,6 +24,7 @@ from plot import image_compare, save_history_graph, ae_correlation
 from image_data_helpers import get_data, AugmentationDataset
 from data_helpers import mse, set_device
 
+torch.manual_seed(28923)
 
 def plot_train_loss(losses, validation_losses=None):  # TODO: move to plot module
 
@@ -148,13 +149,13 @@ if __name__ == '__main__':
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
 
     ##### hyperparameters #####
-    epochs = 200
+    epochs = 500
     learning_rate = 1e-3
 
     if in_resolution == 32:
         model = AE.A300().to(device)
     elif in_resolution == 64:
-        model = AE.A64_9().to(device)
+        model = AE.A64_9_BN().to(device)
     elif in_resolution == 200:
         model = AE.A200_1().to(device)  # still missing
     else: model = AE.FullAE1().to(device)

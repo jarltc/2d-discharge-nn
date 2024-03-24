@@ -15,7 +15,7 @@ class A212(nn.Module):
     def __init__(self) -> None:
         super(A212, self).__init__()
         # trained on normalized dataset, otherwise see A212
-        self.path = model_dir/'32x32'/'A212b'/'A212b')
+        self.path = model_dir/'32x32'/'A212b'/'A212b'
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=2, padding=1),
             nn.ReLU(),
@@ -412,6 +412,59 @@ class A64_9(nn.Module):
             nn.ReLU(),
 
             nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = self.decoder(encoded)
+        decoded = torchvision.transforms.functional.crop(
+            decoded, 0, 0, 64, 64)
+        return decoded
+    
+
+class A64_9_BN(nn.Module):
+    """ A64_9 with BatchNorm.
+
+    by jarl @ 15 Mar 2024 08:24
+    """
+    def __init__(self) -> None:
+        super(A64_9_BN, self).__init__()
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
+            nn.MaxPool2d(2, 2),
+            nn.BatchNorm2d(10),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 20, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.BatchNorm2d(20),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 40, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.BatchNorm2d(40),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 40, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(40),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 20, kernel_size=3, padding=1, stride=1),
+            nn.BatchNorm2d(20),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
+            nn.BatchNorm2d(10),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.BatchNorm2d(5),
             nn.ReLU()
         )
 
