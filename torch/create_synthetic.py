@@ -16,7 +16,7 @@ import numpy as np
 import xarray as xr
 from dask.diagnostics import ProgressBar
 
-from image_data_helpers import get_dataset, crop, downscale, minmax_scale
+from image_data_helpers import get_dataset, crop, downscale, minmax_scale, get_maxima
 
 # list of transforms
 # average of any two datasets
@@ -60,7 +60,8 @@ def average_pair(a, b, ds, resolution=None):
         dscaled = downscale(cropped, resolution)
     else:
         dscaled = z
-    scaled = minmax_scale(dscaled, ds)
+    maxima = get_maxima(ds, minmax_scheme='999')
+    scaled = minmax_scale(dscaled, maxima)
     
     # process into xarray dataset
     channel_data_arrays = [xr.DataArray(scaled[i], dims=['y', 'x'],
@@ -91,7 +92,7 @@ if __name__ == "__main__":
     print('job started')
     start_time = time.perf_counter()
     pairs = list(itertools.combinations(vps, 2))
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:  # Future objects represent the result of an asynchronous task.
+    with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:  # Future objects represent the result of an asynchronous task.
         # submit tasks to the executor, performs average_pair() on a pair in the list initialized earlier.
         future_to_task = {executor.submit(average_pair, pair[0], pair[1], ds, resolution): pair for pair in pairs}  # creates a dictionary of future: task, where a task serves
                                                                                                         # as the key to a future.
@@ -103,13 +104,14 @@ if __name__ == "__main__":
 
     # combine images (xr.datasets) into one big dataset
     averaged_dataset = xr.concat(results, dim='image')
+    averaged_dataset.attrs['Description'] = "Dataset of minmax-scaled profiles (99.9th percentile) and downscaled to 64x64."
     end_time = time.perf_counter()
 
-    print(f'Processing took {end_time-start_time} s with multithreading\n')
+    print(f'Processing took {end_time-start_time} s with multiprocessing\n')
 
     # write to file
     out_dir = ncfile.parent
-    name = 'synthetic_averaged'
+    name = 'synthetic_averaged999'
     if square:
         out_file = out_dir/f'{name}_s{resolution}.nc'
     else:
