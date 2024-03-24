@@ -61,7 +61,7 @@ def write_metadata(model:nn.Module, hyperparameters:dict, times:dict, out_dir:Pa
     with open(file, 'w') as f:
         f.write(f'Model {name}\n')
         f.write('***** layer behavior *****\n')
-        print(summary(model, input_size=in_size, device='mps'), file=f)
+        print(summary(model, input_size=in_size, device='cuda'), file=f)
         print("\n", file=f)
         f.write('***** autoencoder architecture *****\n')
         print(model, file=f)
