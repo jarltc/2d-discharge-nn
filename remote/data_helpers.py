@@ -448,6 +448,6 @@ def set_device():
         print('device set to cuda')
     else:
         device = torch.device('cpu')
-        print('device set to cpu')
+        print('device set to cpu (NOTE: If run on remote, this may cause the program to freeze, avoid using CPU as much as possible)')
     
     return device
