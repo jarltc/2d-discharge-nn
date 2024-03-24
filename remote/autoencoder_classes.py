@@ -502,6 +502,16 @@ class A200_1(nn.Module):
     """
     def __init__(self) -> None:
         super(A200_1, self).__init__()
+
+        #### train variables
+        self.path = model_dir/'200x200'/'A200-1'
+        self.name = "A200-1"
+        self.test_pair = (300, 60)
+        self.val_pair = (400, 45)
+        self.is_square = True
+        self.in_resolution = 200
+        self.ncfile = data_dir/'synthetic'/'synthetic_averaged999.nc'
+
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
             nn.MaxPool2d(2, 2),
