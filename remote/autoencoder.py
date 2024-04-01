@@ -106,6 +106,19 @@ def scores(reference, prediction):
 
 
 def data_loading(model, dtype=torch.float32):
+    """Load data for training
+
+    TODO: need a way to specify minmax scheme
+
+    Args:
+        model (nn.Module): Model contains information for what data it takes.
+        dtype (torch.dtype, optional): Data type. Defaults to torch.float32.
+
+    Returns:
+        train: Train data.
+        test: Test data.
+        val: Validation data.
+    """
     in_resolution = model.in_resolution
     resolution = (in_resolution, in_resolution)  # use a square image 
     test_pair = model.test_pair
@@ -120,6 +133,21 @@ def data_loading(model, dtype=torch.float32):
     train = load_synthetic(ncfile, device, dtype)
 
     return train, test, val
+
+
+def get_input_file(root):
+    input_dir = root/'inputs'/'autoencoder'
+    input_files = [in_file.stem for in_file in input_dir.glob("*.yml")]
+    in_name = input(f"Choose input file for training (leave blank for default.yml)\n{input_files}\n> ")
+    
+    if in_name:  # if not empty
+        in_file = input_dir/f"{in_name}.yml"
+        if not in_file.exists():
+            raise ValueError(f"{in_name} is not a recognized input file.")
+        else:
+            return in_file
+    else:
+        return input_dir/"default.yml"
 
 
 def set_hyperparameters(input_file):
@@ -168,6 +196,7 @@ def set_hyperparameters(input_file):
 
 
 def training(model:nn.Module, data:tuple[torch.Tensor], hyperparameters:dict):
+    """ Train the model """
 
     epochs = hyperparameters["epochs"]
     criterion = hyperparameters["criterion"]
@@ -184,7 +213,7 @@ def training(model:nn.Module, data:tuple[torch.Tensor], hyperparameters:dict):
 
     train_start = time.perf_counter()
     for epoch in loop:
-        for i, batch_data in enumerate(trainloader):
+        for _, batch_data in enumerate(trainloader):
             # get inputs
             inputs = batch_data  # TODO: this used to be batch_data[0] when using TensorDataset()
             optimizer.zero_grad()
@@ -211,6 +240,7 @@ def training(model:nn.Module, data:tuple[torch.Tensor], hyperparameters:dict):
 
 
 def testing(model, test_tensor):
+    """ Evaluate model performance """
 
     in_resolution = model.in_resolution
     is_square = model.is_square
@@ -233,7 +263,7 @@ def main(input_file):
     """Train model with a specific seed.
 
     Args:
-        seed (int): Random number seed for PyTorch objects.
+        input_file (Path): Path to input file (yml) containing parameters for training a model.
 
     Returns:
         bool: Boolean if the predicted dataset contains an empty profile.
@@ -273,21 +303,6 @@ def main(input_file):
 
     # check if the results are empty
     return check_empty(decoded)
-
-
-def get_input_file(root):
-    input_dir = root/'inputs'/'autoencoder'
-    input_files = [in_file.stem for in_file in input_dir.glob("*.yml")]
-    in_name = input(f"Choose input file for training (leave blank for default.yml)\n{input_files}\n>")
-    
-    if in_name:  # if not empty
-        in_file = input_dir/f"{in_name}.yml"
-        if not in_file.exists():
-            raise ValueError(f"{in_name} is not a recognized input file.")
-        else:
-            return in_file
-    else:
-        return input_dir/"default.yml"
 
 
 if __name__ == '__main__':
