@@ -275,7 +275,22 @@ def main(input_file):
     return check_empty(decoded)
 
 
+def get_input_file(root):
+    input_dir = root/'inputs'/'autoencoder'
+    input_files = [in_file.stem for in_file in input_dir.glob("*.yml")]
+    in_name = input(f"Choose input file for training (leave blank for default.yml)\n{input_files}\n>")
+    
+    if in_name:  # if not empty
+        in_file = input_files/f"{in_name}.yml"
+        if not in_file.exists():
+            raise ValueError(f"{in_name} is not a recognized input file.")
+        else:
+            return in_file
+    else:
+        return input_dir/"default.yml"
+
+
 if __name__ == '__main__':
     root = Path.cwd()
-    input_dir = root/'inputs'/'autoencoder'
-    result = main(input_dir/'default.yml')
+    in_file = get_input_file(root)
+    result = main(in_file)
