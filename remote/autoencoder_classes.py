@@ -8,6 +8,11 @@ root = Path.cwd()
 model_dir = root/'created_models'/'autoencoder'
 data_dir = root/'data'/'interpolation_datasets'
 
+def get_model(name:str):
+    # there has to be a better way of doing this
+    model_string = f"{name}()"
+    return eval(model_string)
+
 class A212(nn.Module):
     """Autoencoder using square images as inputs.
     

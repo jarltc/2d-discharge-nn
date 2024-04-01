@@ -5,6 +5,7 @@ Run this with the terminal (and quit VSCode) as much as possible to avoid excess
 
 import time
 from pathlib import Path
+import yaml
 
 import matplotlib.pyplot as plt
 
@@ -50,6 +51,7 @@ def write_metadata(model:nn.Module, hyperparameters:dict, times:dict, out_dir:Pa
     epochs = hyperparameters["epochs"]
     learning_rate = hyperparameters["lr"]
     batch_size = hyperparameters["batch_size"]
+    seed = hyperparameters["seed"]
 
     eval_time = times["eval"]
     train_time = times["train"]
@@ -65,7 +67,8 @@ def write_metadata(model:nn.Module, hyperparameters:dict, times:dict, out_dir:Pa
         print("\n", file=f)
         f.write('***** autoencoder architecture *****\n')
         print(model, file=f)
-        f.write(f'\nEpochs: {epochs}\n')
+        f.write(f"\nSeed: {seed}")
+        f.write(f'Epochs: {epochs}\n')
         f.write(f'Learning rate: {learning_rate}\n')
         f.write(f'Batch size: {batch_size}\n')
         f.write(f'Resolution: {in_resolution}\n')
@@ -119,18 +122,47 @@ def data_loading(model, dtype=torch.float32):
     return train, test, val
 
 
-def set_hyperparameters(model):
-    epochs = 200
-    learning_rate = 1e-3
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-    batch_size = 128
+def set_hyperparameters(input_file):
+    
+    def from_yaml(filename):
+        """
+        Load train parameters from a YAML file.
 
-    hyperparameters = {"epochs": epochs,
+        Args:
+        filename (Path): Path to the YAML file to load the data from.
+
+        Returns:
+        dict: The loaded metadata.
+        """
+        with open(filename, 'r') as yaml_file:
+            data = yaml.safe_load(yaml_file)
+        return data
+
+    yml = from_yaml(input_file)
+    model = AE.get_model(yml['model'])
+    epochs = yml['epochs']
+    learning_rate = yml['learning_rate']
+    batch_size = yml['batch_size']
+    
+    if yml['criterion'] == "MSE":
+        criterion = nn.MSELoss()
+    else:
+        raise ValueError(f"{yml['criterion']} is not recognized")
+
+    if yml['optimizer'] == "Adam":
+        optimizer = optim.Adam(model.parameters(), lr=learning_rate)
+    else:
+        raise ValueError(f"{yml['optimizer']} is not recognized")
+    
+    seed = yml['random_seed']
+
+    hyperparameters = {"model": model,
+                       "epochs": epochs,
                        "lr": learning_rate,
                        "criterion": criterion,
                        "optimizer": optimizer,
-                       "batch_size": batch_size}
+                       "batch_size": batch_size,
+                       "seed" : seed}
     
     return hyperparameters
 
@@ -197,7 +229,7 @@ def testing(model, test_tensor):
     return decoded, eval_time
 
 
-def main(seed):
+def main(input_file):
     """Train model with a specific seed.
 
     Args:
@@ -206,13 +238,15 @@ def main(seed):
     Returns:
         bool: Boolean if the predicted dataset contains an empty profile.
     """
-    torch.manual_seed(seed)
+    
+    hyperparameters = set_hyperparameters(input_file)
+    torch.manual_seed(hyperparameters['seed'])
     
     # set device
     device = set_device()
     dtype=torch.float32
 
-    model = AE.A64_9().to(device)
+    model = hyperparameters['model'].to(device)
     out_dir = model.path
 
     if not out_dir.exists():
@@ -221,8 +255,6 @@ def main(seed):
     train, test, val = data_loading(model)
     val_tensor = torch.tensor(val, device=device, dtype=dtype)
     test_tensor = torch.tensor(test, device=device, dtype=dtype)
-
-    hyperparameters = set_hyperparameters(model)
 
     data = (train, val_tensor)
 
@@ -244,6 +276,6 @@ def main(seed):
 
 
 if __name__ == '__main__':
-    seed = 28923
-    result = main(seed)
-    print(result)
+    root = Path.cwd()
+    input_dir = root/'inputs'/'autoencoder'
+    result = main(input_dir/'default.yml')
