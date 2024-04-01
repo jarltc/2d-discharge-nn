@@ -281,7 +281,7 @@ def get_input_file(root):
     in_name = input(f"Choose input file for training (leave blank for default.yml)\n{input_files}\n>")
     
     if in_name:  # if not empty
-        in_file = input_files/f"{in_name}.yml"
+        in_file = input_dir/f"{in_name}.yml"
         if not in_file.exists():
             raise ValueError(f"{in_name} is not a recognized input file.")
         else:
