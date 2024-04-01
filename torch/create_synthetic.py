@@ -81,8 +81,8 @@ if __name__ == "__main__":
     p_list = list(ds.P.values)
     variable_names = list(ds.keys())
 
-    resolution = 64
-    if resolution is not None:
+    resolution = 200
+    if (resolution is not None) or (resolution==200):
         square = True
     suffix = f's{resolution}'
 
@@ -104,14 +104,14 @@ if __name__ == "__main__":
 
     # combine images (xr.datasets) into one big dataset
     averaged_dataset = xr.concat(results, dim='image')
-    averaged_dataset.attrs['Description'] = "Dataset of minmax-scaled profiles (99.9th percentile) and downscaled to 64x64."
+    averaged_dataset.attrs['Description'] = "Dataset of minmax-scaled profiles (99.9th percentile) at 200x200 resolution."
     end_time = time.perf_counter()
 
     print(f'Processing took {end_time-start_time} s with multiprocessing\n')
 
     # write to file
     out_dir = ncfile.parent
-    name = 'synthetic_averaged999'
+    name = 'synthetic_999'
     if square:
         out_file = out_dir/f'{name}_s{resolution}.nc'
     else:

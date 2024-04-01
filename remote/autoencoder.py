@@ -168,9 +168,7 @@ def set_hyperparameters(input_file):
 
     yml = from_yaml(input_file)
     model = AE.get_model(yml['model'])
-    epochs = yml['epochs']
     learning_rate = yml['learning_rate']
-    batch_size = yml['batch_size']
     
     if yml['criterion'] == "MSE":
         criterion = nn.MSELoss()
@@ -182,15 +180,14 @@ def set_hyperparameters(input_file):
     else:
         raise ValueError(f"{yml['optimizer']} is not recognized")
     
-    seed = yml['random_seed']
 
     hyperparameters = {"model": model,
-                       "epochs": epochs,
+                       "epochs": yml['epochs'],
                        "lr": learning_rate,
                        "criterion": criterion,
                        "optimizer": optimizer,
-                       "batch_size": batch_size,
-                       "seed" : seed}
+                       "batch_size": yml['batch_size'],
+                       "seed" : yml['random_seed']}
     
     return hyperparameters
 
