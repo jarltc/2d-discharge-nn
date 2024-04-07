@@ -398,6 +398,10 @@ class A64_9(nn.Module):
         self.is_square = True
         self.in_resolution = 64
         self.ncfile = data_dir/'synthetic'/'synthetic_averaged999_s64.nc'
+
+        # architecture stuff
+        self.encoded_size = (40, 8, 8)
+
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
             nn.MaxPool2d(2, 2),
@@ -453,6 +457,9 @@ class A64_9_BN(nn.Module):
         self.is_square = True
         self.in_resolution = 64
         self.ncfile = data_dir/'synthetic'/'synthetic_averaged999_s64.nc'
+
+        # architecture stuff
+        self.encoded_size = (40, 8, 8)
 
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
