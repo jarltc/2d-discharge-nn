@@ -86,8 +86,9 @@ def data_preproc(data_table, scale_exp, lin=True):
         else:
             return 0.0
 
-
-    for col_n,(col_name,col_vals) in enumerate(data_table.iteritems(), start=1):
+    # FIXME: good lord what the heck is this doing
+    for col_n, col_name in enumerate(list(data_table.columns), start=1):
+        col_vals = data_table[col_name]
         if col_name in trgt_params:
             if lin:
                 # get exponent for scaling
