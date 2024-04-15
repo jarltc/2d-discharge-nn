@@ -1,8 +1,9 @@
 """
 Conditional autoencoder to reproduce 2d plasma profiles from a pair of V, P
 
-* Load encoder
-* Load MLP architecture
+To do:
+* record validation losses
+* save plot of train/validation losses (copied from ae)
 
 """
 
@@ -106,11 +107,13 @@ def set_hyperparameters(model: nn.Module, hyperparameters: dict):
 
 def load_models(parameters: dict):
     """ load models as specified in input file """
+    device = set_device()
     autoencoder = AE.get_model(parameters['autoencoder']).eval()  # load autoencoder in inference mode
-    autoencoder.load_state_dict(torch.load(autoencoder.path/'model.pt'))  # load parameters
+    autoencoder.load_state_dict(torch.load(autoencoder.path/'model.pt', map_location=device))  # load parameters
 
     input_size = 2  # model takes two input values
-    output_size = autoencoder.encoded_size
+    x, y, z = autoencoder.encoded_size
+    output_size = x*y*z
     
     model = mlp_classes.get_model(parameters['model'], input_size, output_size)
     return model, autoencoder
@@ -131,13 +134,14 @@ def get_input_file(root):
         return input_dir/"default.yml"
 
 
-def mlp_eval(test_pair, mlp):
+def mlp_eval(test_pair, mlp, autoencoder):
     with torch.no_grad():
         output = mlp(test_pair)
-    return output
+    image = autoencoder.decoder(output)
+    return image
 
 
-def speedtest(test_pair: torch.tensor, mlp: nn.Module):
+def speedtest(test_pair: torch.tensor, mlp: nn.Module, autoencoder: nn.Module):
     """Evaluate prediction speeds for the model.
 
     Args:
@@ -147,9 +151,9 @@ def speedtest(test_pair: torch.tensor, mlp: nn.Module):
         torch.utils.benchmark.Measurement: The result of a Timer measurement. 
             Value can be extracted by the .median property.
     """
-    timer = benchmark.Timer(stmt="mlp_eval(test_pair, mlp)",
+    timer = benchmark.Timer(stmt="mlp_eval(test_pair, mlp, autoencoder)",
                             setup='from __main__ import mlp_eval',
-                            globals={'test_pair':test_pair, 'mlp':mlp})
+                            globals={'test_pair':test_pair, 'mlp':mlp, 'autoencoder':autoencoder})
 
     return timer.timeit(100)
 
@@ -176,10 +180,11 @@ def write_metadata(models, input_file, times, out_dir):  # TODO: move to data mo
         print("\n", file=f)
 
         # training details
-        f.write(f'Resolution: {resolution}\n')
-        f.write(f"\nSeed: {parameters['seed']}")
-        f.write(f'Evaluation time (100 trials): {eval_time.median * 1e3} ms\n')  # convert seconds to ms
-        f.write(f'Train time: {train_time:.2f} seconds ({train_time/60:.2f} minutes)\n')
+        f.write(f'Resolution: {resolution}', end='\n')
+        f.write(f"Seed: {parameters['seed']}", end='\n')
+        f.write(f'Evaluation time (labels to image, 100 trials): {eval_time.median * 1e3:.4f} ms', end='\n')  # convert seconds to ms
+        f.write(f'Train time: {train_time:.2f} seconds ({train_time/60:.2f} minutes)\n:w
+')
         f.write('\n***** end of file *****')
 
 
@@ -193,7 +198,7 @@ if __name__ == '__main__':
     parameters, hyperparameters = read_input(input_file)
 
     # load models #
-    autoencoder, mlp = load_models(parameters)
+    mlp, autoencoder = load_models(parameters)
     mlp.to(device)
     autoencoder.to(device)
     
@@ -277,7 +282,7 @@ if __name__ == '__main__':
     # add resolution=64 for larger images
     # eval_time, scores = plot_comparison_ae(test_image, fake_encoding, autoencoder, 
     #                                        out_dir=out_dir, is_square=True)
-    eval_time = speedtest(torch.tensor(test_label, device=device, dtype=torch.float32), mlp)
+    eval_time = speedtest(torch.tensor(test_label, device=device, dtype=torch.float32), mlp, autoencoder)
     
     times = {'train': train_end - train_start,
              'eval': eval_time}
