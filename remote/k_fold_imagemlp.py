@@ -311,4 +311,4 @@ if __name__ == '__main__':
 
     now = dt.now()
     nowstring = now.strftime("%d-%m-%y at %H:%M:%S")
-    print(f"k-fold validation finished on f{nowstring}")
+    print(f"k-fold validation finished on {nowstring}")
