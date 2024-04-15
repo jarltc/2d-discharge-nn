@@ -188,6 +188,25 @@ def write_metadata(models, input_file, times, out_dir):  # TODO: move to data mo
         f.write('\n***** end of file *****')
 
 
+def plot_train_loss(losses, validation_losses=None, out_dir=None):  # TODO: move to plot module
+
+    losses = np.array(losses)
+    fig, ax = plt.subplots(dpi=300)
+    ax.set_yscale('log')
+    ax.plot(losses, c='r', label='train')
+
+    if validation_losses is not None:
+        ax.plot(validation_losses, c='r', ls=':', label='validation')
+        ax.legend()
+
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid()
+
+    if out_dir is not None:
+        fig.savefig(out_dir/'train_loss.png')
+
+
 # TODO: break everything down into functions and bundle into main function
 if __name__ == '__main__':
     device = set_device()
@@ -236,6 +255,7 @@ if __name__ == '__main__':
 
     # record loss
     epoch_loss = []
+    val_loss = []
 
     train_start = time.time()
     loop = tqdm(range(epochs), desc='Training...', unit='epoch', colour='#7dc4e4')
@@ -259,7 +279,13 @@ if __name__ == '__main__':
             loop.set_description(f"Epoch {epoch+1}/{epochs}")
             running_loss += loss.item()
 
+        with torch.no_grad():
+            val_enc = mlp(val_label).reshape(1, encodedx, encodedy, encodedz)
+            val_out = autoencoder.decoder(val_enc)
+            val_loss.append(criterion(val_out, val_tensor).item())
+
         epoch_loss.append(loss.item())
+        val_loss.append(val_loss.item())
         if (epoch+1) % 10 == 0:
             # save model every 10 epochs (so i dont lose all training progress in case i do something unwise)
             torch.save(autoencoder.state_dict(), out_dir/'model.pt')
@@ -293,4 +319,4 @@ if __name__ == '__main__':
     write_metadata([mlp, autoencoder], input_file, times, out_dir)
     ae_correlation(test_image, decoded, out_dir, minmax=False)
     image_compare(test_image, prediction, out_dir, is_square=autoencoder.is_square, cmap='viridis')
-    # train2db(out_dir, name, epochs, image_ds.v_excluded, image_ds.p_excluded, resolution, typ='mlp')
+    plot_train_loss(epoch_loss, val_loss, out_dir=out_dir)
