@@ -56,7 +56,10 @@ def write_metadata(model:nn.Module, hyperparameters:dict, times:dict, out_dir:Pa
     eval_time = times["eval"]
     train_time = times["train"]
 
-    in_size = (1, 5, in_resolution, in_resolution)
+    if in_resolution is None:
+        in_size = (1, 5, 707, 200)  # TODO: stopgap measure
+    else:
+        in_size = (1, 5, in_resolution, in_resolution)
 
     # save model structure
     file = out_dir/'train_log.txt'
@@ -119,7 +122,7 @@ def data_loading(model, dtype=torch.float32, minmax='999'):
         val: Validation data.
     """
     in_resolution = model.in_resolution
-    resolution = (in_resolution, in_resolution)  # use a square image 
+    # resolution = (in_resolution, in_resolution)  # not used
     test_pair = model.test_pair
     val_pair = model.val_pair
     is_square = model.is_square
@@ -239,18 +242,22 @@ def testing(model, test_tensor):
     """ Evaluate model performance """
 
     in_resolution = model.in_resolution
+
+    if in_resolution is None:  # stopgap solution
+        decoded = autoencoder_eval(test_tensor, model).cpu().numpy()  # no need to crop, handled by last layer
+    else:
+        decoded = autoencoder_eval(test_tensor, model).cpu().numpy()[:, :, :in_resolution, :in_resolution]  # convert to np?
+    
+    eval_time = speedtest(test_tensor, model)
+
     is_square = model.is_square
-    device = set_device()
     test = test_tensor.cpu().numpy()
     out_dir = model.path
 
-    decoded = autoencoder_eval(test_tensor, model).cpu().numpy()[:, :, :in_resolution, :in_resolution]  # convert to np?
-    eval_time = speedtest(test_tensor, model)
-
     fig = image_compare(test, decoded, out_dir, is_square, cmap='viridis')
 
-    mse_scores = scores(test, decoded)
-    r2 = ae_correlation(test, decoded, out_dir)
+    mse_scores = scores(test, decoded)  # TODO
+    r2 = ae_correlation(test, decoded, out_dir)  # TODO
 
     return decoded, eval_time
 
