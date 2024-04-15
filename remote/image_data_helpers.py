@@ -202,7 +202,7 @@ def minmax_label(V, P):
 
 
 def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, labeled=False,
-             minmax_scheme='true'):
+             minmax_scheme='true', silent=False):
     """Get train, test, and (optional) validation data from an .nc file.
 
     Assumes that test and validation sets are only single images. If labeled=True, return (minmax-scaled)
@@ -248,6 +248,7 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
         mmax = minmax_scale(scaled, maxima)
         label = np.array(minmax_label(vp[0], vp[1]))  # shape = [2]
 
+        # split into train, test, val
         if vp == test:
             test_image = np.expand_dims(mmax, axis=0)  # get the image and add an extra axis to match shape into (1, channels, width, height)
             test_label = np.expand_dims(label, axis=0)  # same thing here
@@ -259,14 +260,16 @@ def get_data(test:tuple, validation:tuple = None, resolution=None, square=True, 
             train_labels_list.append(label)
         
     train_set = np.stack(train_images) 
-    train_labels = np.stack(train_labels_list)  # shape = (n_train_samples, 2)
+    train_labels = np.stack(train_labels_list)  # shape = (n_train_samples, 2:(v, p))
     
     if not labeled:
         if validation is not None:
-            print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image, val_image]]}')
+            if not silent:
+                print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image, val_image]]}')
             return [train_set, test_image, val_image]
         else:
-            print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image]]}')
+            if not silent:
+                print(f'loaded sim data with shapes {[data.shape for data in [train_set, test_image]]}')
             return [train_set, test_image]
     else:
         if validation is not None:

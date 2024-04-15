@@ -105,14 +105,13 @@ def scores(reference, prediction):
     return [mse(reference[0, i, :, :], prediction[0, i, :, :]) for i in range(5)]
 
 
-def data_loading(model, dtype=torch.float32):
+def data_loading(model, dtype=torch.float32, minmax='999'):
     """Load data for training
 
-    TODO: need a way to specify minmax scheme
-
     Args:
-        model (nn.Module): Model contains information for what data it takes.
+        model (nn.Module): Model class contains information for what kind of data it takes.
         dtype (torch.dtype, optional): Data type. Defaults to torch.float32.
+        minmax (str): Minmax scheme. Defaults to 999 (99.9th percentile).
 
     Returns:
         train: Train data.
@@ -128,7 +127,7 @@ def data_loading(model, dtype=torch.float32):
     device = set_device()
 
     _, test, val = get_data(test_pair, val_pair, in_resolution, square=is_square, 
-                            minmax_scheme='999')
+                            minmax_scheme=minmax)
     
     train = load_synthetic(ncfile, device, dtype)
 
