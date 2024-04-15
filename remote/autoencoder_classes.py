@@ -524,6 +524,8 @@ class A200_1(nn.Module):
         self.in_resolution = 200
         self.ncfile = data_dir/'synthetic'/'synthetic_averaged999.nc'
 
+        self.encoded_size = (40, 25, 25)
+
         self.encoder = nn.Sequential(
             nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
             nn.MaxPool2d(2, 2),
@@ -548,6 +550,65 @@ class A200_1(nn.Module):
             nn.ReLU(),
 
             nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 5, kernel_size=1, stride=1),
+            nn.ReLU()
+        )
+
+    def forward(self, x):
+        encoded = self.encoder(x)
+        decoded = torchvision.transforms.functional.crop(self.decoder(encoded), 0, 0, 200, 200)
+        return decoded
+    
+
+class A200_2(nn.Module):
+    """Autoencoder for 200x200 input images with all 3x3 kernels and MaxPool layers.
+
+    A200-1 with increased depth
+
+    by jarl @ 15 Apr 2024
+    """
+    def __init__(self) -> None:
+        super(A200_2, self).__init__()
+
+        #### train variables
+        self.path = model_dir/'200x200'/'A200-1'
+        self.name = "A200-1"
+        self.test_pair = (300, 60)
+        self.val_pair = (400, 45)
+        self.is_square = True
+        self.in_resolution = 200
+        self.ncfile = data_dir/'synthetic'/'synthetic_averaged999.nc'
+
+        # architecture
+        self.encoded_size = (40, 6, 6)
+
+        self.encoder = nn.Sequential(
+            nn.Conv2d(5, 10, kernel_size=3, stride=1, padding='same'),  # padding='same' maintains the output size
+            nn.MaxPool2d(4, 4),
+            nn.ReLU(),
+
+            nn.Conv2d(10, 20, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(4, 4),
+            nn.ReLU(),
+
+            nn.Conv2d(20, 40, kernel_size=3, stride=1, padding='same'),
+            nn.MaxPool2d(2, 2),
+            nn.ReLU(),
+        )
+
+        self.decoder = nn.Sequential(
+            nn.UpsamplingBilinear2d(scale_factor=2),
+            nn.Conv2d(40, 40, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=4),
+            nn.Conv2d(40, 20, kernel_size=3, padding=1, stride=1),
+            nn.ReLU(),
+
+            nn.UpsamplingBilinear2d(scale_factor=4),
             nn.Conv2d(20, 10, kernel_size=(3, 3), padding=1, stride=1),
             nn.ReLU(),
 
