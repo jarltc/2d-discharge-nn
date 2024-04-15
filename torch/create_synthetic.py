@@ -1,8 +1,12 @@
-"""  Create synthetic images used to train the autoencoder. Images will be synthesized by different operations between data sets.
+"""  Create synthetic images used to train the autoencoder. 
 
+Images will are synthesized by performing a particular operation between two data sets. In this case,
+I'm using the average, but other schemes are possible.
 Parallelism performed using concurrent.futures (https://docs.python.org/3/library/concurrent.futures.html)
 
 The nc file created has 32C2 images (496) with 5 variables, and coordinates for y and x.
+
+NOTE (15 Apr 2024): if needed, average_pair() can take a minmax scheme as argument
 
 created by jarl on 22 Aug 2023
 """
@@ -23,7 +27,7 @@ from image_data_helpers import get_dataset, crop, downscale, minmax_scale, get_m
 # vertical flip
 # horizontal flip
 
-def average_pair(a, b, ds, resolution=None):
+def average_pair(a, b, ds, resolution=None, minmax_scheme='999'):
     """Process the average array between two pairs a and b.
 
     Args:
@@ -60,7 +64,7 @@ def average_pair(a, b, ds, resolution=None):
         dscaled = downscale(cropped, resolution)
     else:
         dscaled = z
-    maxima = get_maxima(ds, minmax_scheme='999')
+    maxima = get_maxima(ds, minmax_scheme=minmax_scheme)
     scaled = minmax_scale(dscaled, maxima)
     
     # process into xarray dataset
@@ -74,7 +78,7 @@ def average_pair(a, b, ds, resolution=None):
 
 if __name__ == "__main__":
     root = Path.cwd()
-    ncfile = root/'data'/'interpolation_datasets'/'rec-interpolation2.nc'
+    ncfile = root/'data'/'interpolation_datasets'/'rec-interpolation2.nc'  # not full_interpolation?
     ds = xr.open_dataset(ncfile)
 
     v_list = list(ds.V.values)
@@ -82,7 +86,7 @@ if __name__ == "__main__":
     variable_names = list(ds.keys())
 
     resolution = 200
-    if (resolution is not None) or (resolution==200):
+    if (resolution is not None) or (resolution==200):  # ?
         square = True
     suffix = f's{resolution}'
 
@@ -104,7 +108,9 @@ if __name__ == "__main__":
 
     # combine images (xr.datasets) into one big dataset
     averaged_dataset = xr.concat(results, dim='image')
-    averaged_dataset.attrs['Description'] = "Dataset of minmax-scaled profiles (99.9th percentile) at 200x200 resolution."
+    averaged_dataset.attrs['Description'] = "Synthetic profiles produced by averaging across all pairs (v, p) in the dataset."
+    averaged_dataset.attrs['Minmax'] = "99.9th percentile"
+    averaged_dataset.attrs['Resolution'] = resolution
     end_time = time.perf_counter()
 
     print(f'Processing took {end_time-start_time} s with multiprocessing\n')
