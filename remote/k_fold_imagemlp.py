@@ -113,15 +113,15 @@ def write_metadata(mlp, out_dir):
     name = mlp.name
 
     # save model structure
-    file = out_dir/'train_log.txt'
+    file = out_dir/'kfold_log.txt'
     with open(file, 'w') as f:
         # model description
-        f.write(f'k-fold validation of model {mlp.name}', end='\n')
-        f.write('(inputs are saved in the same folder)', end='\n')
+        f.write(f'k-fold validation of model {mlp.name}')
+        f.write('(inputs are saved in the same folder)')
 
         # training details
-        f.write(f'Voltages: {voltages}')
-        f.write(f'Pressures: {pressures}')
+        kfold = list(product(voltages, pressures))
+        f.write(f'Sets: {kfold}')
         f.write('\n***** end of file *****')
 
 def load_data(mlp:torch.nn.Module, resolution, dtype=torch.float32, minmax_scheme='999'):
@@ -268,6 +268,8 @@ def main(voltages, pressures):
     scores = np.array(scores)  # convert to array
     plot(scores, out_dir=out_dir)
     np.save(out_dir/'scores.npy', scores)
+
+    write_metadata(mlp, out_dir)
 
     return scores  # MSE
 
