@@ -574,8 +574,8 @@ class A200_2(nn.Module):
         super(A200_2, self).__init__()
 
         #### train variables
-        self.path = model_dir/'200x200'/'A200-1'
-        self.name = "A200-1"
+        self.path = model_dir/'200x200'/'A200-2'
+        self.name = "A200-2"
         self.test_pair = (300, 60)
         self.val_pair = (400, 45)
         self.is_square = True
