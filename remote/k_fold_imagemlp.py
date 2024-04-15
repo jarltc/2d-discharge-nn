@@ -265,6 +265,8 @@ def main(voltages, pressures):
         score = test((mlp, autoencoder), val_data)
         scores.append(score)
 
+        # TODO: reset model weights each time
+
     scores = np.array(scores)  # convert to array
     plot(scores, out_dir=out_dir)
     np.save(out_dir/'scores.npy', scores)
