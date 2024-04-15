@@ -85,9 +85,11 @@ if __name__ == "__main__":
     p_list = list(ds.P.values)
     variable_names = list(ds.keys())
 
-    resolution = 200
+    resolution = None
     if (resolution is not None) or (resolution==200):  # ?
         square = True
+    else:
+        square = False
     suffix = f's{resolution}'
 
     vps = [(v, p) for v in v_list for p in p_list]  # get all pairs of V and P
@@ -110,7 +112,7 @@ if __name__ == "__main__":
     averaged_dataset = xr.concat(results, dim='image')
     averaged_dataset.attrs['Description'] = "Synthetic profiles produced by averaging across all pairs (v, p) in the dataset."
     averaged_dataset.attrs['Minmax'] = "99.9th percentile"
-    averaged_dataset.attrs['Resolution'] = resolution
+    averaged_dataset.attrs['Resolution'] = resolution if resolution is not None else 'full'
     end_time = time.perf_counter()
 
     print(f'Processing took {end_time-start_time} s with multiprocessing\n')

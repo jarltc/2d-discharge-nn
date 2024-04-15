@@ -638,9 +638,10 @@ class FullAE1(nn.Module):
         self.name = "fullAE-1"
         self.test_pair = (300, 60)
         self.val_pair = (400, 45)
-        self.is_square = True
-        self.in_resolution = 200
-        self.ncfile = data_dir/'synthetic'/'synthetic_averaged999.nc'
+        self.is_square = False
+        self.in_resolution = None
+        # self.resolution = (200, 707)  # width, height
+        self.ncfile = data_dir/'synthetic'/'synthetic_999.nc'
 
         # architecture
         self.encoded_size = (20, 6, 6)
