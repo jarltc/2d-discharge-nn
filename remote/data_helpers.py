@@ -223,6 +223,46 @@ def get_data(root, voltages, pressures, excluded, xy=False, vp=False):
     
     return data_used, data_excluded
 
+def record_minmax(out_dir:Path, df=None):
+    """ Record minima and maxima of a dataset.
+    
+    Writing this so I don't have to keep reading the full df or saving the 
+    scalers with the model each time the data is preprocessed. Need to do
+    this when I have to scale separate train, test, val dfs with a single 
+    set of minmax values.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing all of the data. (Try using get_full_df)
+        out_dir (Path): Path to save the minmax values.
+
+    """
+    if df == None:
+        root = Path.cwd()
+        source = root/'data'/'avg_data.feather'
+        if not source.exists():
+            raise ValueError(f'{source} does not exist!')
+        
+        df = pd.read_feather(source)
+
+    minmax_dict = {}
+    minmax_tuples = {}
+
+    variables  = df.columns
+
+    for variable in variables:
+        max = float(df[variable].max())
+        min = float(df[variable].min())
+        minmax_dict[variable] = {'max': max, 'min': min}
+        minmax_tuples[variable] = (max, min)
+
+    with open(out_dir/'minmax.pkl', 'wb') as pkl:
+        pickle.dump(minmax_tuples, pkl)
+
+    with open(out_dir/'minmax.yml', 'w') as yml:
+        yaml.safe_dump(minmax_dict, yml)
+    
+    print(f'minmax data recorded in {out_dir}')
+    return minmax_tuples
 ##### misc #####
 def yn(str):
     if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
