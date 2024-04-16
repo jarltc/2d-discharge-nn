@@ -55,10 +55,11 @@ def read_input(input_file: Path):
         return data
         
     data = from_yaml(input_file)
+    # TODO: change this to use pointMLP style
     hyperparameters = data['hyperparameters']
     parameters = {'model': data['model'],
                   'autoencoder': data['autoencoder'],
-                  'seed': data['random_seed']}
+                  'random_seed': data['random_seed']}
 
     return parameters, hyperparameters
 
