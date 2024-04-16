@@ -297,6 +297,32 @@ def load_data(test_set:tuple, val_set=None, data_dir=None, vp=False, xy=False):
         return (train_df, test_df)
     
 
+def minmax(df, reverse=False):
+    # Apply (true) minmax-scaling to the contents of a DataFrame
+    # TODO: add other minmax schemes
+    root = Path.cwd()
+    data_dir = root/'data'/'mesh_datasets'
+
+    scaled_df = df.copy()
+
+    mmax_data = data_dir/'minmax.pkl'
+    if not mmax_data.exists():
+        record_minmax(out_dir=data_dir)
+    with open(mmax_data, 'rb') as pkl:
+        minmax_tuples = pickle.load(pkl)
+
+    if not reverse:
+        for variable in df.columns:
+            max, min = minmax_tuples[variable]
+            scaled_df[variable] = (scaled_df[variable] - min)/(max-min)
+    else:
+        for variable in df.columns:
+            max, min = minmax_tuples[variable]
+            scaled_df[variable] = (max-min)*(scaled_df[variable]) + min
+
+    return df
+    
+
 ##### misc #####
 def yn(str):
     if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
