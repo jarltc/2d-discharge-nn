@@ -1,10 +1,13 @@
 # Helper functions for data preprocessing.
+# Most of these are really pointMLP utils
 # TODO: add type hinting
 
 import os
 import re
 import time
 import pickle
+import yaml
+from itertools import product
 import xarray as xr
 import torch
 from torchvision.transforms.functional import crop
@@ -75,6 +78,7 @@ def create_output_dir(root):
 
 # more stuff from elsewhere
 def data_preproc(data_table, scale_exp, lin=True):
+    # 16 Apr 2024: this is kinda useless
     trgt_params = ('potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)')
 
     def get_param_exp(col_vals):
@@ -143,10 +147,22 @@ def read_aug_data(file):
 def get_augmentation_data(data_used, root, xy: bool, vp: bool):
     """Get augmentation data for training.
 
+    NOTE (16 Apr 2024): not sure why rec-interpolation2 is used. If I recall correctly,
+    this ds excludes the test data (300V, 60Pa). It's not a problem now, but may need 
+    to be addressed in the future should I decide to use a different test pair.
+
     Args:
         xy (bool): Include xy grid augmented data
         vp (bool): Inclde vp augmentation data
+
+    Returns:
+        pd.DataFrame: Train DataFrame containing data augmentation.
     """
+    if not (xy or vp):
+        import warnings
+        warnings.warn("Warning: get_augmentation_data is called despite false flags for both.",
+                      SyntaxWarning)
+
     if xy:  # xy augmentation
         xyfile = Path(root/'data'/'interpolation_datasets'/'rec-interpolation2.nc')
         xydf = xr.open_dataset(xyfile).to_dataframe().reset_index().dropna()
@@ -223,6 +239,12 @@ def get_data(root, voltages, pressures, excluded, xy=False, vp=False):
     
     return data_used, data_excluded
 
+#### new functions (16 Apr 2024)
+def get_full_df(train, test, val=None):
+    """ Combine train, test, validation sets """
+    return pd.concat([train, test, val]).reset_index()
+
+
 def record_minmax(out_dir:Path, df=None):
     """ Record minima and maxima of a dataset.
     
@@ -230,6 +252,8 @@ def record_minmax(out_dir:Path, df=None):
     scalers with the model each time the data is preprocessed. Need to do
     this when I have to scale separate train, test, val dfs with a single 
     set of minmax values.
+
+    TODO: add other minmax schemes
 
     Args:
         df (pd.DataFrame): DataFrame containing all of the data. (Try using get_full_df)
@@ -242,12 +266,15 @@ def record_minmax(out_dir:Path, df=None):
         if not source.exists():
             raise ValueError(f'{source} does not exist!')
         
-        df = pd.read_feather(source)
+        df = pd.read_feather(source).rename(columns={'Vpp [V]' : 'V', 
+                                               'P [Pa]'  : 'P',
+                                               'X'       : 'x',
+                                               'Y'       : 'y'})
 
     minmax_dict = {}
     minmax_tuples = {}
 
-    variables  = df.columns
+    variables  = list(df.columns)
 
     for variable in variables:
         max = float(df[variable].max())
@@ -272,10 +299,11 @@ def load_data(test_set:tuple, val_set=None, data_dir=None, vp=False, xy=False):
         data_dir = root/'data'/'mesh_datasets'
     
     # load metadata
-    info = yaml.safe_load(data_dir/'info.yml')
+    with open(data_dir/'info.yml', 'r') as nfo:
+        info = yaml.safe_load(nfo)
 
     # build file list
-    train_sets = product(info['voltages'], info['pressures'])
+    train_sets = list(product(info['voltages'], info['pressures']))
     train_sets.remove(test_set)
     if val_set is not None:
         train_sets.remove(val_set)
@@ -283,15 +311,28 @@ def load_data(test_set:tuple, val_set=None, data_dir=None, vp=False, xy=False):
     # load the data
     train_list = [pd.read_feather(data_dir/f'{vp[0]}_{vp[1]}.feather') for vp in train_sets]
     train_df = pd.concat(train_list).reset_index()
+    train_df.rename(columns={'Vpp [V]' : 'V', 
+                             'P [Pa]'  : 'P',
+                             'X'       : 'x',
+                             'Y'       : 'y'}, inplace=True)
+    
     if xy or vp:  # add augmentation data if required
         train_df = get_augmentation_data(train_df, root, xy, vp)
 
     testV, testP = test_set
     test_df = pd.read_feather(data_dir/f'{testV}_{testP}.feather')
+    test_df.rename(columns={'Vpp [V]' : 'V', 
+                            'P [Pa]'  : 'P',
+                            'X'       : 'x',
+                            'Y'       : 'y'}, inplace=True)
 
     if val_set is not None:
         valV, valP = val_set
         val_df = pd.read_feather(data_dir/f'{valV}_{valP}.feather')
+        val_df.rename(columns={'Vpp [V]' : 'V', 
+                                'P [Pa]'  : 'P',
+                                'X'       : 'x',
+                                'Y'       : 'y'}, inplace=True)
         return (train_df, test_df, val_df)
     else:
         return (train_df, test_df)
@@ -540,17 +581,15 @@ def train2db(model_dir: Path, name:str, epochs:int, v_excluded, p_excluded, reso
 
     return 1
 
-def set_device(name=False):
+def set_device():
     if torch.backends.mps.is_available():
-        device_name = 'mps'
+        device = torch.device('mps')
+        print('device set to mps')
     elif torch.cuda.is_available():
-        device_name = 'cuda'
+        device = torch.device('cuda')
+        print('device set to cuda')
     else:
-        device_name = 'cpu'
-
-    device = torch.device(device_name)
+        device = torch.device('cpu')
+        print('device set to cpu')
     
-    if name:
-        return device_name
-    else:
-        return device
+    return device

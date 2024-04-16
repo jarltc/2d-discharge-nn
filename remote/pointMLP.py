@@ -14,7 +14,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 import pointmlp_classes as pointMLP
-from data_helpers import set_device, get_data, scale_all, data_preproc
+from data_helpers import set_device, get_data, load_data, scale_all, data_preproc, minmax
 
 def get_input_file(root):
     input_dir = root/'inputs'/'pointmlp'
@@ -80,6 +80,22 @@ def set_hyperparameters(model: nn.Module, hyperparameters: dict):
     return hyperparameters
 
 
+def preprocess(df:pd.DataFrame, params:dict):
+    feature_names = ['V', 'P', 'x', 'y']
+    label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
+    
+    df_features = df[feature_names].copy()
+    df_labels = df[label_names].copy()
+
+    features = minmax(df_features)
+
+    if params['minmax']:
+        labels = minmax(df_labels)
+
+    return features, labels
+
+
+
 if __name__ == "__main__":
     device = set_device()
 
@@ -99,36 +115,30 @@ if __name__ == "__main__":
     # initialize hyperparameters
     hyperparameters = set_hyperparameters(mlp, hyperparameters)
     name = mlp.name
-    test_pair = (params['testV'], params['testP'])
 
-    feature_names = ['V', 'P', 'x', 'y']
-    label_names = ['potential (V)', 'Ne (#/m^-3)', 'Ar+ (#/m^-3)', 'Nm (#/m^-3)', 'Te (eV)']
-    
-    # TODO: infer these from a dataset
-    voltages  = [200, 300, 400, 500] # V
-    pressures = [  5,  10,  30,  45, 60, 80, 100, 120] # Pa
 
-    data_used, data_excluded = get_data(root, voltages, pressures,
-                                        test_pair, xy=hyperparameters['grid_aug'], 
-                                        vp=hyperparameters['vp_aug'])
+    # load data
+    test_set = (params['testV'], params['testP'])
+    val_set  = (params['valV'],  params['valP'])
+
+    data_dir = root/'data'/'mesh_datasets'
+    train_df, test_df, val_df = load_data(test_set, val_set, data_dir,
+                                          xy=hyperparameters['grid_aug'],
+                                          vp=hyperparameters['vp_aug'])
 
     #### data preprocessing
-    pd.set_option('display.chop_threshold', 1e-10)  # TODO: check if needed
-    
-    scale_exp = []
-    scaler_dir = out_dir / 'scalers'
-    if (not scaler_dir.exists()):
-        scaler_dir.mkdir(parents=True)
+    pd.set_option('display.chop_threshold', 1e-10)  # TODO: not sure if needed
 
-    # TODO: remake these
-    features = scale_all(data_used[feature_names], 'x', scaler_dir).astype('float64')
-    labels = data_preproc(data_used[label_names], scale_exp).astype('float64')
-    if params['minmax']:
-        labels = scale_all(labels, 'y', scaler_dir)
+    features, labels = preprocess(train_df, params)
+    val_features, val_labels = preprocess(val_df, params)
+    test_features, test_labels = preprocess(test_df, params)
 
-    # TODO: add validation split
-    features = torch.tensor(features.to_numpy(), device=device, dtype=torch.float32)  # TODO: make dtype a global parameter
+    # TODO: make dtype a global parameter
+    features = torch.tensor(features.to_numpy(), device=device, dtype=torch.float32)  
     labels = torch.tensor(labels.to_numpy(), device=device, dtype=torch.float32)
+    val_features = torch.tensor(val_features.to_numpy(), device=device, dtype=torch.float32) 
+    val_labels = torch.tensor(val_labels.to_numpy(), device=device, dtype=torch.float32)
+
     dataset = TensorDataset(features, labels)
     trainloader = DataLoader(dataset, batch_size=hyperparameters['batch_size'],
                              shuffle=True)
