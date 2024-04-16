@@ -219,7 +219,7 @@ def test(models, val_data) -> float:
 
 def reset_weights(model):
     if isinstance(model, nn.Linear):
-        torch.nn.init.xavier_uniform(model.weight.data)
+        torch.nn.init.xavier_uniform_(model.weight.data)
 
 
 def main(voltages, pressures):
@@ -267,6 +267,7 @@ def main(voltages, pressures):
         val_data = load_val_image(val_pair, resolution, hyperparameters)
 
         #### train model 
+        mlp.train()
         train((mlp, autoencoder), trainloader, hyperparameters)
 
         score = test((mlp, autoencoder), val_data)
