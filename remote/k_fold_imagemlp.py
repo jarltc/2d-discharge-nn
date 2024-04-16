@@ -216,6 +216,11 @@ def test(models, val_data) -> float:
     return score
 
 
+def reset_weights(model):
+    if isinstance(model, nn.Linear):
+        torch.nn.init.xavier_uniform(model.weight.data)
+
+
 def main(voltages, pressures):
     val_pairs = list(product(voltages, pressures))  # create list of cartesian products
 
@@ -225,6 +230,7 @@ def main(voltages, pressures):
     root = Path.cwd()
     input_file = get_input_file(root)
     parameters, hyperparameters = read_input(input_file)
+    torch.manual_seed(parameters['random_seed'])
 
     # load models 
     mlp, autoencoder = load_models(parameters)
@@ -265,7 +271,8 @@ def main(voltages, pressures):
         score = test((mlp, autoencoder), val_data)
         scores.append(score)
 
-        # TODO: reset model weights each time
+        # reset weights (same as starting a new model)
+        mlp.apply(reset_weights)
 
     scores = np.array(scores)  # convert to array
     plot(scores, out_dir=out_dir)
