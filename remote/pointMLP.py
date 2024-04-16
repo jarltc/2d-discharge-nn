@@ -6,6 +6,7 @@ from torch.utils.data import TensorDataset, DataLoader
 
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 import time
 import shutil
@@ -95,6 +96,24 @@ def preprocess(df:pd.DataFrame, params:dict):
     return features, labels
 
 
+def plot_train_loss(losses, validation_losses=None, out_dir=None):  # TODO: move to plot module
+
+    losses = np.array(losses)
+    fig, ax = plt.subplots(dpi=300)
+    ax.set_yscale('log')
+    ax.plot(losses, c='r', label='train')
+
+    if validation_losses is not None:
+        ax.plot(validation_losses, c='r', ls=':', label='validation')
+        ax.legend()
+
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid()
+
+    if out_dir is not None:
+        fig.savefig(out_dir/'train_loss.png')
+
 
 if __name__ == "__main__":
     device = set_device()
@@ -147,7 +166,10 @@ if __name__ == "__main__":
     optimizer = hyperparameters['optimizer']
     epochs = hyperparameters['epochs']
     
-    # TODO: track metrics (epoch, validation losses)
+    # track metrics (epoch, validation losses)
+    epoch_losses = []
+    val_losses = []
+
     mlp.train()
     start = time.perf_counter()
     
@@ -164,7 +186,15 @@ if __name__ == "__main__":
             loss = criterion(outputs, labels)
             loss.backward()  # compute gradients
             optimizer.step()  # apply changes to network
+        
+        with torch.no_grad():
+            val_loss = criterion(mlp(val_features), val_labels).item()
+
+        epoch_losses.append(running_loss)
+        val_losses.append(val_loss)
     
     end = time.perf_counter()
     torch.save(mlp.state_dict, out_dir/'model.pt')
     print(f'Completed {epochs} epochs in {end-start:.2f} s')
+    plot_train_loss(epoch_losses, val_losses, out_dir)
+
