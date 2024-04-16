@@ -263,6 +263,40 @@ def record_minmax(out_dir:Path, df=None):
     
     print(f'minmax data recorded in {out_dir}')
     return minmax_tuples
+
+
+def load_data(test_set:tuple, val_set=None, data_dir=None, vp=False, xy=False):
+    # revised data loading code
+    root = Path.cwd()
+    if data_dir == None:
+        data_dir = root/'data'/'mesh_datasets'
+    
+    # load metadata
+    info = yaml.safe_load(data_dir/'info.yml')
+
+    # build file list
+    train_sets = product(info['voltages'], info['pressures'])
+    train_sets.remove(test_set)
+    if val_set is not None:
+        train_sets.remove(val_set)
+
+    # load the data
+    train_list = [pd.read_feather(data_dir/f'{vp[0]}_{vp[1]}.feather') for vp in train_sets]
+    train_df = pd.concat(train_list).reset_index()
+    if xy or vp:  # add augmentation data if required
+        train_df = get_augmentation_data(train_df, root, xy, vp)
+
+    testV, testP = test_set
+    test_df = pd.read_feather(data_dir/f'{testV}_{testP}.feather')
+
+    if val_set is not None:
+        valV, valP = val_set
+        val_df = pd.read_feather(data_dir/f'{valV}_{valP}.feather')
+        return (train_df, test_df, val_df)
+    else:
+        return (train_df, test_df)
+    
+
 ##### misc #####
 def yn(str):
     if str.lower() in ['y', 'yes', 'yea', 'ok', 'okay', 'k',  
